@@ -21,20 +21,23 @@ This framework allows you to create your own driver for your test automation so 
 
 ## Runner psuedo code
 ``` python
-def recurse_through_tests(parent_path)
-    paths = get_all_paths(parent_path)
+def discover_modules(parent_path):
+     paths = get_all_paths(parent_path)
     for path in paths:
         if is_dir(path):
-            recurse_through_tests(path)
+            discover_modules(path)
         else:
             modules = get_modules(path)
-            for module in modules:
-                if module.setup():
-                    for test in module.tests:
-                        module.setup_test()
-                        test()
-                        module.teardown_test()
-                module.teardown()
+    return modules
+
+def run_tests(discovered_modules):
+    for module in discovered_modules:
+        if module.setup():
+            for test in module.tests:
+                module.setup_test()
+                test()
+                module.teardown_test()
+        module.teardown()
 ```
 
 ## Simple example of a test module
