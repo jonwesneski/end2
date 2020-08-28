@@ -3,6 +3,8 @@ import inspect
 import logging
 from logging.handlers import MemoryHandler
 import os
+from pathlib import Path
+import shutil
 import sys
 
 from pytz import timezone
@@ -111,8 +113,11 @@ class LogManager:
     def __init__(self, base: str = FOLDER):
         self.folder = os.path.join(base, datetime.now().strftime("%H-%M-%S_%m-%d-%Y"))
         os.makedirs(self.folder, exist_ok=True)
-        for folder in [x[0] for x in os.walk(base)][9:]:
-            os.rmdir(folder)
+        folders = sorted(Path(base).iterdir(), key=os.path.getmtime)
+        count = len(folders) - 10
+        if count > 0:
+            for i in range(count):
+                shutil.rmtree(folders[i])
 
     def get_setup_logger(self, module_name: str):
         logger = create_module_logger(self.folder, f'{module_name}.setup', logging.INFO)
