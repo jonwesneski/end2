@@ -27,7 +27,8 @@ def create_test_suite_instance(suite_paths: list, logger=None):
 class Run:
     def __init__(self, test_parameters_func=None, logger=None):
         self.test_parameters_func = test_parameters_func or Run._create_default_parameters
-        self.logger = logger or logging.getLogger()
+        self.default_logger = logging.getLogger()
+        self.logger = logger or self.default_logger
 
     def _fixture(self, func, logger=None) -> Result:
         result = None
@@ -110,7 +111,8 @@ class TestModuleRun(Run):
         return test_module_result
 
     def setup(self) -> Result:
-        return self._fixture(self.test_module.setup, self.log_manager.get_setup_logger(self.test_module.name))
+        logger = self.default_logger if not self.test_module.setup else self.log_manager.get_setup_logger(self.test_module.name)
+        return self._fixture(self.test_module.setup, logger)
 
     def run(self, threads: bool) -> TestModuleResult:
         test_module_result = TestModuleResult(self.test_module.name)
@@ -138,7 +140,8 @@ class TestModuleRun(Run):
         return test_module_result
 
     def teardown(self) -> Result:
-        return self._fixture(self.test_module.teardown, self.log_manager.get_teardown_logger(self.test_module.name))
+        logger = self.default_logger if not self.test_module.teardown else self.log_manager.get_teardown_logger(self.test_module.name)
+        return self._fixture(self.test_module.teardown, logger)
 
 
 class TestSuiteRun:
