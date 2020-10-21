@@ -44,7 +44,7 @@ class Run:
             except Exception as e:
                 result.message = e
                 self.logger.error(e)
-            result.end_time = datetime.now()
+            result.end()
         return result
 
     @staticmethod
@@ -64,7 +64,7 @@ class TestMethodRun(Run):
         else:
             result = TestMethodResult(self.test_method.name, setup, Status.SKIPPED)
             self.logger.critical(result.setup.message)
-        result.end_time = datetime.now()
+        result.end()
         self.logger.info(result.status)
         result.setup = setup
         result.teardown = self.teardown()
@@ -79,7 +79,17 @@ class TestMethodRun(Run):
         args, kwargs = self.test_parameters_func(self.logger)
         result = TestMethodResult(self.test_method.name)
         try:
-            self.test_method.func(*args, **kwargs)
+            if hasattr(self.test_method.func, 'parameterized_list'):
+                # todo: add try/catch
+                for i, parameters in enumerate(self.test_method.func.parameterized_list):
+                    args, kwargs = self.test_parameters_func(self.logger)
+                    result.parameterized_results.append(Result(str(i)))
+                    self.test_method.func(*args+list(parameters), **kwargs)
+                    result.parameterized_results[-1].status = Status.PASSED
+                    result.parameterized_results[-1].end()
+            else:
+                args, kwargs = self.test_parameters_func(self.logger)
+                self.test_method.func(*args, **kwargs)
             result.status = Status.PASSED
         except AssertionError as ae:
             result.message = ae
@@ -88,7 +98,7 @@ class TestMethodRun(Run):
             result.message = e
             result.status = Status.FAILED
             self.logger.error(e)
-        result.end_time = datetime.now()
+        result.end()
         return result
 
     def teardown(self) -> Result:
@@ -107,7 +117,7 @@ class TestModuleRun(Run):
         test_module_result = self.run(threads and self.test_module.module.__run_mode__==RunMode.PARALLEL_TEST)
         test_module_result.setup = setup
         test_module_result.teardown = self.teardown()
-        test_module_result.end_time = datetime.now()
+        test_module_result.end()
         return test_module_result
 
     def setup(self) -> Result:
@@ -119,7 +129,7 @@ class TestModuleRun(Run):
         if test_module_result.setup is None or test_module_result.setup.status == Status.PASSED:
             if threads:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-                    future_results = {executor.submit(TestMethodRun(test, None, self.logger).execute): test for test in self.test_module.tests}
+                    future_results = {executor.submit(TestMethodRun(test, None, self.log_manager.get_test_logger(self.test_module.name, test.name)).execute): test for test in self.test_module.tests}
                     for future_result in concurrent.futures.as_completed(future_results):
                         try:
                             test_result = future_result.result()
@@ -133,10 +143,14 @@ class TestModuleRun(Run):
                             self.logger.error(t)
             else:
                 for test in self.test_module.tests:
-                    test_module_result.test_results.append(TestMethodRun(test, None, self.logger).execute())
+                    # self.logger.warning('START')
+                    # self.logger.warning(test.name)
+                    # self.logger.warning('END')
+                    #self.log_manager.get_test_logger(self.test_module.name, test.name)
+                    test_module_result.test_results.append(TestMethodRun(test, None, self.log_manager.get_test_logger(self.test_module.name, test.name)).execute())
                     if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
                         raise StopTestRunException(test_module_result.test_results[-1].message)
-        test_module_result.end_time = datetime.now()
+        test_module_result.end()
         return test_module_result
 
     def teardown(self) -> Result:

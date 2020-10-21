@@ -47,12 +47,18 @@ class Result:
         self._end_time = value
         self.duration = self._end_time - self.start_time
 
+    def end(self, status: str = None):
+        self.end_time = datetime.now()
+        if status:
+            self.status = status
+
 
 class TestMethodResult(Result):
     def __init__(self, name: str, setup: Result = None, teardown: Result = None, status: str = None, message: str = None):
         super().__init__(name, status, message)
         self.setup = setup
         self.teardown = teardown
+        self.parameterized_results = []
 
 
 class TestModuleResult(Result):

@@ -111,7 +111,7 @@ def get_log_handler_level(logger, handler_type):
 
 class LogManager:
     def __init__(self, base: str = FOLDER):
-        self.folder = os.path.join(base, datetime.now().strftime("%H-%M-%S_%m-%d-%Y"))
+        self.folder = os.path.join(base, datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
         os.makedirs(self.folder, exist_ok=True)
         folders = sorted(Path(base).iterdir(), key=os.path.getmtime)
         count = len(folders) - 10
@@ -130,8 +130,9 @@ class LogManager:
         return logger
 
     def get_test_logger(self, module_name: str, test_name: str):
-        logger = logging.getLogger(f'{module_name}.{test_name}')
-        logger.filters.clear()
+        # logger = logging.getLogger(f'{module_name}.{test_name}')
+        # logger.filters.clear()
+        logger = create_module_logger(self.folder, f'{module_name}.{test_name}', logging.INFO)
         logger.addFilter(TestFilter(test_name))
         return logger
 
