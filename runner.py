@@ -98,8 +98,7 @@ class TestMethodRun(Run):
             result.message = e
             result.status = Status.FAILED
             self.logger.error(e)
-        result.end()
-        return result
+        return result.end()
 
     def teardown(self) -> Result:
         return self._fixture(self.test_method.teardown_func)
@@ -117,8 +116,7 @@ class TestModuleRun(Run):
         test_module_result = self.run(threads and self.test_module.module.__run_mode__==RunMode.PARALLEL_TEST)
         test_module_result.setup = setup
         test_module_result.teardown = self.teardown()
-        test_module_result.end()
-        return test_module_result
+        return test_module_result.end()
 
     def setup(self) -> Result:
         logger = self.default_logger if not self.test_module.setup else self.log_manager.get_setup_logger(self.test_module.name)
@@ -150,8 +148,7 @@ class TestModuleRun(Run):
                     test_module_result.test_results.append(TestMethodRun(test, None, self.log_manager.get_test_logger(self.test_module.name, test.name)).execute())
                     if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
                         raise StopTestRunException(test_module_result.test_results[-1].message)
-        test_module_result.end()
-        return test_module_result
+        return test_module_result.end()
 
     def teardown(self) -> Result:
         logger = self.default_logger if not self.test_module.teardown else self.log_manager.get_teardown_logger(self.test_module.name)

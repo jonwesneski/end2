@@ -51,6 +51,7 @@ class Result:
         self.end_time = datetime.now()
         if status:
             self.status = status
+        return self
 
 
 class TestMethodResult(Result):
