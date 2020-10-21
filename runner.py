@@ -27,7 +27,8 @@ def create_test_suite_instance(suite_paths: list, logger=None):
 class Run:
     def __init__(self, test_parameters_func=None, logger=None):
         self.test_parameters_func = test_parameters_func or Run._create_default_parameters
-        self.logger = logger or logging.getLogger()
+        self.default_logger = logging.getLogger()
+        self.logger = logger or self.default_logger
 
     def _fixture(self, func, logger=None) -> Result:
         result = None
@@ -39,6 +40,10 @@ class Run:
                 result.status = Status.PASSED
             except AssertionError as ae:
                 result.message = ae
+                self.logger.error(ae)
+            except Exception as e:
+                result.message = e
+                self.logger.error(e)
             result.end_time = datetime.now()
         return result
 
@@ -54,16 +59,16 @@ class TestMethodRun(Run):
 
     def execute(self) -> TestMethodResult:
         setup = self.setup()
-        if True or setup.status == Status.PASSED:
+        if setup is None or setup.status == Status.PASSED:
             result = self.run()
         else:
-            self.logger.critical(result.setup.message)
             result = TestMethodResult(self.test_method.name, setup, Status.SKIPPED)
+            self.logger.critical(result.setup.message)
         result.end_time = datetime.now()
         self.logger.info(result.status)
         result.setup = setup
         result.teardown = self.teardown()
-        if result.teardown.status != Status.PASSED:
+        if result.teardown and result.teardown.status != Status.PASSED:
             self.logger.critical(result.teardown.message)
         return result
 
@@ -72,13 +77,17 @@ class TestMethodRun(Run):
 
     def run(self) -> TestMethodResult:
         args, kwargs = self.test_parameters_func(self.logger)
-        result = Result(self.test_method.name)
+        result = TestMethodResult(self.test_method.name)
         try:
             self.test_method.func(*args, **kwargs)
             result.status = Status.PASSED
         except AssertionError as ae:
             result.message = ae
             result.status = Status.FAILED
+        except Exception as e:
+            result.message = e
+            result.status = Status.FAILED
+            self.logger.error(e)
         result.end_time = datetime.now()
         return result
 
@@ -102,7 +111,8 @@ class TestModuleRun(Run):
         return test_module_result
 
     def setup(self) -> Result:
-        return self._fixture(self.test_module.setup, self.log_manager.create_setup_logger(self.test_module.name))
+        logger = self.default_logger if not self.test_module.setup else self.log_manager.get_setup_logger(self.test_module.name)
+        return self._fixture(self.test_module.setup, logger)
 
     def run(self, threads: bool) -> TestModuleResult:
         test_module_result = TestModuleResult(self.test_module.name)
@@ -130,7 +140,8 @@ class TestModuleRun(Run):
         return test_module_result
 
     def teardown(self) -> Result:
-        return self._fixture(self.test_module.teardown, self.log_manager.create_teardown_logger(self.test_module.name))
+        logger = self.default_logger if not self.test_module.teardown else self.log_manager.get_teardown_logger(self.test_module.name)
+        return self._fixture(self.test_module.teardown, logger)
 
 
 class TestSuiteRun:
