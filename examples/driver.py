@@ -32,7 +32,8 @@ if __name__ == '__main__':
     run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, logger)
     print(run_instance.sequential_modules)
     print(run_instance.parallel_modules)
-    print(run_instance.execute(False)[0])
+    a = run_instance.execute(False)
+    print(a[0])
     # logger = create_full_logger('test_run', stream_level=logging.INFO, file_level=logging.DEBUG)
     # run_instance = create_test_run_instance(['tests'],
     #                                         logger=logger,

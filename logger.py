@@ -24,24 +24,36 @@ def _cdt_time(*args):
 logging.Formatter.converter = _cdt_time
 
 
-def create_full_logger(folder: str, name: str, stream_level, file_level=logging.DEBUG):
-    formatter_ = create_formatter()
+def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG, formatter=None, filter_=None):
+    os.makedirs(folder, exist_ok=True)
+    file_handler = logging.FileHandler(os.path.join(folder, f'{name}.log'), mode='w')
+    file_handler.setLevel(file_level)
+    if formatter:
+        file_handler.setFormatter(formatter)
+    if filter_:
+        file_handler.addFilter(filter_)
+    return file_handler
+
+
+def create_stream_handler(stream_level: int = logging.INFO, formatter=None, filter_=None):
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(stream_level)
+    if formatter:
+        stream_handler.setFormatter(formatter)
+    if filter_:
+        stream_handler.addFilter(filter_)
+    return stream_handler
+
+
+def create_full_logger(folder: str, name: str, stream_level: int, file_level: int = logging.DEBUG, propagate: bool = True):
+    formatter = create_formatter()
     filter_ = TestFilter(name)
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-    os.makedirs(folder, exist_ok=True)
 
-    file_handler = logging.FileHandler(os.path.join(folder, f'{name}.log'), mode='w')
-    file_handler.setLevel(file_level)
-    file_handler.setFormatter(formatter_)
-    file_handler.addFilter(filter_)
-    logger.addHandler(file_handler)
-
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setLevel(stream_level)
-    stream_handler.setFormatter(formatter_)
-    stream_handler.addFilter(filter_)
-    logger.addHandler(stream_handler)
+    logger.addHandler(create_file_handler(folder, name, file_level, formatter, filter_))
+    logger.addHandler(create_stream_handler(stream_level, formatter, filter_))
+    logger.propagate = propagate
     return logger
 
 
@@ -89,9 +101,11 @@ def create_simple_stream_logger(name=''):
     return logger
 
 
-def create_formatter():
+def create_formatter2():
     return logging.Formatter(fmt='%(asctime)s [%(levelname)s] %(module_method)s   %(message)s', datefmt='%Y-%m-%d %H:%M:%S CDT')
 
+def create_formatter(infix: str = ''):
+    return logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] {infix}   %(message)s', datefmt='%Y-%m-%d %H:%M:%S CDT')
 
 def create_failure_handler(filter_):
     memory_handler = CustomFlushHandler(FAILURES_FOLDER, logging.ERROR, flush_on_close=False)
@@ -110,41 +124,74 @@ def get_log_handler_level(logger, handler_type):
 
 
 class LogManager:
-    def __init__(self, base: str = FOLDER):
+    def __init__(self, run_logger_name: str = 'test_run', base: str = FOLDER, stream_level: int = logging.INFO):
+        self.run_logger_name = run_logger_name
         self.folder = os.path.join(base, datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
         os.makedirs(self.folder, exist_ok=True)
-        folders = sorted(Path(base).iterdir(), key=os.path.getmtime)
-        count = len(folders) - 10
+        self.formatter = create_formatter()
+        create_full_logger(self.folder, self.run_logger_name, stream_level, file_level=logging.INFO, propagate=False)
+        self._rotate_folders(base, 10)
+        self.teardown_file_handlers = []
+
+    @staticmethod
+    def _rotate_folders(base_folder: str, max_folders: int):
+        sub_folders = sorted(Path(base_folder).iterdir(), key=os.path.getmtime)
+        count = len(sub_folders) - max_folders
         if count > 0:
             for i in range(count):
-                shutil.rmtree(folders[i])
+                shutil.rmtree(sub_folders[i])
+
+    @property
+    def test_run_logger(self):
+        return logging.getLogger(self.run_logger_name)
+
+    # TODO: I think I will get rid of all filter logic and just recreate formatter
+    # @staticmethod
+    # def _set_log_filter(logger, test_name):
+    #     for handler in logger.handlers:
+    #         for filter_ in handler.filters:
+    #             if type(filter_) is TestFilter:
+    #                 filter_.test_name = test_name
+
+    @staticmethod
+    def _set_formatter(logger, infix):
+        for handler in logger.handlers:
+            handler.setFormatter(create_formatter(infix))
+
+    def create_module_logger(self, folder: str, name: str, level):
+        logger = create_full_logger(folder, name, level)
+        test_run_memory_handler = ManualFlushHandler(get_log_handler(self.test_run_logger, logging.FileHandler))
+        logger.addHandler(test_run_memory_handler)
+        return logger
 
     def get_setup_logger(self, module_name: str):
+        # logger = create_full_logger(folder, name, level)
+        # test_run_memory_handler = ManualFlushHandler(get_log_handler(self.test_run_logger, logging.FileHandler))
+        # logger.addHandler(test_run_memory_handler)
         logger = create_module_logger(self.folder, f'{module_name}.setup', logging.INFO)
-        logger.addFilter(TestFilter('setup'))
+        LogManager._set_formatter(logger, 'setup')
         return logger
 
     def get_setup_test_logger(self, module_name: str, test_name: str):
         logger = create_module_logger(self.folder, f'{module_name}.{test_name}', logging.INFO)
-        logger.addFilter(TestFilter('setup_test'))
+        LogManager._set_formatter(logger, 'setup_test')
         return logger
 
     def get_test_logger(self, module_name: str, test_name: str):
         # logger = logging.getLogger(f'{module_name}.{test_name}')
         # logger.filters.clear()
         logger = create_module_logger(self.folder, f'{module_name}.{test_name}', logging.INFO)
-        logger.addFilter(TestFilter(test_name))
+        LogManager._set_formatter(logger, test_name)
         return logger
 
     def get_teardown_test_logger(self, module_name: str, test_name: str):
         logger = logging.getLogger(f'{module_name}.{test_name}')
-        logger.filters.clear()
-        logger.addFilter(TestFilter('teardown_test'))
+        LogManager._set_formatter(logger, 'teardown_test')
         return logger
 
     def get_teardown_logger(self, module_name: str):
         logger = create_module_logger(self.folder, f'{module_name}.teardown', logging.INFO)
-        logger.addFilter(TestFilter('teardown'))
+        LogManager._set_formatter(logger, 'teardown')
         return logger
 
 
