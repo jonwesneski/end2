@@ -79,12 +79,10 @@ class TestModuleResult(Result):
 
     def end(self, status: str = None):
         super().end(status)
-        if any(test.status == Status.SKIPPED for test in self.test_results):
+        if not self.test_results:
             self.status = Status.SKIPPED
-        elif all(test.status == Status.PASSED for test in self.test_results):
-            self.status = Status.PASSED
         else:
-            self.status = Status.FAILED
+            self.status = Status.PASSED if all(test.status == Status.PASSED for test in self.test_results) else Status.FAILED
         return self
 
 

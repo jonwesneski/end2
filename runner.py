@@ -123,7 +123,10 @@ class TestModuleRun(Run):
 
     def execute(self, threads: bool) -> TestModuleResult:
         setup = self.setup()
-        test_module_result = self.run(threads and self.test_module.module.__run_mode__==RunMode.PARALLEL_TEST)
+        if setup is None or setup.status == Status.PASSED:
+            test_module_result = self.run(threads and self.test_module.module.__run_mode__==RunMode.PARALLEL_TEST)
+        else:
+            test_module_result = TestModuleResult(self.test_module.name, status=Status.SKIPPED)
         test_module_result.setup = setup
         test_module_result.teardown = self.teardown()
         test_module_result.end()
@@ -136,26 +139,25 @@ class TestModuleRun(Run):
 
     def run(self, threads: bool) -> TestModuleResult:
         test_module_result = TestModuleResult(self.test_module.name)
-        if test_module_result.setup is None or test_module_result.setup.status == Status.PASSED:
-            if threads:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-                    future_results = {executor.submit(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute): test for test in self.test_module.tests}
-                    for future_result in concurrent.futures.as_completed(future_results):
-                        try:
-                            test_result = future_result.result()
-                            if test_result:
-                                test_module_result.test_results.append(test_result)
-                                if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
-                                    raise StopTestRunException(test_module_result.test_results[-1].message)
-                        except StopTestRunException:
-                            raise
-                        except Exception as exc:
-                            self.logger.error(traceback.format_exc())
-            else:
-                for test in self.test_module.tests:
-                    test_module_result.test_results.append(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute())
-                    if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
-                        raise StopTestRunException(test_module_result.test_results[-1].message)
+        if threads:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                future_results = {executor.submit(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute): test for test in self.test_module.tests}
+                for future_result in concurrent.futures.as_completed(future_results):
+                    try:
+                        test_result = future_result.result()
+                        if test_result:
+                            test_module_result.test_results.append(test_result)
+                            if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
+                                raise StopTestRunException(test_module_result.test_results[-1].message)
+                    except StopTestRunException:
+                        raise
+                    except Exception as exc:
+                        self.logger.error(traceback.format_exc())
+        else:
+            for test in self.test_module.tests:
+                test_module_result.test_results.append(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute())
+                if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
+                    raise StopTestRunException(test_module_result.test_results[-1].message)
         return test_module_result.end()
 
     def teardown(self) -> Result:
