@@ -9,6 +9,12 @@ import sys
 
 from pytz import timezone
 
+from test_framework.enums import Status
+from test_framework.popo import (
+    TestMethodResult,
+    TestModuleResult
+)
+
 
 FOLDER = 'logs'
 FAILURES_FOLDER = os.path.join(FOLDER, 'failures')
@@ -75,6 +81,12 @@ def create_formatter(infix: str = ''):
     return logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] {infix}   %(message)s', datefmt='%Y-%m-%d %H:%M:%S CDT')
 
 
+# TODO: Use this instead once I reimplement Filter() logic
+def create_formatter2(use_infix: bool = False):
+    infix = ' %(infix)s' if use_infix else ''
+    return logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]{infix}   %(message)s', datefmt='%Y-%m-%d %H:%M:%S CDT')
+
+
 def create_failure_handler(filter_):
     memory_handler = CustomFlushHandler(FAILURES_FOLDER, logging.ERROR, flush_on_close=False)
     memory_handler.addFilter(filter_)
@@ -97,7 +109,7 @@ class LogManager:
         self.folder = os.path.join(base, datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
         os.makedirs(self.folder, exist_ok=True)
         self.formatter = create_formatter()
-        create_full_logger(self.folder, self.run_logger_name, stream_level, file_level=logging.INFO, propagate=False)
+        self.test_run_logger = create_full_logger(self.folder, self.run_logger_name, stream_level, file_level=logging.INFO, propagate=False)
         self._rotate_folders(base, 10)
         self.teardown_file_handlers = []
 
@@ -109,32 +121,57 @@ class LogManager:
             for i in range(count):
                 shutil.rmtree(sub_folders[i])
 
-    @property
-    def test_run_logger(self):
-        return logging.getLogger(self.run_logger_name)
-
     @staticmethod
     def _set_formatter(logger, infix):
         for handler in logger.handlers:
             handler.setFormatter(create_formatter(infix))
 
-    def on_test_failure(self, logger):
+    @staticmethod
+    def _close_file_handlers(logger):
         for handler in logger.handlers:
             if isinstance(handler, logging.FileHandler):
                 handler.close()
-                print(handler.baseFilename, 'a'*7)
 
-    def on_module_complete(self, module_name: str, test_names: list):
-        for name in test_names + ['setup', 'teardown']:
-            logger = logging.getLogger(f'{module_name}.{name}')
-            file_handler = None
+    def on_setup_module_done(self, module_name: str, status: Status):
+        # logger = logging.getLogger(f'{module_name}.setup')
+        # TODO: Add Filter() logic
+        pass
+
+    def on_setup_test_done(self, module_name: str, test_name: str, status: Status):
+        # logger = logging.getLogger(f'{module_name}.{test_name}')
+        # TODO: Add Filter() logic
+        pass
+
+    def on_test_done(self, module_name: str, test_method_result: TestMethodResult):
+        logger = logging.getLogger(f'{module_name}.{test_method_result.name}')
+        if test_method_result.status == Status.FAILED:
             for handler in logger.handlers:
                 if isinstance(handler, logging.FileHandler):
                     handler.close()
-                    file_handler = handler
-            if file_handler:
-                logger.removeHandler(file_handler)
+                    base_name = os.path.basename(handler.baseFilename)
+                    os.rename(handler.baseFilename, os.path.join(self.folder, f'{Status.FAILED.upper()}_{module_name}.{base_name}'))
 
+    def on_teardown_test_done(self, module_name: str, test_name: str, status: Status):
+        # logger = logging.getLogger(f'{module_name}.{test_name}')
+        # TODO: Add Filter() logic
+        pass
+
+    def on_teardown_module_done(self, module_name: str, status: Status):
+        # logger = logging.getLogger(f'{module_name}.teardown')
+        # TODO: Add Filter() logic
+        pass
+
+    def on_module_done(self, test_module_result: TestModuleResult):
+        if test_module_result.status in [Status.PASSED, Status.SKIPPED]:
+            for test_result in test_module_result.test_results:
+                LogManager._close_file_handlers(logging.getLogger(f'{test_module_result.name}.{test_result.name}'))
+                for i in range(len(test_result.parameterized_results)):
+                    LogManager._close_file_handlers(self.get_test_logger(test_module_result.name, f'{test_result.name}_{i}_'))
+            for fixture_logger in [self.get_setup_logger(test_module_result.name), self.get_teardown_logger(test_module_result.name)]:
+                LogManager._close_file_handlers(fixture_logger)
+            os.rename(
+                os.path.join(self.folder, test_module_result.name),
+                os.path.join(self.folder, f'{test_module_result.status.upper()}_{test_module_result.name}'))
 
     def create_module_logger(self, module_name: str, test_name: str, formatter_infix: str):
         name = f'{module_name}.{test_name}'

@@ -77,6 +77,16 @@ class TestModuleResult(Result):
             skipped += 1 if result.status == Status.SKIPPED else 0
         return f'{{Total: {passed+failed+skipped} | Passed: {passed} | Failed: {failed} | Skipped: {skipped} | Duration: {self.duration}}}'
 
+    def end(self, status: str = None):
+        super().end(status)
+        if any(test.status == Status.SKIPPED for test in self.test_results):
+            self.status = Status.SKIPPED
+        elif all(test.status == Status.PASSED for test in self.test_results):
+            self.status = Status.PASSED
+        else:
+            self.status = Status.FAILED
+        return self
+
 
 class StopTestRunException(Exception):
     def __init__(self, *args):
