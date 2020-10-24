@@ -82,7 +82,7 @@ class TestMethodRun(Run):
             if hasattr(self.test_method.func, 'parameterized_list'):
                 for i, parameters in enumerate(self.test_method.func.parameterized_list):
                     def parameters_func(logger):
-                        args, kwargs = self.test_parameters_func(self.logger)
+                        args, kwargs = self.test_parameters_func(logger)
                         return args+list(parameters), kwargs
                     parameter_run = Run(parameters_func, self.logger)
                     parameter_result = parameter_run.run_func(self.test_method.func)

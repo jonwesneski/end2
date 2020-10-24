@@ -124,18 +124,29 @@ class LogManager:
                 handler.close()
                 print(handler.baseFilename, 'a'*7)
 
+    def on_module_complete(self, module_name: str, test_names: list):
+        for name in test_names + ['setup', 'teardown']:
+            logger = logging.getLogger(f'{module_name}.{name}')
+            file_handler = None
+            for handler in logger.handlers:
+                if isinstance(handler, logging.FileHandler):
+                    handler.close()
+                    file_handler = handler
+            if file_handler:
+                logger.removeHandler(file_handler)
+
+
     def create_module_logger(self, module_name: str, test_name: str, formatter_infix: str):
         name = f'{module_name}.{test_name}'
         logger = logging.getLogger(name)
         if not logger.hasHandlers():
             logger.setLevel(logging.DEBUG)
-            formatter = create_formatter(f'{module_name.split(".")[-1]}::{formatter_infix}')
-            logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.INFO, formatter))
-            logger.addHandler(create_stream_handler(formatter=formatter))
+            logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG))
+            logger.addHandler(create_stream_handler())
             logger.propagate = False
             test_run_memory_handler = ManualFlushHandler(get_log_handler(self.test_run_logger, logging.FileHandler))
-            test_run_memory_handler.setFormatter(formatter)
             logger.addHandler(test_run_memory_handler)
+        LogManager._set_formatter(logger, f'{module_name.split(".")[-1]}::{formatter_infix}')
         return logger
 
     def get_setup_logger(self, module_name: str):
@@ -196,3 +207,34 @@ class ManualFlushHandler(logging.handlers.MemoryHandler):
 
     def shouldFlush(self, record):
         return False
+
+
+class TestFilter(logging.Filter):
+    def __init__(self, module_name):
+        super().__init__(module_name.split('.')[-1])
+        self._path = self.name
+        self._test_name = None
+
+    @property
+    def test_name(self):
+        return self._test_name
+
+    @test_name.setter
+    def test_name(self, test_name):
+        if test_name and isinstance(test_name, str):
+            self._test_name = test_name
+            self._path = f'{self.name}::{self._test_name}'
+        else:
+            self._test_name = None
+            self._path = self.name
+
+    @property
+    def path(self):
+        return self._path
+
+    def filter(self, record):
+        # When flushing I don't wan't it to pick up the current value of self.path
+        stack = inspect.stack()
+        if len(stack) >= 4 and stack[3][3] != 'flush':
+            record.module_method = self.path
+        return True

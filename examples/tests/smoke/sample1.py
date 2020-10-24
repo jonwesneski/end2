@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, os.getcwd())
 from test_framework.enums import RunMode
 from test_framework.fixtures import (
-    setup,
+    setup_test,
     teardown
 )
 
@@ -14,7 +14,7 @@ __run_mode__ = RunMode.PARALLEL
 _my_list = []
 
 
-@setup
+@setup_test
 def my_setup_test(logger):
     logger.info('running setup test')
     _my_list.append(len(_my_list))
