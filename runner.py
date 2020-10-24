@@ -30,7 +30,7 @@ class Run:
         self.default_logger = logging.getLogger()
         self.logger = logger or self.default_logger
 
-    def _fixture(self, func, logger=None) -> Result:
+    def run_func(self, func, logger=None) -> Result:
         result = None
         if func:
             args, kwargs = self.test_parameters_func(logger or self.logger)
@@ -73,20 +73,21 @@ class TestMethodRun(Run):
         return result
 
     def setup(self) -> Result:
-        return self._fixture(self.test_method.setup_func)
+        return self.run_func(self.test_method.setup_func)
 
     def run(self) -> TestMethodResult:
         args, kwargs = self.test_parameters_func(self.logger)
         result = TestMethodResult(self.test_method.name)
         try:
             if hasattr(self.test_method.func, 'parameterized_list'):
-                # todo: add try/catch
                 for i, parameters in enumerate(self.test_method.func.parameterized_list):
-                    args, kwargs = self.test_parameters_func(self.logger)
-                    result.parameterized_results.append(Result(str(i)))
-                    self.test_method.func(*args+list(parameters), **kwargs)
-                    result.parameterized_results[-1].status = Status.PASSED
-                    result.parameterized_results[-1].end()
+                    def parameters_func(logger):
+                        args, kwargs = self.test_parameters_func(self.logger)
+                        return args+list(parameters), kwargs
+                    parameter_run = Run(parameters_func, self.logger)
+                    parameter_result = parameter_run.run_func(self.test_method.func)
+                    parameter_result.name = str(i)
+                    result.parameterized_results.append(parameter_result)
             else:
                 args, kwargs = self.test_parameters_func(self.logger)
                 self.test_method.func(*args, **kwargs)
@@ -101,7 +102,7 @@ class TestMethodRun(Run):
         return result.end()
 
     def teardown(self) -> Result:
-        return self._fixture(self.test_method.teardown_func)
+        return self.run_func(self.test_method.teardown_func)
 
 
 class TestModuleRun(Run):
@@ -120,7 +121,7 @@ class TestModuleRun(Run):
 
     def setup(self) -> Result:
         logger = self.default_logger if not self.test_module.setup else self.log_manager.get_setup_logger(self.test_module.name)
-        return self._fixture(self.test_module.setup, logger)
+        return self.run_func(self.test_module.setup, logger)
 
     def run(self, threads: bool) -> TestModuleResult:
         test_module_result = TestModuleResult(self.test_module.name)
@@ -152,7 +153,7 @@ class TestModuleRun(Run):
 
     def teardown(self) -> Result:
         logger = self.default_logger if not self.test_module.teardown else self.log_manager.get_teardown_logger(self.test_module.name)
-        return self._fixture(self.test_module.teardown, logger)
+        return self.run_func(self.test_module.teardown, logger)
 
 
 class TestSuiteRun:
