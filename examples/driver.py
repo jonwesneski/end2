@@ -33,7 +33,7 @@ if __name__ == '__main__':
     print(run_instance.sequential_modules)
     print(run_instance.parallel_modules)
     a = run_instance.execute(False)
-    print(a[0])
+    print(a)
     # logger = create_full_logger('test_run', stream_level=logging.INFO, file_level=logging.DEBUG)
     # run_instance = create_test_run_instance(['tests'],
     #                                         logger=logger,

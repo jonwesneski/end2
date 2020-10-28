@@ -1,6 +1,13 @@
 from test_framework.enums import RunMode
+from test_framework.fixtures import setup_test
+
 
 __run_mode__ = RunMode.PARALLEL
+
+
+@setup_test
+def my_bad(logger):
+    assert False, "FAILING SETUP_TEST ON PURPOSE"
 
 
 def test_1(logger):

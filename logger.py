@@ -11,6 +11,7 @@ from pytz import timezone
 
 from test_framework.enums import Status
 from test_framework.popo import (
+    Result,
     TestMethodResult,
     TestModuleResult
 )
@@ -78,7 +79,8 @@ def create_stream_logger(name):
 
 
 def create_formatter(infix: str = ''):
-    return logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] {infix}   %(message)s', datefmt='%Y-%m-%d %H:%M:%S CDT')
+    infix_ = f' {infix}' if infix else ''
+    return logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]{infix_}   %(message)s', datefmt='%Y-%m-%d %H:%M:%S CDT')
 
 
 # TODO: Use this instead once I reimplement Filter() logic
@@ -111,7 +113,8 @@ class LogManager:
         self.formatter = create_formatter()
         self.test_run_logger = create_full_logger(self.folder, self.run_logger_name, stream_level, file_level=logging.INFO, propagate=False)
         self._rotate_folders(base, 10)
-        self.teardown_file_handlers = []
+        self._test_separator = '\n' + ('-' * 175)
+        self._module_separator = '\n' + ('=' * 175)
 
     @staticmethod
     def _rotate_folders(base_folder: str, max_folders: int):
@@ -137,12 +140,23 @@ class LogManager:
         # TODO: Add Filter() logic
         pass
 
-    def on_setup_test_done(self, module_name: str, test_name: str, status: Status):
-        # logger = logging.getLogger(f'{module_name}.{test_name}')
+    def on_setup_test_done(self, module_name: str, test_name: str, setup_test_result: Result):
+        logger = logging.getLogger(f'{module_name}.{test_name}')
         # TODO: Add Filter() logic
-        pass
+        if setup_test_result and setup_test_result.status == Status.SKIPPED:
+            logger.critical(setup_test_result.message)
+            file_hanlder = None
+            for handler in logger.handlers:
+                if isinstance(handler, logging.FileHandler):
+                    handler.close()
+                    file_hanlder = handler
+                    os.rename(handler.baseFilename, handler.baseFilename.replace(f'{test_name}', f'{Status.SKIPPED.upper()}_{test_name}'))
+            logger.removeHandler(file_hanlder)
+            logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG))
 
     def on_test_done(self, module_name: str, test_method_result: TestMethodResult):
+        self.test_run_logger.info(f'{test_method_result.status}: {module_name}::{test_method_result.name}')
+        self.test_run_logger.info(self._test_separator)
         logger = logging.getLogger(f'{module_name}.{test_method_result.name}')
         if test_method_result.status == Status.FAILED:
             for handler in logger.handlers:
@@ -151,10 +165,16 @@ class LogManager:
                     base_name = os.path.basename(handler.baseFilename)
                     os.rename(handler.baseFilename, os.path.join(self.folder, f'{Status.FAILED.upper()}_{module_name}.{base_name}'))
 
-    def on_teardown_test_done(self, module_name: str, test_name: str, status: Status):
-        # logger = logging.getLogger(f'{module_name}.{test_name}')
+    def on_parameterized_test_done(self, module_name: str, test_name: str, parameter_result: Result):
+        # logger = logging.getLogger(f'{module_name}.setup')
         # TODO: Add Filter() logic
         pass
+
+    def on_teardown_test_done(self, module_name: str, test_name: str, teardown_test_result: Result):
+        logger = logging.getLogger(f'{module_name}.{test_name}')
+        # TODO: Add Filter() logic
+        if teardown_test_result and teardown_test_result.status != Status.PASSED:
+            logger.critical(teardown_test_result.message)
 
     def on_teardown_module_done(self, module_name: str, status: Status):
         # logger = logging.getLogger(f'{module_name}.teardown')
@@ -162,6 +182,7 @@ class LogManager:
         pass
 
     def on_module_done(self, test_module_result: TestModuleResult):
+        self.test_run_logger.info(self._module_separator)
         if test_module_result.status in [Status.PASSED, Status.SKIPPED]:
             for test_result in test_module_result.test_results:
                 LogManager._close_file_handlers(logging.getLogger(f'{test_module_result.name}.{test_result.name}'))
