@@ -61,14 +61,14 @@ class TestMethodRun(Run):
         self.module_name = module_name
         self.test_method = test_method
         self.log_manager = log_manager
+        #self.stop_run = False
 
     def execute(self) -> TestMethodResult:
         setup = self.setup()
         if setup is None or setup.status == Status.PASSED:
             result = self.run()
         else:
-            result = TestMethodResult(self.test_method.name, setup, Status.SKIPPED)
-        result.end()
+            result = TestMethodResult(self.test_method.name, setup, Status.SKIPPED).end()
         self.log_manager.test_run_logger.info(f'{result.status}: {self.module_name}::{self.test_method.name}')
         result.setup = setup
         result.teardown = self.teardown()
@@ -181,7 +181,7 @@ class TestModuleRun(Run):
                 test_module_result.test_results.append(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute())
                 if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
                     raise StopTestRunException(test_module_result.test_results[-1].message)
-        return test_module_result.end()
+        return test_module_result
 
     def teardown(self) -> Result:
         logger = None if not self.test_module.teardown else self.log_manager.get_teardown_logger(self.test_module.name)

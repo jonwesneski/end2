@@ -60,6 +60,21 @@ class TestMethodResult(Result):
         self.setup = setup
         self.teardown = teardown
         self.parameterized_results = []
+        self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
+
+    def end(self, status: str = None):
+        super().end(status)
+        self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
+        if status != Status.SKIPPED and self.parameterized_results:
+            for result in self.parameterized_results:
+                if result.status == Status.PASSED:
+                    self.passed_count += 1
+                elif result.status == Status.FAILED:
+                    self.failed_count += 1
+                elif result.status == Status.SKIPPED:
+                    self.skipped_count += 1
+            self.status = Status.PASSED if len(self.parameterized_results) == self.passed_count else Status.FAILED
+        return self
 
 
 class TestModuleResult(Result):
@@ -75,16 +90,22 @@ class TestModuleResult(Result):
 
     def end(self, status: str = None):
         super().end(status)
+        self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
         if not self.test_results:
             self.status = Status.SKIPPED
         else:
             for result in self.test_results:
-                if result.status == Status.PASSED:
-                    self.passed_count += 1
-                elif result.status == Status.FAILED:
-                    self.failed_count += 1
-                elif result.status == Status.SKIPPED:
-                    self.skipped_count += 1
+                if result.parameterized_results:
+                    self.passed_count += result.passed_count
+                    self.failed_count += result.failed_count
+                    self.skipped_count += result.skipped_count
+                else:
+                    if result.status == Status.PASSED:
+                        self.passed_count += 1
+                    elif result.status == Status.FAILED:
+                        self.failed_count += 1
+                    elif result.status == Status.SKIPPED:
+                        self.skipped_count += 1
             self.status = Status.PASSED if len(self.test_results) == self.passed_count else Status.FAILED
         return self
 

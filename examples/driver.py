@@ -21,7 +21,7 @@ if __name__ == '__main__':
     default2=['tests.smoke.ignored_module,sample1::!test_ignored_test;test_2']
     default3=['tests.smoke.!ignored_module,sample1', 'tests.regression']
     parser.add_argument('--suites', nargs='*', default=default3)
-    
+
     args = parser.parse_args()
     print(args.suites)
     logger = logging.getLogger('bananaman')
