@@ -83,7 +83,29 @@ class TestMethodRun(Run):
 
     def run(self) -> TestMethodResult:
         result = TestMethodResult(self.test_method.name)
-        if hasattr(self.test_method.func, 'parameterized_list'):
+        if hasattr(self.test_method.func, 'parallel_parameterized_list'):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                def execute(i, parameters):
+                    def parameters_func(logger):
+                        args, kwargs = self.test_parameters_func(logger)
+                        return args+list(parameters), kwargs
+                    parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}_{i}_'))
+                    parameter_result = parameter_run.run_func(self.test_method.func)
+                    parameter_result.name = str(i)
+                    return parameter_result
+                future_results = {executor.submit(execute, i, parameters): i for i, parameters in enumerate(self.test_method.func.parallel_parameterized_list)}
+                for future_result in concurrent.futures.as_completed(future_results):
+                    try:
+                        parameter_result = future_result.result()
+                        if parameter_result:
+                            result.parameterized_results.append(parameter_result)
+                            if self.stop_run and result.parameterized_results[-1].status == Status.FAILED:
+                                raise StopTestRunException(result.parameterized_results[-1].message)
+                    except StopTestRunException:
+                        raise
+                    except Exception:
+                        self.logger.error(traceback.format_exc())
+        elif hasattr(self.test_method.func, 'parameterized_list'):
             for i, parameters in enumerate(self.test_method.func.parameterized_list):
                 def parameters_func(logger):
                     args, kwargs = self.test_parameters_func(logger)
@@ -152,7 +174,7 @@ class TestModuleRun(Run):
                                 raise StopTestRunException(test_module_result.test_results[-1].message)
                     except StopTestRunException:
                         raise
-                    except Exception as exc:
+                    except Exception:
                         self.logger.error(traceback.format_exc())
         else:
             for test in self.test_module.tests:
@@ -187,6 +209,8 @@ class TestSuiteRun:
                             test_module_result = future_result.result()
                             if test_module_result:
                                 self.suite_results.test_modules.append(test_module_result)
+                        except StopTestRunException:
+                            raise
                         except Exception as exc:
                             self.logger.error(exc)
             else:

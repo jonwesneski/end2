@@ -1,5 +1,6 @@
 from test_framework.enums import RunMode
-from test_framework.utils import (
+from test_framework.fixtures import (
+    parallel_parameterize,
     parameterize,
     setup,
     teardown_test
@@ -37,6 +38,23 @@ def my_teardown_test(logger):
     (True, 2.0, 2)
 ])
 def test_1(logger, it_works, lhs, rhs):
+    logger.info(f'Does it work?  {"Yes" if it_works else "No"}')
+    if it_works:
+        assert lhs == rhs
+    else:
+        assert lhs != rhs
+
+
+
+@parallel_parameterize([
+    (False, 'B', 'AB'),
+    (True, 2, 2),
+    (True, [], []),
+    (False, [1], (1,)),
+    (False, object(), object()),
+    (True, 2.0, 2)
+])
+def test_11(logger, it_works, lhs, rhs):
     logger.info(f'Does it work?  {"Yes" if it_works else "No"}')
     if it_works:
         assert lhs == rhs

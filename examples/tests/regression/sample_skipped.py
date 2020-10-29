@@ -1,5 +1,5 @@
 from test_framework.enums import RunMode
-from test_framework.utils import setup
+from test_framework.fixtures import setup
 
 
 __run_mode__ = RunMode.PARALLEL
