@@ -20,6 +20,7 @@ if __name__ == '__main__':
     default=['tests.smoke.!ignored_module,sample1::test_ignored_test;test_2']
     default2=['tests.smoke.ignored_module,sample1::!test_ignored_test;test_2']
     default3=['tests.smoke.!ignored_module,sample1', 'tests.regression']
+    default3=['tests.regression.sample4::test_11[0]']
     parser.add_argument('--suites', nargs='*', default=default3)
 
     args = parser.parse_args()

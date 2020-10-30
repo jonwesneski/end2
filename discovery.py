@@ -31,6 +31,12 @@ def discover_tests(module, test_filters: list) -> tuple:
                 if test_filters and (f'!{name}' in test_filters or name not in test_filters):
                     ignored_tests.append(name)
                 else:
+                    if hasattr(attribute, 'parameterized_list'):
+                        for test_filter in test_filters:
+                            if name in test_filter:
+                                slice_ = filter_parameterized_list(test_filter)
+                                attribute.parameterized_list = tuple(attribute.parameterized_list[slice_])
+                                break
                     tests.append(TestMethod(setup, attribute, teardown))
         shuffle(tests)
     return tests, ignored_tests
@@ -108,7 +114,7 @@ def discover_suites(suite_paths: list) -> tuple:
 def filter_parameterized_list(test_name: str) -> int or slice:
     """
     >>> x = [1, 2, 3]
-    >>> assert x[filter_parameterized_list('test_1[0]')] == x[0]
+    >>> assert x[filter_parameterized_list('test_1[0]')] == x[0:1]
     >>> assert x[filter_parameterized_list('test_1[-1:]')] == x[-1:]
     >>> assert x[filter_parameterized_list('test_1[:-1]')] == x[:-1]
     >>> assert x[filter_parameterized_list('test_1[::-1]')] == x[::-1]
@@ -129,7 +135,8 @@ def filter_parameterized_list(test_name: str) -> int or slice:
                     slice_[i] = int(segments[i])
             value = slice(*slice_)
         else:
-            value = int(test_name[index:-1])
+            int_ = int(test_name[index:-1])
+            value = slice(int_,int_+1)
     return value
 
 
