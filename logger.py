@@ -17,6 +17,12 @@ from test_framework.popo import (
 )
 
 
+CRITICAL = logging.CRITICAL
+ERROR = logging.ERROR
+WARNING = logging.WARNING
+INFO = logging.INFO
+DEBUG = logging.DEBUG
+NOTSET = logging.NOTSET
 FOLDER = 'logs'
 FAILURES_FOLDER = os.path.join(FOLDER, 'failures')
 
