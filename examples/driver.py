@@ -30,6 +30,7 @@ if __name__ == '__main__':
     stream_handler.setLevel(logging.DEBUG)
     logger.addHandler(stream_handler)
     run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, logger)
+    print(failed_imports)
     print(run_instance.sequential_modules)
     print(run_instance.parallel_modules)
     a = run_instance.execute(False)

@@ -35,6 +35,14 @@ def teardown(func):
 
 
 def parameterize(parameters_list, first_arg_is_name: bool = False):
+    return _parameterize(parameters_list, is_parallel=False, first_arg_is_name=first_arg_is_name)
+
+
+def parallel_parameterize(parameters_list: list, first_arg_is_name: bool = False):
+    return _parameterize(parameters_list, is_parallel=True, first_arg_is_name=first_arg_is_name)
+
+
+def _parameterize(parameters_list: list, is_parallel: bool, first_arg_is_name: bool):
     def wrapper(func):
         if first_arg_is_name:
             func.names = [f'{func.__name__} {i} {args[0]}' for i, args in enumerate(parameters_list, start=1)]
@@ -42,18 +50,7 @@ def parameterize(parameters_list, first_arg_is_name: bool = False):
         else:
             func.names = [f'{func.__name__} {i}' for i in range(1, len(parameters_list)+1)]
             func.parameterized_list = tuple(parameters_list)
-        return func
-    return wrapper
-
-
-def parallel_parameterize(parameters_list: list, first_arg_is_name: bool = False):
-    def wrapper(func):
-        if first_arg_is_name:
-            func.names = [f'{func.__name__} {i} {args[0]}' for i, args in enumerate(parameters_list, start=1)]
-            func.parallel_parameterized_list = tuple(p[1:] for p in parameters_list)
-        else:
-            func.names = [f'{func.__name__} {i}' for i in range(1, len(parameters_list)+1)]
-            func.parallel_parameterized_list = tuple(parameters_list)
+        func.is_parallel = is_parallel
         return func
     return wrapper
 

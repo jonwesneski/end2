@@ -70,11 +70,8 @@ class TestMethodRun(Run):
         else:
             result = TestMethodResult(self.test_method.name, setup, Status.SKIPPED)
             parameterized_results = []
-            if hasattr(self.test_method.func, 'parallel_parameterized_list'):
+            if hasattr(self.test_method.func, 'parameterized_list'):
                 for i in range(len(self.test_method.func.parallel_parameterized_list)):
-                    parameterized_results.append(Result(str(i), status=Status.SKIPPED))
-            elif hasattr(self.test_method.func, 'parameterized_list'):
-                for i in range(len(self.test_method.func.parameterized_list)):
                     parameterized_results.append(Result(str(i), status=Status.SKIPPED))
             result.parameterized_results = parameterized_results
         self.log_manager.test_run_logger.info(f'{result.status}: {self.module_name}::{self.test_method.name}')
@@ -92,38 +89,39 @@ class TestMethodRun(Run):
 
     def run(self) -> TestMethodResult:
         result = TestMethodResult(self.test_method.name)
-        if hasattr(self.test_method.func, 'parallel_parameterized_list'):
-            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-                def execute(i, parameters):
+        if hasattr(self.test_method.func, 'parameterized_list'):
+            if self.test_method.func.is_parallel:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                    def execute(i, parameters):
+                        def parameters_func(logger):
+                            args, kwargs = self.test_parameters_func(logger)
+                            return args+parameters, kwargs
+                        parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}_{i}_'))
+                        parameter_result = parameter_run.run_func(self.test_method.func)
+                        parameter_result.name = str(i)
+                        return parameter_result
+                    future_results = {executor.submit(execute, i, parameters): i for i, parameters in enumerate(self.test_method.func.parameterized_list)}
+                    for future_result in concurrent.futures.as_completed(future_results):
+                        try:
+                            parameter_result = future_result.result()
+                            if parameter_result:
+                                result.parameterized_results.append(parameter_result)
+                                #if self.stop_run and result.parameterized_results[-1].status == Status.FAILED:
+                                if result.parameterized_results[-1].status == Status.FAILED:
+                                    raise StopTestRunException(result.parameterized_results[-1].message)
+                        except StopTestRunException:
+                            raise
+                        except Exception:
+                            self.logger.error(traceback.format_exc())
+            else:
+                for i, parameters in enumerate(self.test_method.func.parameterized_list):
                     def parameters_func(logger):
                         args, kwargs = self.test_parameters_func(logger)
                         return args+parameters, kwargs
                     parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}_{i}_'))
                     parameter_result = parameter_run.run_func(self.test_method.func)
                     parameter_result.name = str(i)
-                    return parameter_result
-                future_results = {executor.submit(execute, i, parameters): i for i, parameters in enumerate(self.test_method.func.parallel_parameterized_list)}
-                for future_result in concurrent.futures.as_completed(future_results):
-                    try:
-                        parameter_result = future_result.result()
-                        if parameter_result:
-                            result.parameterized_results.append(parameter_result)
-                            #if self.stop_run and result.parameterized_results[-1].status == Status.FAILED:
-                            if result.parameterized_results[-1].status == Status.FAILED:
-                                raise StopTestRunException(result.parameterized_results[-1].message)
-                    except StopTestRunException:
-                        raise
-                    except Exception:
-                        self.logger.error(traceback.format_exc())
-        elif hasattr(self.test_method.func, 'parameterized_list'):
-            for i, parameters in enumerate(self.test_method.func.parameterized_list):
-                def parameters_func(logger):
-                    args, kwargs = self.test_parameters_func(logger)
-                    return args+parameters, kwargs
-                parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}_{i}_'))
-                parameter_result = parameter_run.run_func(self.test_method.func)
-                parameter_result.name = str(i)
-                result.parameterized_results.append(parameter_result)
+                    result.parameterized_results.append(parameter_result)
         else:
             logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
             try:
