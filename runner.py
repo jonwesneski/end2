@@ -52,7 +52,7 @@ class Run:
 
     @staticmethod
     def _create_default_parameters(logger):
-        return [logger], {}
+        return (logger,), {}
 
 
 class TestMethodRun(Run):
@@ -68,10 +68,19 @@ class TestMethodRun(Run):
         if setup is None or setup.status == Status.PASSED:
             result = self.run()
         else:
-            result = TestMethodResult(self.test_method.name, setup, Status.SKIPPED).end()
+            result = TestMethodResult(self.test_method.name, setup, Status.SKIPPED)
+            parameterized_results = []
+            if hasattr(self.test_method.func, 'parallel_parameterized_list'):
+                for i in range(len(self.test_method.func.parallel_parameterized_list)):
+                    parameterized_results.append(Result(str(i), status=Status.SKIPPED))
+            elif hasattr(self.test_method.func, 'parameterized_list'):
+                for i in range(len(self.test_method.func.parameterized_list)):
+                    parameterized_results.append(Result(str(i), status=Status.SKIPPED))
+            result.parameterized_results = parameterized_results
         self.log_manager.test_run_logger.info(f'{result.status}: {self.module_name}::{self.test_method.name}')
         result.setup = setup
         result.teardown = self.teardown()
+        result.end()
         self.log_manager.on_test_done(self.module_name, result)
         return result
 
@@ -88,7 +97,7 @@ class TestMethodRun(Run):
                 def execute(i, parameters):
                     def parameters_func(logger):
                         args, kwargs = self.test_parameters_func(logger)
-                        return args+list(parameters), kwargs
+                        return args+parameters, kwargs
                     parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}_{i}_'))
                     parameter_result = parameter_run.run_func(self.test_method.func)
                     parameter_result.name = str(i)
@@ -110,7 +119,7 @@ class TestMethodRun(Run):
             for i, parameters in enumerate(self.test_method.func.parameterized_list):
                 def parameters_func(logger):
                     args, kwargs = self.test_parameters_func(logger)
-                    return args+list(parameters), kwargs
+                    return args+parameters, kwargs
                 parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}_{i}_'))
                 parameter_result = parameter_run.run_func(self.test_method.func)
                 parameter_result.name = str(i)
@@ -129,7 +138,7 @@ class TestMethodRun(Run):
                 result.message = e
                 result.status = Status.FAILED
                 logger.error(e)
-        return result.end()
+        return result
 
     def teardown(self) -> Result:
         result = self.run_func(self.test_method.teardown_func, self.log_manager.get_teardown_test_logger(self.module_name, self.test_method.name))
@@ -150,7 +159,8 @@ class TestModuleRun(Run):
         if setup is None or setup.status == Status.PASSED:
             test_module_result = self.run(threads and self.test_module.module.__run_mode__==RunMode.PARALLEL_TEST)
         else:
-            test_module_result = TestModuleResult(self.test_module.name, status=Status.SKIPPED)
+            test_results = [TestMethodResult(test.name, status=Status.SKIPPED) for test in self.test_module.tests]
+            test_module_result = TestModuleResult(self.test_module.name, test_results=test_results, status=Status.SKIPPED)
         test_module_result.setup = setup
         test_module_result.teardown = self.teardown()
         test_module_result.end()
@@ -201,8 +211,8 @@ class TestSuiteRun:
         self.suite_results = TestSuiteResult(self.name)
         try:
             if threads:
-                for s in self.sequential_modules:
-                    self.suite_results.test_modules.append(s.execute(threads=False))
+                for module in self.sequential_modules:
+                    self.suite_results.test_modules.append(module.execute(threads=False))
                 with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                     future_results = {executor.submit(module.execute, threads): module for module in self.parallel_modules}
                     for future_result in concurrent.futures.as_completed(future_results):
@@ -215,8 +225,8 @@ class TestSuiteRun:
                         except Exception as exc:
                             self.logger.error(exc)
             else:
-                for s in self.sequential_modules + self.parallel_modules:
-                    self.suite_results.test_modules.append(s.execute(threads=False))
+                for module in self.sequential_modules + self.parallel_modules:
+                    self.suite_results.test_modules.append(module.execute(threads=False))
         except StopTestRunException as stre:
             self.logger.error(stre)
         except Exception:
