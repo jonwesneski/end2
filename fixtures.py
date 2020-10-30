@@ -34,7 +34,7 @@ def teardown(func):
     return wrapper
 
 
-def parameterize(parameters_list, first_arg_is_name=False):
+def parameterize(parameters_list, first_arg_is_name: bool = False):
     def wrapper(func):
         if first_arg_is_name:
             func.names = [f'{func.__name__} {i} {args[0]}' for i, args in enumerate(parameters_list, start=1)]
@@ -46,7 +46,7 @@ def parameterize(parameters_list, first_arg_is_name=False):
     return wrapper
 
 
-def parallel_parameterize(parameters_list, first_arg_is_name=False):
+def parallel_parameterize(parameters_list: list, first_arg_is_name: bool = False):
     def wrapper(func):
         if first_arg_is_name:
             func.names = [f'{func.__name__} {i} {args[0]}' for i, args in enumerate(parameters_list, start=1)]
