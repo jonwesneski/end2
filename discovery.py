@@ -167,3 +167,12 @@ def _recursive_discover(path: str, test_filters: list) -> tuple:
         elif failed_import:
             failed_imports.add(failed_import)
     return modules, failed_imports
+
+
+def _parse_suite_strings(suite_strings: list):
+    default=['tests.smoke.!ignored_module,sample1::test_ignored_test;test_2']
+    default2=['tests.smoke.ignored_module,sample1::!test_ignored_test;test_2']
+    default3=['tests.smoke.!ignored_module,sample1', 'tests.regression']
+    default3=['tests.regression.sample4::test_11[0]']
+    ignored_modules = ['tests.smoke.!ignored_module']
+    importable_modules = [('tests.smoke.ignored_module,sample1',['test_ignored_test','test_2'])]
