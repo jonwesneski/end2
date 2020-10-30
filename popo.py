@@ -37,6 +37,10 @@ class Result:
         self.duration = None
         self.status = status
         self.message = message
+        self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
+
+    def __str__(self):
+        return f'{self.name} Results: {{Total: {self.passed_count+self.failed_count+self.skipped_count} | Passed: {self.passed_count} | Failed: {self.failed_count} | Skipped: {self.skipped_count} | Duration: {self.duration}}}'
 
     @property
     def end_time(self):
@@ -60,7 +64,6 @@ class TestMethodResult(Result):
         self.setup = setup
         self.teardown = teardown
         self.parameterized_results = []
-        self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
 
     def end(self, status: str = None):
         super().end(status)
@@ -83,10 +86,6 @@ class TestModuleResult(Result):
         self.setup = setup
         self.teardown = teardown
         self.test_results = test_results if test_results else []
-        self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
-
-    def __str__(self):
-        return f'{{Total: {self.passed_count+self.failed_count+self.skipped_count} | Passed: {self.passed_count} | Failed: {self.failed_count} | Skipped: {self.skipped_count} | Duration: {self.duration}}}'
 
     def end(self, status: str = None):
         super().end(status)
@@ -106,7 +105,7 @@ class TestModuleResult(Result):
                         self.failed_count += 1
                     elif result.status == Status.SKIPPED:
                         self.skipped_count += 1
-            self.status = Status.PASSED if len(self.test_results) == self.passed_count else Status.FAILED
+            self.status = Status.PASSED if self.passed_count > 0 and self.failed_count == 0 and self.skipped_count == 0 else Status.FAILED
         return self
 
 
@@ -114,13 +113,10 @@ class TestSuiteResult(Result):
     def __init__(self, name: str, test_modules: list = None, status: str = None, message: str = None):
         super().__init__(name, status, message)
         self.test_modules = test_modules if test_modules else []
-        self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
-
-    def __str__(self):
-        return f'{self.name} Results: {{Total: {self.passed_count+self.failed_count+self.skipped_count} | Passed: {self.passed_count} | Failed: {self.failed_count} | Skipped: {self.skipped_count} | Duration: {self.duration}}}'
 
     def end(self, status: str = None):
         super().end(status)
+        self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
         for result in self.test_modules:
             self.passed_count += result.passed_count
             self.failed_count += result.failed_count

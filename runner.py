@@ -76,7 +76,7 @@ class TestMethodRun(Run):
         return result
 
     def setup(self) -> Result:
-        result = self.run_func(self.test_method.setup_func, self.log_manager.get_setup_logger(self.module_name))
+        result = self.run_func(self.test_method.setup_func, self.log_manager.get_setup_test_logger(self.module_name, self.test_method.name))
         if result:
             self.log_manager.on_setup_test_done(self.module_name, self.test_method.name, result)
         return result
@@ -99,7 +99,8 @@ class TestMethodRun(Run):
                         parameter_result = future_result.result()
                         if parameter_result:
                             result.parameterized_results.append(parameter_result)
-                            if self.stop_run and result.parameterized_results[-1].status == Status.FAILED:
+                            #if self.stop_run and result.parameterized_results[-1].status == Status.FAILED:
+                            if result.parameterized_results[-1].status == Status.FAILED:
                                 raise StopTestRunException(result.parameterized_results[-1].message)
                     except StopTestRunException:
                         raise
@@ -131,7 +132,7 @@ class TestMethodRun(Run):
         return result.end()
 
     def teardown(self) -> Result:
-        result = self.run_func(self.test_method.teardown_func, self.log_manager.get_teardown_logger(self.module_name))
+        result = self.run_func(self.test_method.teardown_func, self.log_manager.get_teardown_test_logger(self.module_name, self.test_method.name))
         if result:
             self.log_manager.on_teardown_test_done(self.module_name, self.test_method.name, result)
         return result

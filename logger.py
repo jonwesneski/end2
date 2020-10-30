@@ -106,6 +106,9 @@ def get_log_handler_level(logger, handler_type):
 
 
 class LogManager:
+    """
+    Used to manage logs: How many log history folders to keep and how to organize the log folders/files inside.
+    """
     def __init__(self, run_logger_name: str = 'test_run', base: str = FOLDER, stream_level: int = logging.INFO):
         self.run_logger_name = run_logger_name
         self.folder = os.path.join(base, datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
