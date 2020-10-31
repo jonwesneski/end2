@@ -32,7 +32,8 @@ if __name__ == '__main__':
     logger.addHandler(stream_handler)
     run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, logger)
     print(failed_imports, ignored_modules)
-    print(run_instance.execute(False))
+    test_suite_result = run_instance.execute(False)
+    print(test_suite_result)
     # logger = create_full_logger('test_run', stream_level=logging.INFO, file_level=logging.DEBUG)
     # run_instance = create_test_run_instance(['tests'],
     #                                         logger=logger,

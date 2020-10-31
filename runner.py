@@ -155,7 +155,7 @@ class TestMethodRun(Run):
         if setup is None or setup.status == Status.PASSED:
             result = self.run()
         else:
-            result = TestMethodResult(self.test_method.name, setup, Status.SKIPPED)
+            result = TestMethodResult(self.test_method.name, setup, status=Status.SKIPPED)
             parameterized_results = []
             if hasattr(self.test_method.func, 'parameterized_list'):
                 for i in range(len(self.test_method.func.parallel_parameterized_list)):
