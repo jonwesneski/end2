@@ -17,9 +17,9 @@ if __name__ == '__main__':
     from test_framework.runner import TestModuleRun
 
     parser = argparse.ArgumentParser()
-    default=['tests.smoke.!ignored_module,sample1::test_ignored_test;test_2']
-    default2=['tests.smoke.ignored_module,sample1::!test_ignored_test;test_2']
-    default3=['tests.smoke.!ignored_module,sample1', 'tests.regression']
+    default=['tests.smoke.!ignored_module;sample1::test_ignored_test,test_2']
+    default2=['tests.smoke.!ignored_module']
+    default3=['tests.smoke.sample1', 'tests.regression']
     default3=['tests.regression.sample4::test_11[0]']
     parser.add_argument('--suites', nargs='*', default=default3)
 
