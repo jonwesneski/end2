@@ -21,6 +21,7 @@ def discover_tests(module, test_filters: list) -> tuple:
     >>> tests, ignored_tests = discover_tests(sample1, ['!test_ignored_test', 'test_1', 'test_2'])
     >>> assert len(tests) == 2 and 'test_ignored_test' in ignored_tests
     """
+    print(test_filters)
     tests, ignored_tests = [], []
     if inspect.ismodule(module):
         setup = get_fixture(module, 'setup_test')
@@ -28,15 +29,19 @@ def discover_tests(module, test_filters: list) -> tuple:
         for name in dir(module):
             attribute = getattr(module, name)
             if type(attribute) is FUNCTION_TYPE and name.startswith('test_'):
-                if test_filters and (f'!{name}' in test_filters or name not in test_filters):
+                if f'!{name}' in test_filters:
                     ignored_tests.append(name)
-                else:
-                    if hasattr(attribute, 'parameterized_list'):
-                        for test_filter in test_filters:
-                            if name in test_filter:
+                elif test_filters:
+                    for test_filter in test_filters:
+                        if name == test_filter.split('[')[0]:
+                            if '[' in test_filter and hasattr(attribute, 'parameterized_list'):
                                 slice_ = _filter_parameterized_list(test_filter)
                                 attribute.parameterized_list = tuple(attribute.parameterized_list[slice_])
+                                tests.append(TestMethod(setup, attribute, teardown))
                                 break
+                            else:
+                                tests.append(TestMethod(setup, attribute, teardown))
+                else:
                     tests.append(TestMethod(setup, attribute, teardown))
         shuffle(tests)
     return tests, ignored_tests

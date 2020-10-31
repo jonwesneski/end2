@@ -24,7 +24,7 @@ if __name__ == '__main__':
     parser.add_argument('--suites', nargs='*', default=default3)
 
     args = parser.parse_args()
-    print(args.suites)
+    #print(args.suites)
     logger = logging.getLogger('bananaman')
     logger.setLevel(logging.DEBUG)
     stream_handler = logging.StreamHandler(sys.stdout)
@@ -32,8 +32,6 @@ if __name__ == '__main__':
     logger.addHandler(stream_handler)
     run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, logger)
     print(failed_imports)
-    print(run_instance.sequential_modules)
-    print(run_instance.parallel_modules)
     a = run_instance.execute(False)
     print(a)
     # logger = create_full_logger('test_run', stream_level=logging.INFO, file_level=logging.DEBUG)
