@@ -26,7 +26,6 @@ def create_test_suite_instance(suite_paths: list, logger=None, stop_on_first_fai
     return TestSuiteRun(f"\"{' '.join(suite_paths)}\"", sequential_module_runs, parallel_module_runs, logger), ignored_modules, failed_imports
 
 
-
 class Run:
     def __init__(self, test_parameters_func=None, logger=None):
         self.test_parameters_func = test_parameters_func or Run._create_default_parameters
@@ -53,6 +52,94 @@ class Run:
     @staticmethod
     def _create_default_parameters(logger):
         return (logger,), {}
+
+
+class TestSuiteRun:
+    def __init__(self, name: str, sequential_modules: tuple, parallel_modules: tuple, logger=None):
+        self.name = name
+        self.sequential_modules = sequential_modules
+        self.parallel_modules = parallel_modules
+        self.suite_results = None
+        self.logger = logger or logging.getLogger()
+
+    def execute(self, threads: bool):
+        self.suite_results = TestSuiteResult(self.name)
+        try:
+            if threads:
+                for module in self.sequential_modules:
+                    self.suite_results.test_modules.append(module.execute(threads=False))
+                with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                    future_results = {executor.submit(module.execute, threads): module for module in self.parallel_modules}
+                    for future_result in concurrent.futures.as_completed(future_results):
+                        try:
+                            test_module_result = future_result.result()
+                            if test_module_result:
+                                self.suite_results.test_modules.append(test_module_result)
+                        except StopTestRunException:
+                            raise
+                        except Exception as exc:
+                            self.logger.error(exc)
+            else:
+                for module in self.sequential_modules + self.parallel_modules:
+                    self.suite_results.test_modules.append(module.execute(threads=False))
+        except StopTestRunException as stre:
+            self.logger.error(stre)
+        except Exception:
+            self.logger.error(traceback.format_exc())
+        self.suite_results.end()
+        return self.suite_results
+
+
+class TestModuleRun(Run):
+    def __init__(self, test_module: TestModule, stop_run: bool, log_manager: LogManager, test_parameters_func=None):
+        super().__init__(test_parameters_func)
+        self.test_module = test_module
+        self.stop_run = stop_run
+        self.log_manager = log_manager
+
+    def execute(self, threads: bool) -> TestModuleResult:
+        setup = self.setup()
+        if setup is None or setup.status == Status.PASSED:
+            test_module_result = self.run(threads and self.test_module.module.__run_mode__==RunMode.PARALLEL_TEST)
+        else:
+            test_results = [TestMethodResult(test.name, status=Status.SKIPPED) for test in self.test_module.tests]
+            test_module_result = TestModuleResult(self.test_module.name, test_results=test_results, status=Status.SKIPPED)
+        test_module_result.setup = setup
+        test_module_result.teardown = self.teardown()
+        test_module_result.end()
+        self.log_manager.on_module_done(test_module_result)
+        return test_module_result
+
+    def setup(self) -> Result:
+        logger = None if not self.test_module.setup else self.log_manager.get_setup_logger(self.test_module.name)
+        return self.run_func(self.test_module.setup, logger)
+
+    def run(self, threads: bool) -> TestModuleResult:
+        test_module_result = TestModuleResult(self.test_module.name)
+        if threads:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                future_results = {executor.submit(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute): test for test in self.test_module.tests}
+                for future_result in concurrent.futures.as_completed(future_results):
+                    try:
+                        test_result = future_result.result()
+                        if test_result:
+                            test_module_result.test_results.append(test_result)
+                            if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
+                                raise StopTestRunException(test_module_result.test_results[-1].message)
+                    except StopTestRunException:
+                        raise
+                    except Exception:
+                        self.logger.error(traceback.format_exc())
+        else:
+            for test in self.test_module.tests:
+                test_module_result.test_results.append(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute())
+                if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
+                    raise StopTestRunException(test_module_result.test_results[-1].message)
+        return test_module_result
+
+    def teardown(self) -> Result:
+        logger = None if not self.test_module.teardown else self.log_manager.get_teardown_logger(self.test_module.name)
+        return self.run_func(self.test_module.teardown, logger)
 
 
 class TestMethodRun(Run):
@@ -143,91 +230,3 @@ class TestMethodRun(Run):
         if result:
             self.log_manager.on_teardown_test_done(self.module_name, self.test_method.name, result)
         return result
-
-
-class TestModuleRun(Run):
-    def __init__(self, test_module: TestModule, stop_run: bool, log_manager: LogManager, test_parameters_func=None):
-        super().__init__(test_parameters_func)
-        self.test_module = test_module
-        self.stop_run = stop_run
-        self.log_manager = log_manager
-
-    def execute(self, threads: bool) -> TestModuleResult:
-        setup = self.setup()
-        if setup is None or setup.status == Status.PASSED:
-            test_module_result = self.run(threads and self.test_module.module.__run_mode__==RunMode.PARALLEL_TEST)
-        else:
-            test_results = [TestMethodResult(test.name, status=Status.SKIPPED) for test in self.test_module.tests]
-            test_module_result = TestModuleResult(self.test_module.name, test_results=test_results, status=Status.SKIPPED)
-        test_module_result.setup = setup
-        test_module_result.teardown = self.teardown()
-        test_module_result.end()
-        self.log_manager.on_module_done(test_module_result)
-        return test_module_result
-
-    def setup(self) -> Result:
-        logger = None if not self.test_module.setup else self.log_manager.get_setup_logger(self.test_module.name)
-        return self.run_func(self.test_module.setup, logger)
-
-    def run(self, threads: bool) -> TestModuleResult:
-        test_module_result = TestModuleResult(self.test_module.name)
-        if threads:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-                future_results = {executor.submit(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute): test for test in self.test_module.tests}
-                for future_result in concurrent.futures.as_completed(future_results):
-                    try:
-                        test_result = future_result.result()
-                        if test_result:
-                            test_module_result.test_results.append(test_result)
-                            if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
-                                raise StopTestRunException(test_module_result.test_results[-1].message)
-                    except StopTestRunException:
-                        raise
-                    except Exception:
-                        self.logger.error(traceback.format_exc())
-        else:
-            for test in self.test_module.tests:
-                test_module_result.test_results.append(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute())
-                if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
-                    raise StopTestRunException(test_module_result.test_results[-1].message)
-        return test_module_result
-
-    def teardown(self) -> Result:
-        logger = None if not self.test_module.teardown else self.log_manager.get_teardown_logger(self.test_module.name)
-        return self.run_func(self.test_module.teardown, logger)
-
-
-class TestSuiteRun:
-    def __init__(self, name: str, sequential_modules: tuple, parallel_modules: tuple, logger=None):
-        self.name = name
-        self.sequential_modules = sequential_modules
-        self.parallel_modules = parallel_modules
-        self.suite_results = None
-        self.logger = logger or logging.getLogger()
-
-    def execute(self, threads: bool):
-        self.suite_results = TestSuiteResult(self.name)
-        try:
-            if threads:
-                for module in self.sequential_modules:
-                    self.suite_results.test_modules.append(module.execute(threads=False))
-                with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-                    future_results = {executor.submit(module.execute, threads): module for module in self.parallel_modules}
-                    for future_result in concurrent.futures.as_completed(future_results):
-                        try:
-                            test_module_result = future_result.result()
-                            if test_module_result:
-                                self.suite_results.test_modules.append(test_module_result)
-                        except StopTestRunException:
-                            raise
-                        except Exception as exc:
-                            self.logger.error(exc)
-            else:
-                for module in self.sequential_modules + self.parallel_modules:
-                    self.suite_results.test_modules.append(module.execute(threads=False))
-        except StopTestRunException as stre:
-            self.logger.error(stre)
-        except Exception:
-            self.logger.error(traceback.format_exc())
-        self.suite_results.end()
-        return self.suite_results

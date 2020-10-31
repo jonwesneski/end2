@@ -13,91 +13,6 @@ from test_framework.popo import TestMethod, TestModule
 FUNCTION_TYPE = type(lambda: None)
 
 
-def discover_tests(module, test_filters: list) -> tuple:
-    """
-    >>> from test_framework.examples.tests.smoke import sample1
-    >>> tests, ignored_tests = discover_tests(sample1, [])
-    >>> assert tests and ignored_tests == []
-    >>> tests, ignored_tests = discover_tests(sample1, ['!test_ignored_test', 'test_1', 'test_2'])
-    >>> assert len(tests) == 2 and 'test_ignored_test' in ignored_tests
-    """
-    tests, ignored_tests = [], []
-    if inspect.ismodule(module):
-        setup = get_fixture(module, 'setup_test')
-        teardown = get_fixture(module, 'teardown_test')
-        for name in dir(module):
-            attribute = getattr(module, name)
-            if type(attribute) is FUNCTION_TYPE and name.startswith('test_'):
-                if f'!{name}' in test_filters:
-                    ignored_tests.append(name)
-                elif test_filters:
-                    for test_filter in test_filters:
-                        if name == test_filter.split('[')[0]:
-                            if '[' in test_filter and hasattr(attribute, 'parameterized_list'):
-                                slice_ = _filter_parameterized_list(test_filter)
-                                attribute.parameterized_list = tuple(attribute.parameterized_list[slice_])
-                                tests.append(TestMethod(setup, attribute, teardown))
-                                break
-                            else:
-                                tests.append(TestMethod(setup, attribute, teardown))
-                else:
-                    tests.append(TestMethod(setup, attribute, teardown))
-        shuffle(tests)
-    return tests, ignored_tests
-
-
-def _filter_parameterized_list(test_name: str) -> int or slice:
-    """
-    >>> x = [1, 2, 3]
-    >>> assert x[_filter_parameterized_list('test_1[0]')] == x[0:1]
-    >>> assert x[_filter_parameterized_list('test_1[-1:]')] == x[-1:]
-    >>> assert x[_filter_parameterized_list('test_1[:-1]')] == x[:-1]
-    >>> assert x[_filter_parameterized_list('test_1[::-1]')] == x[::-1]
-    >>> assert x[_filter_parameterized_list('test_1[1:1:1]')] == x[1:1:1]
-    >>> assert _filter_parameterized_list('test_1[]') == None
-    >>> assert _filter_parameterized_list('test_1[') == None
-    >>> assert _filter_parameterized_list('test_1]') == None
-    >>> assert _filter_parameterized_list('test_1') == None
-    """
-    index = test_name.find('[') + 1
-    value = None
-    if index and test_name[-1] == ']' and test_name[index:-1]:
-        if ':' in test_name[index:-1]:
-            segments = test_name[index:-1].split(':')
-            slice_ = [None, None, None]
-            for i in range(len(segments)):
-                if segments[i]:
-                    slice_[i] = int(segments[i])
-            value = slice(*slice_)
-        else:
-            int_ = int(test_name[index:-1])
-            value = slice(int_,int_+1)
-    return value
-
-
-def discover_module(module_path: str, test_filters: list) -> tuple:
-    """
-    >>> module, error_str = discover_module('test_framework.examples.tests.smoke.sample1', [])
-    >>> assert module and error_str == ''
-    >>> module, error_str = discover_module('test_framework.examples.tests.dont_exist', [])
-    >>> assert module is None and error_str
-    """
-    module_path_ = module_path.replace(os.sep, ".").replace(".py", "")
-    test_module, error_str = None, ''
-    try:
-        module = importlib.import_module(module_path_)
-        tests, ignored_tests = discover_tests(module, test_filters)
-        test_module = TestModule(module, tests, ignored_tests)
-    except ModuleNotFoundError as me:
-        if me.name == module_path_:
-            error_str = f"Module doesn't exist - {module_path_}"
-        else:
-            error_str = f"Failed to load {module_path_} - {me}"
-    except Exception as e:
-            error_str = f'Failed to load {module_path_} - {e}'
-    return test_module, error_str
-
-
 def discover_suites(suite_paths: list) -> tuple:
     """
     >>> sequential, parallel, ignored, failed = discover_suites(['test_framework.examples.tests.smoke.!ignored_module,sample1', 'test_framework.examples.tests.regression'])
@@ -213,3 +128,88 @@ def _recursive_discover(path: str, ignored_paths: list, test_filters: list) -> t
             elif failed_import:
                 failed_imports.add(failed_import)
     return modules, failed_imports
+
+
+def discover_module(module_path: str, test_filters: list) -> tuple:
+    """
+    >>> module, error_str = discover_module('test_framework.examples.tests.smoke.sample1', [])
+    >>> assert module and error_str == ''
+    >>> module, error_str = discover_module('test_framework.examples.tests.dont_exist', [])
+    >>> assert module is None and error_str
+    """
+    module_path_ = module_path.replace(os.sep, ".").replace(".py", "")
+    test_module, error_str = None, ''
+    try:
+        module = importlib.import_module(module_path_)
+        tests, ignored_tests = discover_tests(module, test_filters)
+        test_module = TestModule(module, tests, ignored_tests)
+    except ModuleNotFoundError as me:
+        if me.name == module_path_:
+            error_str = f"Module doesn't exist - {module_path_}"
+        else:
+            error_str = f"Failed to load {module_path_} - {me}"
+    except Exception as e:
+            error_str = f'Failed to load {module_path_} - {e}'
+    return test_module, error_str
+
+
+def discover_tests(module, test_filters: list) -> tuple:
+    """
+    >>> from test_framework.examples.tests.smoke import sample1
+    >>> tests, ignored_tests = discover_tests(sample1, [])
+    >>> assert tests and ignored_tests == []
+    >>> tests, ignored_tests = discover_tests(sample1, ['!test_ignored_test', 'test_1', 'test_2'])
+    >>> assert len(tests) == 2 and 'test_ignored_test' in ignored_tests
+    """
+    tests, ignored_tests = [], []
+    if inspect.ismodule(module):
+        setup = get_fixture(module, 'setup_test')
+        teardown = get_fixture(module, 'teardown_test')
+        for name in dir(module):
+            attribute = getattr(module, name)
+            if type(attribute) is FUNCTION_TYPE and name.startswith('test_'):
+                if f'!{name}' in test_filters:
+                    ignored_tests.append(name)
+                elif test_filters:
+                    for test_filter in test_filters:
+                        if name == test_filter.split('[')[0]:
+                            if '[' in test_filter and hasattr(attribute, 'parameterized_list'):
+                                slice_ = _filter_parameterized_list(test_filter)
+                                attribute.parameterized_list = tuple(attribute.parameterized_list[slice_])
+                                tests.append(TestMethod(setup, attribute, teardown))
+                                break
+                            else:
+                                tests.append(TestMethod(setup, attribute, teardown))
+                else:
+                    tests.append(TestMethod(setup, attribute, teardown))
+        shuffle(tests)
+    return tests, ignored_tests
+
+
+def _filter_parameterized_list(test_name: str) -> int or slice:
+    """
+    >>> x = [1, 2, 3]
+    >>> assert x[_filter_parameterized_list('test_1[0]')] == x[0:1]
+    >>> assert x[_filter_parameterized_list('test_1[-1:]')] == x[-1:]
+    >>> assert x[_filter_parameterized_list('test_1[:-1]')] == x[:-1]
+    >>> assert x[_filter_parameterized_list('test_1[::-1]')] == x[::-1]
+    >>> assert x[_filter_parameterized_list('test_1[1:1:1]')] == x[1:1:1]
+    >>> assert _filter_parameterized_list('test_1[]') == None
+    >>> assert _filter_parameterized_list('test_1[') == None
+    >>> assert _filter_parameterized_list('test_1]') == None
+    >>> assert _filter_parameterized_list('test_1') == None
+    """
+    index = test_name.find('[') + 1
+    value = None
+    if index and test_name[-1] == ']' and test_name[index:-1]:
+        if ':' in test_name[index:-1]:
+            segments = test_name[index:-1].split(':')
+            slice_ = [None, None, None]
+            for i in range(len(segments)):
+                if segments[i]:
+                    slice_[i] = int(segments[i])
+            value = slice(*slice_)
+        else:
+            int_ = int(test_name[index:-1])
+            value = slice(int_,int_+1)
+    return value
