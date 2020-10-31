@@ -167,12 +167,19 @@ class LogManager:
         self.test_run_logger.info(f'{test_method_result.status}: {module_name}::{test_method_result.name}')
         self.test_run_logger.info(self._test_separator)
         logger = logging.getLogger(f'{module_name}.{test_method_result.name}')
+        self._flush_log_memory_handler(logger)
         if test_method_result.status == Status.FAILED:
             for handler in logger.handlers:
                 if isinstance(handler, logging.FileHandler):
                     handler.close()
                     base_name = os.path.basename(handler.baseFilename)
                     os.rename(handler.baseFilename, os.path.join(self.folder, f'{Status.FAILED.upper()}_{module_name}.{base_name}'))
+
+    def _flush_log_memory_handler(self, logger):
+        for handler in logger.handlers:
+            if isinstance(handler, ManualFlushHandler):
+                handler.flush()
+                #handler.close()
 
     def on_parameterized_test_done(self, module_name: str, test_name: str, parameter_result: Result):
         # logger = logging.getLogger(f'{module_name}.setup')
