@@ -20,8 +20,8 @@ if __name__ == '__main__':
     default=['tests.smoke.!ignored_module;sample1::test_ignored_test,test_2']
     default2=['tests.smoke.!ignored_module']
     default3=['tests.smoke.sample1', 'tests.regression']
-    default3=['tests.regression.sample4::test_11[0]']
-    parser.add_argument('--suites', nargs='*', default=default3)
+    default4=['tests.regression.sample4::test_11[0]']
+    parser.add_argument('--suites', nargs='*', default=default2)
 
     args = parser.parse_args()
     #print(args.suites)
@@ -31,9 +31,8 @@ if __name__ == '__main__':
     stream_handler.setLevel(logging.DEBUG)
     logger.addHandler(stream_handler)
     run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, logger)
-    print(failed_imports)
-    a = run_instance.execute(False)
-    print(a)
+    print(failed_imports, ignored_modules)
+    print(run_instance.execute(False))
     # logger = create_full_logger('test_run', stream_level=logging.INFO, file_level=logging.DEBUG)
     # run_instance = create_test_run_instance(['tests'],
     #                                         logger=logger,

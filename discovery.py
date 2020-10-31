@@ -21,7 +21,6 @@ def discover_tests(module, test_filters: list) -> tuple:
     >>> tests, ignored_tests = discover_tests(sample1, ['!test_ignored_test', 'test_1', 'test_2'])
     >>> assert len(tests) == 2 and 'test_ignored_test' in ignored_tests
     """
-    print(test_filters)
     tests, ignored_tests = [], []
     if inspect.ismodule(module):
         setup = get_fixture(module, 'setup_test')
@@ -196,15 +195,13 @@ def _recursive_discover(path: str, ignored_paths: list, test_filters: list) -> t
                 for item in os.listdir(path):
                     full_path = os.path.join(path, item)
                     if os.path.isdir(full_path) and os.path.basename(full_path) != '__pycache__':
-                        modules_, failed_import_ = _recursive_discover(full_path, test_filters)
+                        modules_, failed_import_ = _recursive_discover(full_path, ignored_paths, test_filters)
                         modules |= modules_
                         failed_imports |= failed_import_
-                    elif item.endswith('.py') and item != '__init__.py':
-                            module, failed_import = discover_module(f'{path}.{item}', test_filters)
-                            if module:
-                                modules.add(module)
-                            elif failed_import:
-                                failed_imports.add(failed_import)
+                    elif item.endswith('.py') and item != '__init__.py' and full_path.replace('.py', '') not in ignored_paths:
+                        modules_, failed_import_ = _recursive_discover(full_path, ignored_paths, test_filters)
+                        modules |= modules_
+                        failed_imports |= failed_import_
             else:
                 module, failed_import = discover_module(path, test_filters)
                 modules.add(module)

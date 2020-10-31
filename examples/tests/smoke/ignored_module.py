@@ -6,4 +6,4 @@ __run_mode__ = RunMode.PARALLEL
 
 
 def test_1(logger):
-    assert False, "I SHOULD NOT RUN BECAUSE MODULE IS IGNORED"
+    assert False, "I SHOULD NOT RUN BECAUSE THIS MODULE SHOULD BE IGNORED"
