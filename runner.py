@@ -161,7 +161,6 @@ class TestMethodRun(Run):
                 for i in range(len(self.test_method.func.parallel_parameterized_list)):
                     parameterized_results.append(Result(str(i), status=Status.SKIPPED))
             result.parameterized_results = parameterized_results
-        self.log_manager.test_run_logger.info(f'{result.status}: {self.module_name}::{self.test_method.name}')
         result.setup = setup
         result.teardown = self.teardown()
         result.end()
