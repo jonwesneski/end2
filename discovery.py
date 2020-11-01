@@ -119,8 +119,10 @@ def _recursive_discover(path: str, ignored_paths: list, test_filters: list) -> t
                         failed_imports |= failed_import_
             else:
                 module, failed_import = discover_module(path, test_filters)
-                modules.add(module)
-                failed_imports.add(failed_import)
+                if module:
+                    modules.add(module)
+                if failed_import:
+                    failed_imports.add(failed_import)
         else:
             module, failed_import = discover_module(path, test_filters)
             if module:
@@ -198,6 +200,42 @@ def _filter_parameterized_list(test_name: str) -> int or slice:
     >>> assert _filter_parameterized_list('test_1[') == None
     >>> assert _filter_parameterized_list('test_1]') == None
     >>> assert _filter_parameterized_list('test_1') == None
+    """
+    index = test_name.find('[') + 1
+    value = None
+    if index and test_name[-1] == ']' and test_name[index:-1]:
+        if ':' in test_name[index:-1]:
+            segments = test_name[index:-1].split(':')
+            slice_ = [None, None, None]
+            for i in range(len(segments)):
+                if segments[i]:
+                    slice_[i] = int(segments[i])
+            value = slice(*slice_)
+        else:
+            int_ = int(test_name[index:-1])
+            value = slice(int_,int_+1)
+    return value
+
+
+# TODO: replace old method with this one. This way we can keep the true index of the parameterized test
+def _filter_parameterized_list2(test_name: str, parameterized_list: list) -> range:
+    """
+    x = [1, 2, 3, 4, 5, 6, 7, 8]
+    >>> _filter_parameterized_list('test_1[0]', x)
+    range(0, 1)
+    >>> _filter_parameterized_list('test_1[-1:]', x)
+    range(-1, 0)
+    >>> _filter_parameterized_list('test_1[:-1]', x)
+
+    >>> _filter_parameterized_list('test_1', x)
+    range(len(x))
+    >>> _filter_parameterized_list('test_1[::-1]', x)
+
+    >>> _filter_parameterized_list('test_1[1:1:1]', x)
+
+    >>> _filter_parameterized_list('test_1[]', x)
+    >>> _filter_parameterized_list('test_1[', x)
+    >>> _filter_parameterized_list('test_1]', x)
     """
     index = test_name.find('[') + 1
     value = None

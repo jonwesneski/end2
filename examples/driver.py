@@ -8,7 +8,15 @@ sys.path.insert(0, os.path.join(os.getcwd(), '..'))
 from test_framework.logger import create_full_logger
 from test_framework.runner import create_test_suite_instance
 
-
+a = [1, 2, 3, 4, 5, 6, 7, 8]
+print(a[-1:], [a[x] for x in range(-1, 0)])
+print(a[:-1], [a[x] for x in range(0, len(a)-1)])
+print(a[:5], [a[x] for x in range(0, 5)])
+print(a[2:], [a[x] for x in range(2, len(a))])
+print(a[2:5], [a[x] for x in range(2, 5)])
+print(a[2:7:2], [x for x in range(2, 7, 2)])
+print(range(2, 7, 2) == range(2, 7, 2))
+exit()
 if __name__ == '__main__':
     # Must run from inside examples folder
     import argparse
@@ -21,7 +29,7 @@ if __name__ == '__main__':
     default2=['tests.smoke.!ignored_module']
     default3=['tests.smoke.sample1', 'tests.regression']
     default4=['tests.regression.sample4::test_11[0]']
-    parser.add_argument('--suites', nargs='*', default=default2)
+    parser.add_argument('--suites', nargs='*', default=default3)
 
     args = parser.parse_args()
     #print(args.suites)

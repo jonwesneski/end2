@@ -182,7 +182,7 @@ class TestMethodRun(Run):
                         def parameters_func(logger):
                             args, kwargs = self.test_parameters_func(logger)
                             return args+parameters, kwargs
-                        parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}_{i}_'))
+                        parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}[{i}]'))
                         parameter_result = parameter_run.run_func(self.test_method.func)
                         parameter_result.name = str(i)
                         return parameter_result
@@ -200,11 +200,11 @@ class TestMethodRun(Run):
                         except Exception:
                             self.logger.error(traceback.format_exc())
             else:
-                for i, parameters in enumerate(self.test_method.func.parameterized_list):
+                for i, parameters in enumerate(self.test_method.func.parameterized_list, start=1):
                     def parameters_func(logger):
                         args, kwargs = self.test_parameters_func(logger)
                         return args+parameters, kwargs
-                    parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}_{i}_'))
+                    parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}[{i}]'))
                     parameter_result = parameter_run.run_func(self.test_method.func)
                     parameter_result.name = str(i)
                     result.parameterized_results.append(parameter_result)
