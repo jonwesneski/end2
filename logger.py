@@ -164,8 +164,7 @@ class LogManager:
             logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG))
 
     def on_test_done(self, module_name: str, test_method_result: TestMethodResult):
-        self.test_run_logger.info(f'{test_method_result.status}: {module_name}::{test_method_result.name}')
-        self.test_run_logger.info(self._test_separator)
+        self.test_run_logger.info(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_separator}')
         logger = logging.getLogger(f'{module_name}.{test_method_result.name}')
         self._flush_log_memory_handler(logger)
         if test_method_result.status == Status.FAILED:
@@ -198,7 +197,7 @@ class LogManager:
         pass
 
     def on_module_done(self, test_module_result: TestModuleResult):
-        self.test_run_logger.info(self._module_separator)
+        self.test_run_logger.info(f'{test_module_result}{self._module_separator}')
         if test_module_result.status in [Status.PASSED, Status.SKIPPED]:
             for test_result in test_module_result.test_results:
                 LogManager._close_file_handlers(logging.getLogger(f'{test_module_result.name}.{test_result.name}'))

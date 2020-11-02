@@ -158,7 +158,7 @@ class TestMethodRun(Run):
             result = TestMethodResult(self.test_method.name, setup, status=Status.SKIPPED)
             parameterized_results = []
             if hasattr(self.test_method.func, 'parameterized_list'):
-                for i in range(len(self.test_method.func.parallel_parameterized_list)):
+                for i in range(len(self.test_method.func.parameterized_list)):
                     parameterized_results.append(Result(str(i), status=Status.SKIPPED))
             result.parameterized_results = parameterized_results
         result.setup = setup
@@ -178,15 +178,15 @@ class TestMethodRun(Run):
         if hasattr(self.test_method.func, 'parameterized_list'):
             if self.test_method.func.is_parallel:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-                    def execute(i, parameters):
+                    def execute(i, parameters_list):
                         def parameters_func(logger):
                             args, kwargs = self.test_parameters_func(logger)
-                            return args+parameters, kwargs
+                            return args+parameters_list[i], kwargs
                         parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}[{i}]'))
                         parameter_result = parameter_run.run_func(self.test_method.func)
                         parameter_result.name = str(i)
                         return parameter_result
-                    future_results = {executor.submit(execute, i, parameters): i for i, parameters in enumerate(self.test_method.func.parameterized_list)}
+                    future_results = {executor.submit(execute, i, self.test_method.func.parameterized_list): i for i in self.test_method.func.range}
                     for future_result in concurrent.futures.as_completed(future_results):
                         try:
                             parameter_result = future_result.result()
@@ -200,10 +200,10 @@ class TestMethodRun(Run):
                         except Exception:
                             self.logger.error(traceback.format_exc())
             else:
-                for i, parameters in enumerate(self.test_method.func.parameterized_list, start=1):
+                for i in self.test_method.func.range:
                     def parameters_func(logger):
                         args, kwargs = self.test_parameters_func(logger)
-                        return args+parameters, kwargs
+                        return args+self.test_method.func.parameterized_list[i], kwargs
                     parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}[{i}]'))
                     parameter_result = parameter_run.run_func(self.test_method.func)
                     parameter_result.name = str(i)

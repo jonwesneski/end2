@@ -174,80 +174,82 @@ def discover_tests(module, test_filters: list) -> tuple:
                     ignored_tests.append(name)
                 elif test_filters:
                     for test_filter in test_filters:
-                        if name == test_filter.split('[')[0]:
-                            if '[' in test_filter and hasattr(attribute, 'parameterized_list'):
-                                slice_ = _filter_parameterized_list(test_filter)
-                                attribute.parameterized_list = tuple(attribute.parameterized_list[slice_])
-                                tests.append(TestMethod(setup, attribute, teardown))
-                                break
-                            else:
-                                tests.append(TestMethod(setup, attribute, teardown))
+                        if hasattr(attribute, 'parameterized_list'):
+                            attribute.range = _filter_parameterized_list(test_filter, attribute.parameterized_list)
+                            tests.append(TestMethod(setup, attribute, teardown))
+                            break
+                        else:
+                            tests.append(TestMethod(setup, attribute, teardown))
                 else:
                     tests.append(TestMethod(setup, attribute, teardown))
         shuffle(tests)
     return tests, ignored_tests
 
 
-def _filter_parameterized_list(test_name: str) -> int or slice:
-    """
-    >>> x = [1, 2, 3]
-    >>> assert x[_filter_parameterized_list('test_1[0]')] == x[0:1]
-    >>> assert x[_filter_parameterized_list('test_1[-1:]')] == x[-1:]
-    >>> assert x[_filter_parameterized_list('test_1[:-1]')] == x[:-1]
-    >>> assert x[_filter_parameterized_list('test_1[::-1]')] == x[::-1]
-    >>> assert x[_filter_parameterized_list('test_1[1:1:1]')] == x[1:1:1]
-    >>> assert _filter_parameterized_list('test_1[]') == None
-    >>> assert _filter_parameterized_list('test_1[') == None
-    >>> assert _filter_parameterized_list('test_1]') == None
-    >>> assert _filter_parameterized_list('test_1') == None
-    """
-    index = test_name.find('[') + 1
-    value = None
-    if index and test_name[-1] == ']' and test_name[index:-1]:
-        if ':' in test_name[index:-1]:
-            segments = test_name[index:-1].split(':')
-            slice_ = [None, None, None]
-            for i in range(len(segments)):
-                if segments[i]:
-                    slice_[i] = int(segments[i])
-            value = slice(*slice_)
-        else:
-            int_ = int(test_name[index:-1])
-            value = slice(int_,int_+1)
-    return value
-
-
-# TODO: replace old method with this one. This way we can keep the true index of the parameterized test
-def _filter_parameterized_list2(test_name: str, parameterized_list: list) -> range:
+def _filter_parameterized_list(test_name: str, parameterized_list: list) -> range:
     """
     x = [1, 2, 3, 4, 5, 6, 7, 8]
     >>> _filter_parameterized_list('test_1[0]', x)
     range(0, 1)
-    >>> _filter_parameterized_list('test_1[-1:]', x)
-    range(-1, 0)
-    >>> _filter_parameterized_list('test_1[:-1]', x)
-
-    >>> _filter_parameterized_list('test_1', x)
-    range(len(x))
-    >>> _filter_parameterized_list('test_1[::-1]', x)
-
+    >>> assert _filter_parameterized_list('test_1[-1:]', x) == range(-1, len(x))
+    >>> assert _filter_parameterized_list('test_1[:-1]', x) == range(0, len(x)-1)
+    >>> assert _filter_parameterized_list('test_1', x) == range(len(x))
+    >>> assert _filter_parameterized_list('test_1[::-1]', x) == range(0, len(x), -1)
     >>> _filter_parameterized_list('test_1[1:1:1]', x)
-
+    range(1, 1)
     >>> _filter_parameterized_list('test_1[]', x)
+    range(0, 0)
     >>> _filter_parameterized_list('test_1[', x)
+    range(0, 0)
     >>> _filter_parameterized_list('test_1]', x)
+    range(0, 0)
+    >>> _filter_parameterized_list('test_1][', x)
+    range(0, 0)
     """
-    index = test_name.find('[') + 1
-    value = None
-    if index and test_name[-1] == ']' and test_name[index:-1]:
-        if ':' in test_name[index:-1]:
-            segments = test_name[index:-1].split(':')
-            slice_ = [None, None, None]
-            for i in range(len(segments)):
-                if segments[i]:
-                    slice_[i] = int(segments[i])
-            value = slice(*slice_)
+    open_bracket_index = test_name.find('[') + 1
+    close_bracket_index = -1
+    range_ = range(0)
+    access_token = test_name[open_bracket_index:close_bracket_index]
+    if open_bracket_index and test_name[close_bracket_index] == ']' and access_token:
+        range_args = [None, None, None]
+        if ':' in access_token:
+            segments = access_token.split(':')
+            if len(segments) <= 3:
+                try:
+                    for i, segment in enumerate(segments):
+                        if segment == '':
+                            if i == 0:
+                                range_args[0] = 0
+                            elif i == 1:
+                                range_args[1] = len(parameterized_list)
+                        else:
+                            int_ = int(segment)
+                            if i == 0:
+                                range_args[0] = int_
+                            elif i == 1:
+                                if int_ < 0:
+                                    range_args[1] = len(parameterized_list) + int_
+                                else:
+                                    range_args[1] = int_
+                            elif i == 2:
+                                range_args[2] = int_
+                    if range_args[2] is not None:
+                        range_ = range(*range_args)
+                    else:
+                        range_ = range(range_args[0], range_args[1])
+                except:
+                    pass
         else:
-            int_ = int(test_name[index:-1])
-            value = slice(int_,int_+1)
-    return value
+            try:
+                int_ = int(access_token)
+                if int_ < 0:
+                    range_args[0] = len(parameterized_list) - int_
+                else:
+                    range_args[0] = int_
+                range_args[1] = range_args[0] + 1
+                range_ = range(range_args[0], range_args[1])
+            except:
+                pass
+    elif '[' not in test_name and ']' not in test_name:
+        range_ = range(len(parameterized_list))
+    return range_
