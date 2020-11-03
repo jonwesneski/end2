@@ -5,7 +5,6 @@ import sys
 
 sys.path.insert(0, os.path.join(os.getcwd(), os.path.join('..', '..')))
 sys.path.insert(0, os.path.join(os.getcwd(), '..'))
-from test_framework.logger import create_full_logger
 from test_framework.runner import create_test_suite_instance
 
 
@@ -24,21 +23,10 @@ if __name__ == '__main__':
     parser.add_argument('--suites', nargs='*', default=default4)
 
     args = parser.parse_args()
-    #print(args.suites)
-    logger = logging.getLogger('bananaman')
-    logger.setLevel(logging.DEBUG)
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setLevel(logging.DEBUG)
-    logger.addHandler(stream_handler)
-    run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, logger)
+    run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites)
     print(failed_imports, ignored_modules)
     test_suite_result = run_instance.execute(False)
     print(test_suite_result)
-    # logger = create_full_logger('test_run', stream_level=logging.INFO, file_level=logging.DEBUG)
-    # run_instance = create_test_run_instance(['tests'],
-    #                                         logger=logger,
-    #                                         ignore=['tests.smoke.ignored_module', 'tests.smoke.sample1::test_ignored_test'],
-    #                                         stop_on_first_fail=False)
 
     # def test_parameters(logger_):
     #     return [logger_], {}

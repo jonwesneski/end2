@@ -16,14 +16,14 @@ from test_framework.popo import (
 )
 
 
-def create_test_suite_instance(suite_paths: list, logger=None, stop_on_first_failure: bool = False):
-    log_manager = LogManager()
+def create_test_suite_instance(suite_paths: list, stop_on_first_failure: bool = False, log_manager: LogManager = None):
+    log_manager_ = log_manager or LogManager()
     sequential_modules, parallel_modules, ignored_modules, failed_imports = discover_suites(suite_paths)
-    sequential_module_runs = tuple(TestModuleRun(x, stop_run=stop_on_first_failure, log_manager=log_manager)
+    sequential_module_runs = tuple(TestModuleRun(x, stop_run=stop_on_first_failure, log_manager=log_manager_)
                                    for x in sequential_modules)
-    parallel_module_runs = tuple(TestModuleRun(x, stop_run=stop_on_first_failure, log_manager=log_manager)
+    parallel_module_runs = tuple(TestModuleRun(x, stop_run=stop_on_first_failure, log_manager=log_manager_)
                                  for x in parallel_modules)
-    return TestSuiteRun(f"\"{' '.join(suite_paths)}\"", sequential_module_runs, parallel_module_runs, logger), ignored_modules, failed_imports
+    return TestSuiteRun(f"\"{' '.join(suite_paths)}\"", sequential_module_runs, parallel_module_runs, log_manager_), ignored_modules, failed_imports
 
 
 class Run:
