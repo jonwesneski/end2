@@ -50,17 +50,17 @@ class Run:
         return result
 
     @staticmethod
-    def _create_default_parameters(logger):
+    def _create_default_parameters(logger) -> tuple:
         return (logger,), {}
 
 
 class TestSuiteRun:
-    def __init__(self, name: str, sequential_modules: tuple, parallel_modules: tuple, logger=None):
+    def __init__(self, name: str, sequential_modules: tuple, parallel_modules: tuple, log_manager: LogManager = None):
         self.name = name
         self.sequential_modules = sequential_modules
         self.parallel_modules = parallel_modules
         self.suite_results = None
-        self.logger = logger or logging.getLogger()
+        self.log_manager = log_manager or LogManager()
 
     def execute(self, parallel: bool) -> list:
         self.suite_results = TestSuiteResult(self.name)
@@ -78,14 +78,14 @@ class TestSuiteRun:
                         except StopTestRunException:
                             raise
                         except Exception as exc:
-                            self.logger.error(exc)
+                            self.log_manager.test_run_logger.error(exc)
             else:
                 for module in self.sequential_modules + self.parallel_modules:
                     self.suite_results.test_modules.append(module.execute(parallel=False))
         except StopTestRunException as stre:
-            self.logger.error(stre)
+            self.log_manager.test_run_logger.error(stre)
         except Exception:
-            self.logger.error(traceback.format_exc())
+            self.log_manager.test_run_logger.error(traceback.format_exc())
         self.suite_results.end()
         return self.suite_results
 
