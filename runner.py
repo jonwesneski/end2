@@ -62,14 +62,14 @@ class TestSuiteRun:
         self.suite_results = None
         self.logger = logger or logging.getLogger()
 
-    def execute(self, threads: bool):
+    def execute(self, parallel: bool) -> list:
         self.suite_results = TestSuiteResult(self.name)
         try:
-            if threads:
+            if parallel:
                 for module in self.sequential_modules:
-                    self.suite_results.test_modules.append(module.execute(threads=False))
+                    self.suite_results.test_modules.append(module.execute(parallel=False))
                 with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-                    future_results = {executor.submit(module.execute, threads): module for module in self.parallel_modules}
+                    future_results = {executor.submit(module.execute, parallel): module for module in self.parallel_modules}
                     for future_result in concurrent.futures.as_completed(future_results):
                         try:
                             test_module_result = future_result.result()
@@ -81,7 +81,7 @@ class TestSuiteRun:
                             self.logger.error(exc)
             else:
                 for module in self.sequential_modules + self.parallel_modules:
-                    self.suite_results.test_modules.append(module.execute(threads=False))
+                    self.suite_results.test_modules.append(module.execute(parallel=False))
         except StopTestRunException as stre:
             self.logger.error(stre)
         except Exception:
@@ -97,10 +97,10 @@ class TestModuleRun(Run):
         self.stop_run = stop_run
         self.log_manager = log_manager
 
-    def execute(self, threads: bool) -> TestModuleResult:
+    def execute(self, parallel: bool) -> TestModuleResult:
         setup = self.setup()
         if setup is None or setup.status == Status.PASSED:
-            test_module_result = self.run(threads and self.test_module.module.__run_mode__==RunMode.PARALLEL_TEST)
+            test_module_result = self.run(parallel and self.test_module.module.__run_mode__==RunMode.PARALLEL_TEST)
         else:
             test_results = [TestMethodResult(test.name, status=Status.SKIPPED) for test in self.test_module.tests]
             test_module_result = TestModuleResult(self.test_module.name, test_results=test_results, status=Status.SKIPPED)
@@ -114,9 +114,9 @@ class TestModuleRun(Run):
         logger = None if not self.test_module.setup else self.log_manager.get_setup_logger(self.test_module.name)
         return self.run_func(self.test_module.setup, logger)
 
-    def run(self, threads: bool) -> TestModuleResult:
+    def run(self, parallel: bool) -> TestModuleResult:
         test_module_result = TestModuleResult(self.test_module.name)
-        if threads:
+        if parallel:
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                 future_results = {executor.submit(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute): test for test in self.test_module.tests}
                 for future_result in concurrent.futures.as_completed(future_results):

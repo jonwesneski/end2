@@ -173,13 +173,19 @@ def discover_tests(module, test_filters: list) -> tuple:
                 if f'!{name}' in test_filters:
                     ignored_tests.append(name)
                 elif test_filters:
+                    found = False
                     for test_filter in test_filters:
-                        if hasattr(attribute, 'parameterized_list'):
+                        if hasattr(attribute, 'parameterized_list') and name == test_filter[:test_filter.find('[')]:
                             attribute.range = _filter_parameterized_list(test_filter, attribute.parameterized_list)
                             tests.append(TestMethod(setup, attribute, teardown))
+                            found = True
                             break
-                        else:
+                        elif name == test_filter:
                             tests.append(TestMethod(setup, attribute, teardown))
+                            found = True
+                            break
+                    if not found:
+                        ignored_tests.append(name)
                 else:
                     tests.append(TestMethod(setup, attribute, teardown))
         shuffle(tests)

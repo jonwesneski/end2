@@ -70,7 +70,7 @@ if __name__ == '__main__':
                                    # parameter is the logger for test module
 
     run_instance.test_parameters = test_parameters
-    run_instance.test_executor_engine(threads=True)  # This kicks off the test run
+    run_instance.test_executor_engine(parallel=True)  # This kicks off the test run
 
     exit(1 if run_instance.results.failed_tests > 0 else 0)
 ```

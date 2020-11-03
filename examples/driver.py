@@ -20,7 +20,7 @@ if __name__ == '__main__':
     default=['tests.smoke.!ignored_module;sample1::test_ignored_test,test_2']
     default2=['tests.smoke.!ignored_module']
     default3=['tests.smoke.sample1', 'tests.regression']
-    default4=['tests.regression.sample4::test_11[0]']
+    default4=['tests.regression.sample4::test_11[4]']
     parser.add_argument('--suites', nargs='*', default=default4)
 
     args = parser.parse_args()
@@ -45,6 +45,6 @@ if __name__ == '__main__':
 
     # run_instance.test_parameters = test_parameters
     # logger.info(f'Starting test run on: {run_instance.sequential_modules + run_instance.parallel_modules}')
-    # run_instance.test_executor_engine(threads=True)
+    # run_instance.test_executor_engine(parallel=True)
 
     # exit(1 if run_instance.results.failed_tests > 0 else 0)
