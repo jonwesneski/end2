@@ -59,35 +59,35 @@ class TestSuiteRun:
         self.name = name
         self.sequential_modules = sequential_modules
         self.parallel_modules = parallel_modules
-        self.suite_results = None
+        self.suite_result = None
         self.log_manager = log_manager or LogManager()
 
-    def execute(self, parallel: bool) -> list:
-        self.suite_results = TestSuiteResult(self.name)
+    def execute(self, parallel: bool) -> TestSuiteResult:
+        self.suite_result = TestSuiteResult(self.name)
         try:
             if parallel:
                 for module in self.sequential_modules:
-                    self.suite_results.test_modules.append(module.execute(parallel=False))
+                    self.suite_result.test_modules.append(module.execute(parallel=False))
                 with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                     future_results = {executor.submit(module.execute, parallel): module for module in self.parallel_modules}
                     for future_result in concurrent.futures.as_completed(future_results):
                         try:
                             test_module_result = future_result.result()
                             if test_module_result:
-                                self.suite_results.test_modules.append(test_module_result)
+                                self.suite_result.test_modules.append(test_module_result)
                         except StopTestRunException:
                             raise
                         except Exception as exc:
                             self.log_manager.test_run_logger.error(exc)
             else:
                 for module in self.sequential_modules + self.parallel_modules:
-                    self.suite_results.test_modules.append(module.execute(parallel=False))
+                    self.suite_result.test_modules.append(module.execute(parallel=False))
         except StopTestRunException as stre:
             self.log_manager.test_run_logger.error(stre)
         except Exception:
             self.log_manager.test_run_logger.error(traceback.format_exc())
-        self.suite_results.end()
-        return self.suite_results
+        self.suite_result.end()
+        return self.suite_result
 
 
 class TestModuleRun(Run):
