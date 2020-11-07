@@ -1,7 +1,3 @@
-import os
-import sys
-
-sys.path.insert(0, os.getcwd())
 from test_framework.enums import RunMode
 from test_framework.fixtures import (
     setup_test,

@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-import logging
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.getcwd(), os.path.join('..', '..')))
-sys.path.insert(0, os.path.join(os.getcwd(), '..'))
 from test_framework.runner import create_test_suite_instance
 
 
@@ -16,10 +10,10 @@ if __name__ == '__main__':
     from test_framework.runner import TestModuleRun
 
     parser = argparse.ArgumentParser()
-    default=['tests.smoke.!ignored_module;sample1::test_ignored_test,test_2']
-    default2=['tests.smoke.!ignored_module']
-    default3=['tests.smoke.sample1', 'tests.regression']
-    default4=['tests.regression.sample4::test_11[4]']
+    default=['example_tests.smoke.!ignored_module;sample1::test_ignored_test,test_2']
+    default2=['example_tests.smoke.!ignored_module']
+    default3=['example_tests.smoke.sample1', 'example_tests.regression']
+    default4=['example_tests.regression.sample4::test_11']
     parser.add_argument('--suites', nargs='*', default=default4)
 
     args = parser.parse_args()

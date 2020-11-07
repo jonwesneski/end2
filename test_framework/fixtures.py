@@ -52,6 +52,7 @@ def _parameterize(parameters_list: list, is_parallel: bool, first_arg_is_name: b
             func.names = [f'{func.__name__} {i}' for i in range(1, len(parameters_list)+1)]
             func.parameterized_list = tuple(parameters_list)
         func.is_parallel = is_parallel
+        func.range = range(len(parameters_list))
         return func
     return wrapper
 

@@ -2,9 +2,7 @@ import importlib
 import inspect
 import os
 from random import shuffle
-import sys
 
-sys.path.insert(0, os.getcwd())
 from test_framework.fixtures import get_fixture
 from test_framework.enums import RunMode
 from test_framework.popo import TestMethod, TestModule
@@ -15,7 +13,7 @@ FUNCTION_TYPE = type(lambda: None)
 
 def discover_suites(suite_paths: list) -> tuple:
     """
-    >>> sequential, parallel, ignored, failed = discover_suites(['test_framework.examples.tests.smoke.!ignored_module,sample1', 'test_framework.examples.tests.regression'])
+    >>> sequential, parallel, ignored, failed = discover_suites(['test_framework.examples.example_tests.smoke.!ignored_module,sample1', 'test_framework.examples.example_tests.regression'])
     >>> sequential
     0
     >>> parallel
@@ -42,20 +40,20 @@ def _parse_suite_paths(suite_paths: list) -> tuple:
     """
     >>> _parse_suite_paths(['tests'])
     ([('tests', [])], [])
-    >>> _parse_suite_paths(['tests.regression.bucket1'])
-    ([('tests.regression.bucket1', [])], [])
-    >>> _parse_suite_paths(['tests.regression.bucket1::test1'])
-    ([('tests.regression.bucket1', ['test1'])], [])
-    >>> _parse_suite_paths(['tests.regression.bucket1::test1,test2'])
-    ([('tests.regression.bucket1', ['test1', 'test2'])], [])
-    >>> _parse_suite_paths(['tests.regression.bucket1;bucket2::test1,test2'])
-    ([('tests.regression.bucket1', []), ('tests.regression.bucket2', ['test1', 'test2'])], [])
-    >>> _parse_suite_paths(['tests.regression.bucket1;bucket2::!test1,test2'])
-    ([('tests.regression.bucket1', []), ('tests.regression.bucket2', ['!test1', '!test2'])], [])
-    >>> _parse_suite_paths(['tests.regression.bucket2::!test1,test2;bucket1'])
-    ([('tests.regression.bucket2', ['!test1', '!test2']), ('tests.regression.bucket1', [])], [])
-    >>> _parse_suite_paths(['tests.regression.!bucket2::!test1,test2;bucket1'])
-    ([('tests.regression', [])], ['tests.regression.bucket2', 'tests.regression.bucket1'])
+    >>> _parse_suite_paths(['example_tests.regression.bucket1'])
+    ([('example_tests.regression.bucket1', [])], [])
+    >>> _parse_suite_paths(['example_tests.regression.bucket1::test1'])
+    ([('example_tests.regression.bucket1', ['test1'])], [])
+    >>> _parse_suite_paths(['example_tests.regression.bucket1::test1,test2'])
+    ([('example_tests.regression.bucket1', ['test1', 'test2'])], [])
+    >>> _parse_suite_paths(['example_tests.regression.bucket1;bucket2::test1,test2'])
+    ([('example_tests.regression.bucket1', []), ('example_tests.regression.bucket2', ['test1', 'test2'])], [])
+    >>> _parse_suite_paths(['example_tests.regression.bucket1;bucket2::!test1,test2'])
+    ([('example_tests.regression.bucket1', []), ('example_tests.regression.bucket2', ['!test1', '!test2'])], [])
+    >>> _parse_suite_paths(['example_tests.regression.bucket2::!test1,test2;bucket1'])
+    ([('example_tests.regression.bucket2', ['!test1', '!test2']), ('example_tests.regression.bucket1', [])], [])
+    >>> _parse_suite_paths(['example_tests.regression.!bucket2::!test1,test2;bucket1'])
+    ([('example_tests.regression', [])], ['example_tests.regression.bucket2', 'example_tests.regression.bucket1'])
     """
     ignored_imports = []
     importables = []
@@ -134,7 +132,7 @@ def _recursive_discover(path: str, ignored_paths: list, test_filters: list) -> t
 
 def discover_module(module_path: str, test_filters: list) -> tuple:
     """
-    >>> module, error_str = discover_module('test_framework.examples.tests.smoke.sample1', [])
+    >>> module, error_str = discover_module('test_framework.examples.example_tests.smoke.sample1', [])
     >>> assert module and error_str == ''
     >>> module, error_str = discover_module('test_framework.examples.tests.dont_exist', [])
     >>> assert module is None and error_str
@@ -157,7 +155,7 @@ def discover_module(module_path: str, test_filters: list) -> tuple:
 
 def discover_tests(module, test_filters: list) -> tuple:
     """
-    >>> from test_framework.examples.tests.smoke import sample1
+    >>> from test_framework.examples.example_tests.smoke import sample1
     >>> tests, ignored_tests = discover_tests(sample1, [])
     >>> assert tests and ignored_tests == []
     >>> tests, ignored_tests = discover_tests(sample1, ['!test_ignored_test', 'test_1', 'test_2'])
@@ -175,12 +173,13 @@ def discover_tests(module, test_filters: list) -> tuple:
                 elif test_filters:
                     found = False
                     for test_filter in test_filters:
-                        if hasattr(attribute, 'parameterized_list') and name == test_filter[:test_filter.find('[')]:
-                            attribute.range = _filter_parameterized_list(test_filter, attribute.parameterized_list)
+                        open_bracket_index = test_filter.find('[')
+                        if name == test_filter:
                             tests.append(TestMethod(setup, attribute, teardown))
                             found = True
                             break
-                        elif name == test_filter:
+                        elif hasattr(attribute, 'parameterized_list') and (open_bracket_index != -1 and name == test_filter[:open_bracket_index]):
+                            attribute.range = _filter_parameterized_list(test_filter, attribute.parameterized_list)
                             tests.append(TestMethod(setup, attribute, teardown))
                             found = True
                             break
