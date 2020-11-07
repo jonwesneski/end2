@@ -1,4 +1,5 @@
 import functools
+
 from test_framework.enums import FUNCTION_TYPE
 
 

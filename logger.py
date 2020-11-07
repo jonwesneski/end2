@@ -24,7 +24,6 @@ INFO = logging.INFO
 DEBUG = logging.DEBUG
 NOTSET = logging.NOTSET
 FOLDER = 'logs'
-FAILURES_FOLDER = os.path.join(FOLDER, 'failures')
 
 
 def _cdt_time(*args):
@@ -93,12 +92,6 @@ def create_formatter(infix: str = ''):
 def create_formatter2(use_infix: bool = False):
     infix = ' %(infix)s' if use_infix else ''
     return logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]{infix}   %(message)s', datefmt='%Y-%m-%d %H:%M:%S CDT')
-
-
-def create_failure_handler(filter_):
-    memory_handler = CustomFlushHandler(FAILURES_FOLDER, logging.ERROR, flush_on_close=False)
-    memory_handler.addFilter(filter_)
-    return memory_handler
 
 
 def get_log_handler(logger, handler_type):

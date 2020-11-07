@@ -16,7 +16,7 @@ from test_framework.popo import (
 )
 
 
-def create_test_suite_instance(suite_paths: list, stop_on_first_failure: bool = False, log_manager: LogManager = None):
+def create_test_suite_instance(suite_paths: list, stop_on_first_failure: bool = False, log_manager: LogManager = None) -> tuple:
     log_manager_ = log_manager or LogManager()
     sequential_modules, parallel_modules, ignored_modules, failed_imports = discover_suites(suite_paths)
     sequential_module_runs = tuple(TestModuleRun(x, stop_run=stop_on_first_failure, log_manager=log_manager_)
@@ -118,7 +118,10 @@ class TestModuleRun(Run):
         test_module_result = TestModuleResult(self.test_module.name)
         if parallel:
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-                future_results = {executor.submit(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute): test for test in self.test_module.tests}
+                future_results = {
+                    executor.submit(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute): test
+                    for test in self.test_module.tests
+                }
                 for future_result in concurrent.futures.as_completed(future_results):
                     try:
                         test_result = future_result.result()
@@ -186,7 +189,10 @@ class TestMethodRun(Run):
                         parameter_result = parameter_run.run_func(self.test_method.func)
                         parameter_result.name = str(i)
                         return parameter_result
-                    future_results = {executor.submit(execute, i, self.test_method.func.parameterized_list): i for i in self.test_method.func.range}
+                    future_results = {
+                        executor.submit(execute, i, self.test_method.func.parameterized_list): i
+                        for i in self.test_method.func.range
+                    }
                     for future_result in concurrent.futures.as_completed(future_results):
                         try:
                             parameter_result = future_result.result()
