@@ -1,5 +1,5 @@
 # Test Automation Framework
-This framework allows you to create your own driver for your test automation so you can use the same parameters for all your test cases. Tests are written in methods at the module level, and when running tests you can specify a folder to be able to run all tests in that folder. This framework supports the typical test fixtures: setup before any test in a module, setup between tests, teardown between tests, and testdown in a module. These test modules also support running the tests sequentially or parallelly by specifiying the run mode.
+This framework makes you create your own driver for your test automation so you can: have more custom control on setup before a test run, use the same parameters for all your test cases, and have custom control on steps after a test run. Tests are written in methods at the module level, and when running tests you can specify a folder to be able to run all tests in that folder. This framework supports the typical test fixtures: setup before any test in a module, setup between tests, teardown between tests, and testdown in a module, and parameterizing tests. These test modules also support running the tests sequentially or parallelly by specifiying the run mode.
 
 ## Framework Features:
 - Test Runner
@@ -15,9 +15,7 @@ This framework allows you to create your own driver for your test automation so 
     - Filtered failure log file that shows every step leading up to the failure
     - Files are segregated by test module
     - Records are timestamped
-- Slack Integration:
-    - Posts a test run summary
-    - Uploads test run logs
+
 
 ## Runner psuedo code
 ``` python

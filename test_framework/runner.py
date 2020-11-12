@@ -16,12 +16,12 @@ from test_framework.popo import (
 )
 
 
-def create_test_suite_instance(suite_paths: list, stop_on_first_failure: bool = False, log_manager: LogManager = None) -> tuple:
+def create_test_suite_instance(suite_paths: list, stop_on_first_failure: bool = False, test_parameters_func=None, log_manager: LogManager = None) -> tuple:
     log_manager_ = log_manager or LogManager()
     sequential_modules, parallel_modules, ignored_modules, failed_imports = discover_suites(suite_paths)
-    sequential_module_runs = tuple(TestModuleRun(x, stop_run=stop_on_first_failure, log_manager=log_manager_)
+    sequential_module_runs = tuple(TestModuleRun(x, stop_run=stop_on_first_failure, test_parameters_func=test_parameters_func, log_manager=log_manager_)
                                    for x in sequential_modules)
-    parallel_module_runs = tuple(TestModuleRun(x, stop_run=stop_on_first_failure, log_manager=log_manager_)
+    parallel_module_runs = tuple(TestModuleRun(x, stop_run=stop_on_first_failure, test_parameters_func=test_parameters_func, log_manager=log_manager_)
                                  for x in parallel_modules)
     return TestSuiteRun(f"\"{' '.join(suite_paths)}\"", sequential_module_runs, parallel_module_runs, log_manager_), ignored_modules, failed_imports
 
@@ -91,7 +91,7 @@ class TestSuiteRun:
 
 
 class TestModuleRun(Run):
-    def __init__(self, test_module: TestModule, stop_run: bool, log_manager: LogManager, test_parameters_func=None):
+    def __init__(self, test_module: TestModule, stop_run: bool, test_parameters_func=None, log_manager: LogManager = None):
         super().__init__(test_parameters_func)
         self.test_module = test_module
         self.stop_run = stop_run
@@ -119,7 +119,7 @@ class TestModuleRun(Run):
         if parallel:
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                 future_results = {
-                    executor.submit(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute): test
+                    executor.submit(TestMethodRun(self.test_module.name, test, self.stop_run, self.test_parameters_func, self.log_manager).execute): test
                     for test in self.test_module.tests
                 }
                 for future_result in concurrent.futures.as_completed(future_results):
@@ -135,7 +135,7 @@ class TestModuleRun(Run):
                         self.logger.error(traceback.format_exc())
         else:
             for test in self.test_module.tests:
-                test_module_result.test_results.append(TestMethodRun(self.test_module.name, test, None, self.log_manager).execute())
+                test_module_result.test_results.append(TestMethodRun(self.test_module.name, test, self.stop_run, self.test_parameters_func, self.log_manager).execute())
                 if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
                     raise StopTestRunException(test_module_result.test_results[-1].message)
         return test_module_result
@@ -146,12 +146,12 @@ class TestModuleRun(Run):
 
 
 class TestMethodRun(Run):
-    def __init__(self, module_name: str, test_method: TestMethod, test_parameters_func, log_manager: LogManager):
+    def __init__(self, module_name: str, test_method: TestMethod, stop_run: bool, test_parameters_func, log_manager: LogManager):
         super().__init__(test_parameters_func, None)
         self.module_name = module_name
         self.test_method = test_method
         self.log_manager = log_manager
-        #self.stop_run = False
+        self.stop_run = stop_run
 
     def execute(self) -> TestMethodResult:
         setup = self.setup()
@@ -198,8 +198,7 @@ class TestMethodRun(Run):
                             parameter_result = future_result.result()
                             if parameter_result:
                                 result.parameterized_results.append(parameter_result)
-                                #if self.stop_run and result.parameterized_results[-1].status == Status.FAILED:
-                                if result.parameterized_results[-1].status == Status.FAILED:
+                                if self.stop_run and result.parameterized_results[-1].status == Status.FAILED:
                                     raise StopTestRunException(result.parameterized_results[-1].message)
                         except StopTestRunException:
                             raise
