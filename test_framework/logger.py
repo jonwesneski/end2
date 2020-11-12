@@ -24,6 +24,9 @@ INFO = logging.INFO
 DEBUG = logging.DEBUG
 NOTSET = logging.NOTSET
 FOLDER = 'logs'
+_DATEFORMAT = '%Y-%m-%d %H:%M:%S CDT'
+_FORMATTER = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]   %(message)s', datefmt=_DATEFORMAT)
+_FILTER_FORMATTER = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] %(infix)s   %(message)s', datefmt=_DATEFORMAT)
 
 
 def _cdt_time(*args):
@@ -57,12 +60,12 @@ def create_stream_handler(stream_level: int = logging.INFO, formatter=None, filt
     return stream_handler
 
 
-def create_full_logger(folder: str, name: str, stream_level: int, file_name: str = None, file_level: int = logging.DEBUG, propagate: bool = False):
-    formatter = create_formatter()
+def create_full_logger(folder: str, name: str, stream_level: int, file_name: str = None, file_level: int = logging.DEBUG, filter_:logging.Filter = None,  propagate: bool = False):
+    formatter = _FILTER_FORMATTER if filter_ else _FORMATTER
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-    logger.addHandler(create_file_handler(folder, file_name or name, file_level, formatter))
-    logger.addHandler(create_stream_handler(stream_level, formatter))
+    logger.addHandler(create_file_handler(folder, file_name or name, file_level, formatter, filter_))
+    logger.addHandler(create_stream_handler(stream_level, formatter, filter_))
     logger.propagate = propagate
     return logger
 
@@ -112,8 +115,8 @@ class LogManager:
         self.run_logger_name = run_logger_name
         self.folder = os.path.join(base, datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
         os.makedirs(self.folder, exist_ok=True)
-        self.formatter = create_formatter()
-        self.test_run_logger = create_full_logger(self.folder, self.run_logger_name, stream_level, file_level=logging.INFO, propagate=False)
+        self.filter = InfixFilter('test_run')
+        self.test_run_logger = create_full_logger(self.folder, self.run_logger_name, stream_level, file_level=logging.INFO, filter_=self.filter, propagate=False)
         self._rotate_folders(base, 10)
         self._test_separator = '\n' + ('-' * 175)
         self._module_separator = '\n' + ('=' * 175)
@@ -206,9 +209,10 @@ class LogManager:
         name = f'{module_name}.{test_name}'
         logger = logging.getLogger(name)
         if not logger.hasHandlers():
+            filter_ = InfixFilter(f'{module_name.split(".")[-1]}::{formatter_infix}')
             logger.setLevel(logging.DEBUG)
-            logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG))
-            logger.addHandler(create_stream_handler())
+            logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG, filter_=filter_))
+            logger.addHandler(create_stream_handler(filter_=filter_))
             logger.propagate = False
             test_run_memory_handler = ManualFlushHandler(get_log_handler(self.test_run_logger, logging.FileHandler))
             logger.addHandler(test_run_memory_handler)
@@ -303,4 +307,13 @@ class TestFilter(logging.Filter):
         stack = inspect.stack()
         if len(stack) >= 4 and stack[3][3] != 'flush':
             record.module_method = self.path
+        return True
+
+
+class InfixFilter(logging.Filter):
+    def filter(self, record):
+        # When flushing I don't wan't it to pick up the current value of self.path
+        stack = inspect.stack()
+        if len(stack) >= 4 and stack[3][3] != 'flush':
+            record.infix = self.name
         return True
