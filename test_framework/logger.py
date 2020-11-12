@@ -195,7 +195,7 @@ class LogManager:
             for test_result in test_module_result.test_results:
                 LogManager._close_file_handlers(logging.getLogger(f'{test_module_result.name}.{test_result.name}'))
                 for result in test_result.parameterized_results:
-                    LogManager._close_file_handlers(self.get_test_logger(test_module_result.name, f'{test_result.name}[{result.name}]'))
+                    LogManager._close_file_handlers(self.get_test_logger(test_module_result.name, result.name))
             for fixture_logger in [self.get_setup_logger(test_module_result.name), self.get_teardown_logger(test_module_result.name)]:
                 LogManager._close_file_handlers(fixture_logger)
             os.rename(

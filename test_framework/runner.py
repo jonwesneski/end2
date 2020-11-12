@@ -162,7 +162,7 @@ class TestMethodRun(Run):
             parameterized_results = []
             if hasattr(self.test_method.func, 'parameterized_list'):
                 for i in range(len(self.test_method.func.parameterized_list)):
-                    parameterized_results.append(Result(str(i), status=Status.SKIPPED))
+                    parameterized_results.append(Result(f'{self.test_method.name}[{i}]', status=Status.SKIPPED))
             result.parameterized_results = parameterized_results
         result.setup = setup
         result.teardown = self.teardown()
@@ -187,7 +187,7 @@ class TestMethodRun(Run):
                             return args+parameters_list[i], kwargs
                         parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}[{i}]'))
                         parameter_result = parameter_run.run_func(self.test_method.func)
-                        parameter_result.name = str(i)
+                        parameter_result.name = f'{self.test_method.name}[{i}]'
                         return parameter_result
                     future_results = {
                         executor.submit(execute, i, self.test_method.func.parameterized_list): i
@@ -212,7 +212,7 @@ class TestMethodRun(Run):
                         return args+self.test_method.func.parameterized_list[i], kwargs
                     parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}[{i}]'))
                     parameter_result = parameter_run.run_func(self.test_method.func)
-                    parameter_result.name = str(i)
+                    parameter_result.name = f'{self.test_method.name}[{i}]'
                     result.parameterized_results.append(parameter_result)
         else:
             logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
