@@ -103,8 +103,8 @@ class LogManager:
         self.test_run_logger = create_full_logger(self.folder, self.run_logger_name, stream_level, file_level=logging.INFO, filter_=self.filter, propagate=False)
         self.test_run_file_handler = get_log_handler(self.test_run_logger, logging.FileHandler)
         self._rotate_folders(base, 10)
-        self._test_separator = '\n' + ('-' * 175)
-        self._module_separator = '\n' + ('=' * 175)
+        self._test_terminator = '\n' + ('-' * 175)
+        self._module_terminator = '\n' + ('=' * 175)
 
     @staticmethod
     def _rotate_folders(base_folder: str, max_folders: int):
@@ -158,8 +158,8 @@ class LogManager:
     def on_test_done(self, module_name: str, test_method_result: TestMethodResult):
         logger = logging.getLogger(f'{module_name}.{test_method_result.name}')
         self._flush_log_memory_handler(logger)
-        self._log_test_run_message(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_separator}')
-        #self.test_run_logger.info(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_separator}')
+        self._log_test_run_message(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_terminator}')
+        #self.test_run_logger.info(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_terminator}')
         if test_method_result.status == Status.FAILED:
             for handler in logger.handlers:
                 if isinstance(handler, logging.FileHandler):
@@ -187,8 +187,8 @@ class LogManager:
         pass
 
     def on_module_done(self, test_module_result: TestModuleResult):
-        #self.test_run_logger.info(f'{test_module_result}{self._module_separator}')
-        self._log_test_run_message(f'{test_module_result}{self._module_separator}')
+        #self.test_run_logger.info(f'{test_module_result}{self._module_terminator}')
+        self._log_test_run_message(f'{test_module_result}{self._module_terminator}')
         if test_module_result.status in [Status.PASSED, Status.SKIPPED]:
             for test_result in test_module_result.test_results:
                 LogManager._close_file_handlers(logging.getLogger(f'{test_module_result.name}.{test_result.name}'))
