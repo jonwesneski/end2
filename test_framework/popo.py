@@ -20,7 +20,6 @@ class TestModule:
         self.tests = tests
         self.teardown = get_fixture(self.module, 'teardown')
         self.ignored_tests = ignored_tests if ignored_tests else tuple()
-        self.skipped_tests = []
 
     def __eq__(self, rhs):
         return self.name == rhs.name
@@ -67,6 +66,9 @@ class TestSuiteResult(Result):
     def exit_code(self):
         return 0 if self.status == Status.PASSED else 1
 
+    def append(self, test_module_result):
+        self.test_modules.append(test_module_result)
+
     def end(self, status: str = None):
         super().end(status)
         self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
@@ -84,6 +86,9 @@ class TestModuleResult(Result):
         self.setup = setup
         self.teardown = teardown
         self.test_results = test_results if test_results else []
+
+    def append(self, test_result):
+        self.test_results.append(test_result)
 
     def end(self, status: str = None):
         super().end(status)
@@ -113,6 +118,9 @@ class TestMethodResult(Result):
         self.setup = setup
         self.teardown = teardown
         self.parameterized_results = []
+
+    def append(self, parameterized_result: Result):
+        self.parameterized_results.append(parameterized_result)
 
     def end(self, status: str = None):
         super().end(status)

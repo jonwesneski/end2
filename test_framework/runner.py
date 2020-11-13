@@ -68,21 +68,21 @@ class TestSuiteRun:
         try:
             if parallel:
                 for module in self.sequential_modules:
-                    self.suite_result.test_modules.append(module.execute(parallel=False))
+                    self.suite_result.append(module.execute(parallel=False))
                 with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                     future_results = {executor.submit(module.execute, parallel): module for module in self.parallel_modules}
                     for future_result in concurrent.futures.as_completed(future_results):
                         try:
                             test_module_result = future_result.result()
                             if test_module_result:
-                                self.suite_result.test_modules.append(test_module_result)
+                                self.suite_result.append(test_module_result)
                         except StopTestRunException:
                             raise
                         except Exception as exc:
                             self.log_manager.test_run_logger.error(exc)
             else:
                 for module in self.sequential_modules + self.parallel_modules:
-                    self.suite_result.test_modules.append(module.execute(parallel=False))
+                    self.suite_result.append(module.execute(parallel=False))
         except StopTestRunException as stre:
             self.log_manager.test_run_logger.error(stre)
         except Exception:
@@ -128,16 +128,16 @@ class TestModuleRun(Run):
                     try:
                         test_result = future_result.result()
                         if test_result:
-                            test_module_result.test_results.append(test_result)
-                            if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
-                                raise StopTestRunException(test_module_result.test_results[-1].message)
+                            test_module_result.append(test_result)
+                            if self.stop_run and test_result.status == Status.FAILED:
+                                raise StopTestRunException(test_result.message)
                     except StopTestRunException:
                         raise
                     except Exception:
                         self.logger.error(traceback.format_exc())
         else:
             for test in self.test_module.tests:
-                test_module_result.test_results.append(TestMethodRun(self.test_module.name, test, self.stop_run, self.test_parameters_func, self.log_manager).execute())
+                test_module_result.append(TestMethodRun(self.test_module.name, test, self.stop_run, self.test_parameters_func, self.log_manager).execute())
                 if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
                     raise StopTestRunException(test_module_result.test_results[-1].message)
         return test_module_result
@@ -200,9 +200,9 @@ class TestMethodRun(Run):
                         try:
                             parameter_result = future_result.result()
                             if parameter_result:
-                                result.parameterized_results.append(parameter_result)
-                                if self.stop_run and result.parameterized_results[-1].status == Status.FAILED:
-                                    raise StopTestRunException(result.parameterized_results[-1].message)
+                                result.append(parameter_result)
+                                if self.stop_run and parameter_result.status == Status.FAILED:
+                                    raise StopTestRunException(parameter_result.message)
                         except StopTestRunException:
                             raise
                         except Exception:
@@ -216,7 +216,7 @@ class TestMethodRun(Run):
                     parameter_result = parameter_run.run_func(self.test_method.func)
                     parameter_result.name = f'{self.test_method.name}[{i}]'
                     self.log_manager.on_parameterized_test_done(self.module_name, parameter_result)
-                    result.parameterized_results.append(parameter_result)
+                    result.append(parameter_result)
         else:
             logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
             try:
