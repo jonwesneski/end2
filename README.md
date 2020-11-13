@@ -1,5 +1,6 @@
 # Test Automation Framework
-This framework makes you create your own driver for your test automation so you can: have more custom control on setup before a test run, use the same parameters for all your test cases, and have custom control on steps after a test run. Tests are written in methods at the module level, and when running tests you can specify a folder to be able to run all tests in that folder. This framework supports the typical test fixtures: setup before any test in a module, setup between tests, teardown between tests, and testdown in a module, and parameterizing tests. These test modules also support running the tests sequentially or parallelly by specifiying the run mode.
+This framework is more focused on heavy logging in your tests for easier analysis. This framework makes you create your own driver for your test automation so you can: have more custom control on setup before a test run, use the same parameters for all your test cases, and have custom control on steps after a test run. Tests are written in methods at the module level, and when running tests you can specify a folder to be able to run all tests in that folder. This framework supports the typical test fixtures: setup before any test in a module, setup between tests, teardown between tests, and testdown in a module, and parameterizing tests. These test modules also support running the tests sequentially or parallelly by specifiying the run mode.
+
 
 ## Framework Features:
 - Test Runner

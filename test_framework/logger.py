@@ -13,7 +13,8 @@ from test_framework.enums import Status
 from test_framework.popo import (
     Result,
     TestMethodResult,
-    TestModuleResult
+    TestModuleResult,
+    TestSuiteResult
 )
 
 
@@ -24,6 +25,9 @@ INFO = logging.INFO
 DEBUG = logging.DEBUG
 NOTSET = logging.NOTSET
 FOLDER = 'logs'
+_DATEFORMAT = '%Y-%m-%d %H:%M:%S CDT'
+_FORMATTER = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]   %(message)s', datefmt=_DATEFORMAT)
+_FILTER_FORMATTER = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] %(infix)s   %(message)s', datefmt=_DATEFORMAT)
 
 
 def _cdt_time(*args):
@@ -36,62 +40,48 @@ def _cdt_time(*args):
 logging.Formatter.converter = _cdt_time
 
 
-def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG, formatter=None, filter_=None):
+def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG, filter_=None, mode='w'):
     os.makedirs(folder, exist_ok=True)
-    file_handler = logging.FileHandler(os.path.join(folder, f'{name}.log'), mode='w')
+    file_handler = logging.FileHandler(os.path.join(folder, f'{name}.log'), mode=mode)
     file_handler.setLevel(file_level)
-    if formatter:
-        file_handler.setFormatter(formatter)
     if filter_:
         file_handler.addFilter(filter_)
+        file_handler.setFormatter(_FILTER_FORMATTER)
     return file_handler
 
 
-def create_stream_handler(stream_level: int = logging.INFO, formatter=None, filter_=None):
+def create_stream_handler(stream_level: int = logging.INFO, filter_=None):
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setLevel(stream_level)
-    if formatter:
-        stream_handler.setFormatter(formatter)
     if filter_:
         stream_handler.addFilter(filter_)
+        stream_handler.setFormatter(_FILTER_FORMATTER)
+    else:
+        stream_handler.setFormatter(_FORMATTER)
     return stream_handler
 
 
-def create_full_logger(folder: str, name: str, stream_level: int, file_name: str = None, file_level: int = logging.DEBUG, propagate: bool = False):
-    formatter = create_formatter()
+def create_full_logger(folder: str, name: str, stream_level: int, file_name: str = None, file_level: int = logging.DEBUG, filter_:logging.Filter = None,  propagate: bool = False):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-    logger.addHandler(create_file_handler(folder, file_name or name, file_level, formatter))
-    logger.addHandler(create_stream_handler(stream_level, formatter))
+    logger.addHandler(create_file_handler(folder, file_name or name, file_level, filter_, mode='a+'))
+    logger.addHandler(create_stream_handler(stream_level, filter_))
     logger.propagate = propagate
     return logger
 
 
 def create_file_logger(name):
-    formatter = create_formatter()
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-    logger.addHandler(create_file_handler(FOLDER, name, logging.DEBUG, formatter))
+    logger.addHandler(create_file_handler(FOLDER, name, logging.DEBUG))
     return logger
 
 
 def create_stream_logger(name):
-    formatter = logging.Formatter(fmt='%(message)s')
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-    logger.addHandler(create_stream_handler(logging.DEBUG, formatter))
+    logger.addHandler(create_stream_handler(logging.DEBUG))
     return logger
-
-
-def create_formatter(infix: str = ''):
-    infix_ = f' {infix}' if infix else ''
-    return logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]{infix_}   %(message)s', datefmt='%Y-%m-%d %H:%M:%S CDT')
-
-
-# TODO: Use this instead once I reimplement Filter() logic
-def create_formatter2(use_infix: bool = False):
-    infix = ' %(infix)s' if use_infix else ''
-    return logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]{infix}   %(message)s', datefmt='%Y-%m-%d %H:%M:%S CDT')
 
 
 def get_log_handler(logger, handler_type):
@@ -112,8 +102,9 @@ class LogManager:
         self.run_logger_name = run_logger_name
         self.folder = os.path.join(base, datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
         os.makedirs(self.folder, exist_ok=True)
-        self.formatter = create_formatter()
-        self.test_run_logger = create_full_logger(self.folder, self.run_logger_name, stream_level, file_level=logging.INFO, propagate=False)
+        self.filter = InfixFilter('test_run')
+        self.test_run_logger = create_full_logger(self.folder, self.run_logger_name, stream_level, file_level=logging.INFO, filter_=self.filter, propagate=False)
+        self.test_run_file_handler = get_log_handler(self.test_run_logger, logging.FileHandler)
         self._rotate_folders(base, 10)
         self._test_separator = '\n' + ('-' * 175)
         self._module_separator = '\n' + ('=' * 175)
@@ -127,24 +118,35 @@ class LogManager:
                 shutil.rmtree(sub_folders[i])
 
     @staticmethod
-    def _set_formatter(logger, infix):
-        for handler in logger.handlers:
-            handler.setFormatter(create_formatter(infix))
-
-    @staticmethod
     def _close_file_handlers(logger):
         for handler in logger.handlers:
             if isinstance(handler, logging.FileHandler):
                 handler.close()
 
+    def _log_test_run_message(self, message):
+        self.test_run_logger.addHandler(self.test_run_file_handler)
+        self.test_run_logger.info(message)
+        self.test_run_logger.removeHandler(self.test_run_file_handler)
+
+    def _change_filter_name(self, logger, name):
+        for handler in logger.handlers:
+            for filter in handler.filters:
+                filter.name = name
+
+    def on_suite_start(self):
+        LogManager._close_file_handlers(self.test_run_logger)
+        self.test_run_logger.removeHandler(self.test_run_file_handler)
+
+    def on_suite_stop(self, suite_result: TestSuiteResult):
+        self._log_test_run_message(str(suite_result))
+
     def on_setup_module_done(self, module_name: str, status: Status):
         # logger = logging.getLogger(f'{module_name}.setup')
-        # TODO: Add Filter() logic
+        # TODO:
         pass
 
     def on_setup_test_done(self, module_name: str, test_name: str, setup_test_result: Result):
         logger = logging.getLogger(f'{module_name}.{test_name}')
-        # TODO: Add Filter() logic
         if setup_test_result and setup_test_result.status == Status.SKIPPED:
             logger.critical(setup_test_result.message)
             file_hanlder = None
@@ -157,9 +159,10 @@ class LogManager:
             logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG))
 
     def on_test_done(self, module_name: str, test_method_result: TestMethodResult):
-        self.test_run_logger.info(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_separator}')
         logger = logging.getLogger(f'{module_name}.{test_method_result.name}')
         self._flush_log_memory_handler(logger)
+        self._log_test_run_message(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_separator}')
+        #self.test_run_logger.info(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_separator}')
         if test_method_result.status == Status.FAILED:
             for handler in logger.handlers:
                 if isinstance(handler, logging.FileHandler):
@@ -171,26 +174,24 @@ class LogManager:
         for handler in logger.handlers:
             if isinstance(handler, ManualFlushHandler):
                 handler.flush()
-                #handler.close()
+                handler.close()
 
-    def on_parameterized_test_done(self, module_name: str, test_name: str, parameter_result: Result):
-        # logger = logging.getLogger(f'{module_name}.setup')
-        # TODO: Add Filter() logic
-        pass
+    def on_parameterized_test_done(self, module_name: str, parameter_result: Result):
+        self.on_test_done(module_name, parameter_result)
 
     def on_teardown_test_done(self, module_name: str, test_name: str, teardown_test_result: Result):
         logger = logging.getLogger(f'{module_name}.{test_name}')
-        # TODO: Add Filter() logic
         if teardown_test_result and teardown_test_result.status != Status.PASSED:
             logger.critical(teardown_test_result.message)
 
     def on_teardown_module_done(self, module_name: str, status: Status):
         # logger = logging.getLogger(f'{module_name}.teardown')
-        # TODO: Add Filter() logic
+        # TODO:
         pass
 
     def on_module_done(self, test_module_result: TestModuleResult):
-        self.test_run_logger.info(f'{test_module_result}{self._module_separator}')
+        #self.test_run_logger.info(f'{test_module_result}{self._module_separator}')
+        self._log_test_run_message(f'{test_module_result}{self._module_separator}')
         if test_module_result.status in [Status.PASSED, Status.SKIPPED]:
             for test_result in test_module_result.test_results:
                 LogManager._close_file_handlers(logging.getLogger(f'{test_module_result.name}.{test_result.name}'))
@@ -202,61 +203,40 @@ class LogManager:
                 os.path.join(self.folder, test_module_result.name),
                 os.path.join(self.folder, f'{test_module_result.status.upper()}_{test_module_result.name}'))
 
-    def create_logger(self, module_name: str, test_name: str, formatter_infix: str):
+    def create_logger(self, module_name: str, test_name: str, formatter_infix: str) -> logging.Logger:
         name = f'{module_name}.{test_name}'
         logger = logging.getLogger(name)
         if not logger.hasHandlers():
+            filter_ = InfixFilter(f'{module_name.split(".")[-1]}::{formatter_infix}')
             logger.setLevel(logging.DEBUG)
-            logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG))
-            logger.addHandler(create_stream_handler())
+            logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG, filter_=filter_))
+            logger.addHandler(create_stream_handler(filter_=filter_))
             logger.propagate = False
-            test_run_memory_handler = ManualFlushHandler(get_log_handler(self.test_run_logger, logging.FileHandler))
+            test_run_memory_handler = ManualFlushHandler(
+                create_file_handler(self.folder, self.run_logger_name, logging.INFO, filter_=filter_, mode='a+')
+            )
+            test_run_memory_handler.setFormatter(_FILTER_FORMATTER)
+            #test_run_memory_handler = ManualFlushHandler(get_log_handler(self.test_run_logger, logging.FileHandler))
+            test_run_memory_handler.addFilter(filter_)
             logger.addHandler(test_run_memory_handler)
-        LogManager._set_formatter(logger, f'{module_name.split(".")[-1]}::{formatter_infix}')
+        else:
+            self._change_filter_name(logger, f'{module_name.split(".")[-1]}::{formatter_infix}')
         return logger
 
-    def get_setup_logger(self, module_name: str):
+    def get_setup_logger(self, module_name: str) -> logging.Logger:
         return self.create_logger(module_name, 'setup', 'setup')
 
-    def get_setup_test_logger(self, module_name: str, test_name: str):
+    def get_setup_test_logger(self, module_name: str, test_name: str) -> logging.Logger:
         return self.create_logger(module_name, test_name, 'setup_test')
 
-    def get_test_logger(self, module_name: str, test_name: str):
+    def get_test_logger(self, module_name: str, test_name: str) -> logging.Logger:
         return self.create_logger(module_name, test_name, test_name)
 
-    def get_teardown_test_logger(self, module_name: str, test_name: str):
+    def get_teardown_test_logger(self, module_name: str, test_name: str) -> logging.Logger:
         return self.create_logger(module_name, test_name, 'teardown_test')
 
-    def get_teardown_logger(self, module_name: str):
+    def get_teardown_logger(self, module_name: str) -> logging.Logger:
         return self.create_logger(module_name, 'teardown', 'teardown')
-
-
-class CustomFlushHandler(logging.handlers.MemoryHandler):
-    """
-    This class will not flush on "shutdown" and flushes to a separate file.
-    """
-    def __init__(self, folder, flush_level, flush_on_close):
-        super().__init__(capacity=None, flushLevel=flush_level, target=None, flushOnClose=flush_on_close)
-        self.folder = folder
-
-    def _get_test_name(self):
-        for filter_ in self.filters:
-            if isinstance(filter_, TestFilter) and filter_.test_name:
-                return f'{filter_.name}-{filter_.test_name.replace(" ", "_")}'
-
-    def shouldFlush(self, record):
-        return record.levelno >= self.flushLevel
-
-    def flush(self):
-        if inspect.stack()[1][3] != 'shutdown' and not self.flushOnClose:
-            test_name = self._get_test_name()
-            if test_name:
-                separate_handler = logging.FileHandler(os.path.join(self.folder, f'{test_name}.log'), mode='w')
-                separate_handler.setLevel(logging.DEBUG)
-                separate_handler.setFormatter(create_formatter())
-                self.setTarget(separate_handler)
-            super().flush()
-        self.setTarget(None)
 
 
 class ManualFlushHandler(logging.handlers.MemoryHandler):
@@ -303,4 +283,13 @@ class TestFilter(logging.Filter):
         stack = inspect.stack()
         if len(stack) >= 4 and stack[3][3] != 'flush':
             record.module_method = self.path
+        return True
+
+
+class InfixFilter(logging.Filter):
+    def filter(self, record):
+        # When flushing I don't wan't it to pick up the current value of self.path
+        stack = inspect.stack()
+        if len(stack) >= 4 and stack[3][3] != 'flush':
+            record.infix = self.name
         return True
