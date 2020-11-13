@@ -40,62 +40,48 @@ def _cdt_time(*args):
 logging.Formatter.converter = _cdt_time
 
 
-def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG, formatter=None, filter_=None, mode='w'):
+def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG, filter_=None, mode='w'):
     os.makedirs(folder, exist_ok=True)
     file_handler = logging.FileHandler(os.path.join(folder, f'{name}.log'), mode=mode)
     file_handler.setLevel(file_level)
-    if formatter:
-        file_handler.setFormatter(formatter)
     if filter_:
         file_handler.addFilter(filter_)
+        file_handler.setFormatter(_FILTER_FORMATTER)
     return file_handler
 
 
-def create_stream_handler(stream_level: int = logging.INFO, formatter=None, filter_=None):
+def create_stream_handler(stream_level: int = logging.INFO, filter_=None):
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setLevel(stream_level)
-    if formatter:
-        stream_handler.setFormatter(formatter)
     if filter_:
         stream_handler.addFilter(filter_)
+        stream_handler.setFormatter(_FILTER_FORMATTER)
+    else:
+        stream_handler.setFormatter(_FORMATTER)
     return stream_handler
 
 
 def create_full_logger(folder: str, name: str, stream_level: int, file_name: str = None, file_level: int = logging.DEBUG, filter_:logging.Filter = None,  propagate: bool = False):
-    formatter = _FILTER_FORMATTER if filter_ else _FORMATTER
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-    logger.addHandler(create_file_handler(folder, file_name or name, file_level, formatter, filter_, mode='a+'))
-    logger.addHandler(create_stream_handler(stream_level, formatter, filter_))
+    logger.addHandler(create_file_handler(folder, file_name or name, file_level, filter_, mode='a+'))
+    logger.addHandler(create_stream_handler(stream_level, filter_))
     logger.propagate = propagate
     return logger
 
 
 def create_file_logger(name):
-    formatter = create_formatter()
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-    logger.addHandler(create_file_handler(FOLDER, name, logging.DEBUG, formatter))
+    logger.addHandler(create_file_handler(FOLDER, name, logging.DEBUG))
     return logger
 
 
 def create_stream_logger(name):
-    formatter = logging.Formatter(fmt='%(message)s')
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-    logger.addHandler(create_stream_handler(logging.DEBUG, formatter))
+    logger.addHandler(create_stream_handler(logging.DEBUG))
     return logger
-
-
-def create_formatter(infix: str = ''):
-    infix_ = f' {infix}' if infix else ''
-    return logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]{infix_}   %(message)s', datefmt='%Y-%m-%d %H:%M:%S CDT')
-
-
-# TODO: Use this instead once I reimplement Filter() logic
-def create_formatter2(use_infix: bool = False):
-    infix = ' %(infix)s' if use_infix else ''
-    return logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]{infix}   %(message)s', datefmt='%Y-%m-%d %H:%M:%S CDT')
 
 
 def get_log_handler(logger, handler_type):
@@ -132,11 +118,6 @@ class LogManager:
                 shutil.rmtree(sub_folders[i])
 
     @staticmethod
-    def _set_formatter(logger, infix):
-        for handler in logger.handlers:
-            handler.setFormatter(create_formatter(infix))
-
-    @staticmethod
     def _close_file_handlers(logger):
         for handler in logger.handlers:
             if isinstance(handler, logging.FileHandler):
@@ -146,6 +127,11 @@ class LogManager:
         self.test_run_logger.addHandler(self.test_run_file_handler)
         self.test_run_logger.info(message)
         self.test_run_logger.removeHandler(self.test_run_file_handler)
+
+    def _change_filter_name(self, logger, name):
+        for handler in logger.handlers:
+            for filter in handler.filters:
+                filter.name = name
 
     def on_suite_start(self):
         LogManager._close_file_handlers(self.test_run_logger)
@@ -226,13 +212,15 @@ class LogManager:
             logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG, filter_=filter_))
             logger.addHandler(create_stream_handler(filter_=filter_))
             logger.propagate = False
-            f= create_file_handler(self.folder, self.run_logger_name, logging.INFO, formatter=_FILTER_FORMATTER, filter_=filter_, mode='a+')
-            test_run_memory_handler = ManualFlushHandler(f)
+            test_run_memory_handler = ManualFlushHandler(
+                create_file_handler(self.folder, self.run_logger_name, logging.INFO, filter_=filter_, mode='a+')
+            )
             test_run_memory_handler.setFormatter(_FILTER_FORMATTER)
             #test_run_memory_handler = ManualFlushHandler(get_log_handler(self.test_run_logger, logging.FileHandler))
             test_run_memory_handler.addFilter(filter_)
             logger.addHandler(test_run_memory_handler)
-        LogManager._set_formatter(logger, f'{module_name.split(".")[-1]}::{formatter_infix}')
+        else:
+            self._change_filter_name(logger, f'{module_name.split(".")[-1]}::{formatter_infix}')
         return logger
 
     def get_setup_logger(self, module_name: str) -> logging.Logger:
