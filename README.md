@@ -4,27 +4,28 @@ This framework is more focused on heavy logging in your tests for easier analysi
 
 ## Framework Features:
 - Test Runner
-    - Test Fixtures
     - Discovers tests at runtime
-    - Can run individual tests, test modules, or tagged modules
+    - Can run individual tests and test modules
+    - Test Fixtures
     - Can specify tests to ignore
     - Runs tests sequentially and parallelly in 1 run
-- Logging:
-    - A console log level flag as command line argument
-    - Console logging will be kept to a minimum; and be very user friendly (when log level is INFO or above)
-    - All request and response payloads will be logged and formatted
-    - Filtered failure log file that shows every step leading up to the failure
-    - Files are segregated by test module
+- Logging (LogManager):
     - Records are timestamped
+    - Assertion failures are logging at `[ERROR]`
+    - It will hold folders from the last 10 test runs
+    - Each test module will be in its own folder
+    - Each test will be in it's own file
+    - Failed test will be renamed to `FAILED_<test_name>.log`
 
 
 ## Runner psuedo code
 ``` python
 def discover_modules(parent_path):
      paths = get_all_paths(parent_path)
+     modules = []
     for path in paths:
         if is_dir(path):
-            discover_modules(path)
+            modules += discover_modules(path)
         else:
             modules = get_modules(path)
     return modules
@@ -75,17 +76,16 @@ if __name__ == '__main__':
 ```
 
 ## There are a few logger factories already created for you
-- test_framework.logger.create_simple_file_logger()
-    - Creates a logger with a file handler
+If you want to create other tools in your repo you can use these logging factories to keep the logging format consistent
+- test_framework.logger.create_stream_logger()
+    - Creates a console logger with the custom formatter
 
 - test_framework.logger.create_file_logger()
-    - Creates a logger with a file handler with a custom formater
+    - Creates a logger with a file handler with the custom formatter
 
 - test_framework.logger.create_full_logger()
-    - Creates a logger that has both a stream and file handler with a custom formatter
+    - Creates a logger that has both a stream and file handler with the custom formatter
 
-- test_framework.logger.create_module_logger()
-    - Like the full_logger, but also will flush records to failures.log (the records that get flushed are records from the beginning of the test all the way up to the failure)
 
 ## Fixture example of a test module
 ``` python

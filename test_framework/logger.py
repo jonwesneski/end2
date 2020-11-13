@@ -40,7 +40,7 @@ def _cdt_time(*args):
 logging.Formatter.converter = _cdt_time
 
 
-def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG, filter_=None, mode='w'):
+def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG, filter_:logging.Filter = None, mode: str = 'w'):
     os.makedirs(folder, exist_ok=True)
     file_handler = logging.FileHandler(os.path.join(folder, f'{name}.log'), mode=mode)
     file_handler.setLevel(file_level)
@@ -50,7 +50,7 @@ def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG,
     return file_handler
 
 
-def create_stream_handler(stream_level: int = logging.INFO, filter_=None):
+def create_stream_handler(stream_level: int = logging.INFO, filter_:logging.Filter = None):
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setLevel(stream_level)
     if filter_:
@@ -61,7 +61,8 @@ def create_stream_handler(stream_level: int = logging.INFO, filter_=None):
     return stream_handler
 
 
-def create_full_logger(folder: str, name: str, stream_level: int, file_name: str = None, file_level: int = logging.DEBUG, filter_:logging.Filter = None,  propagate: bool = False):
+def create_full_logger(folder: str, name: str, stream_level: int, file_name: str = None,
+                       file_level: int = logging.DEBUG, filter_:logging.Filter = None,  propagate: bool = False):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     logger.addHandler(create_file_handler(folder, file_name or name, file_level, filter_, mode='a+'))
@@ -88,10 +89,6 @@ def get_log_handler(logger, handler_type):
     for handler in logger.handlers:
         if type(handler) == handler_type:
             return handler
-
-
-def get_log_handler_level(logger, handler_type):
-    return get_log_handler(logger, handler_type).level
 
 
 class LogManager:
