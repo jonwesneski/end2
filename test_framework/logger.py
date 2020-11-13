@@ -156,12 +156,11 @@ class LogManager:
 
     def on_setup_module_done(self, module_name: str, status: Status):
         # logger = logging.getLogger(f'{module_name}.setup')
-        # TODO: Add Filter() logic
+        # TODO:
         pass
 
     def on_setup_test_done(self, module_name: str, test_name: str, setup_test_result: Result):
         logger = logging.getLogger(f'{module_name}.{test_name}')
-        # TODO: Add Filter() logic
         if setup_test_result and setup_test_result.status == Status.SKIPPED:
             logger.critical(setup_test_result.message)
             file_hanlder = None
@@ -193,19 +192,15 @@ class LogManager:
 
     def on_parameterized_test_done(self, module_name: str, parameter_result: Result):
         self.on_test_done(module_name, parameter_result)
-        # logger = logging.getLogger(f'{module_name}.setup')
-        # TODO: Add Filter() logic
-        pass
 
     def on_teardown_test_done(self, module_name: str, test_name: str, teardown_test_result: Result):
         logger = logging.getLogger(f'{module_name}.{test_name}')
-        # TODO: Add Filter() logic
         if teardown_test_result and teardown_test_result.status != Status.PASSED:
             logger.critical(teardown_test_result.message)
 
     def on_teardown_module_done(self, module_name: str, status: Status):
         # logger = logging.getLogger(f'{module_name}.teardown')
-        # TODO: Add Filter() logic
+        # TODO:
         pass
 
     def on_module_done(self, test_module_result: TestModuleResult):
