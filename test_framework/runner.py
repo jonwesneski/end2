@@ -64,6 +64,7 @@ class TestSuiteRun:
 
     def execute(self, parallel: bool) -> TestSuiteResult:
         self.suite_result = TestSuiteResult(self.name)
+        self.log_manager.on_suite_start()
         try:
             if parallel:
                 for module in self.sequential_modules:
@@ -87,6 +88,7 @@ class TestSuiteRun:
         except Exception:
             self.log_manager.test_run_logger.error(traceback.format_exc())
         self.suite_result.end()
+        self.log_manager.on_suite_stop(self.suite_result)
         return self.suite_result
 
 
@@ -188,6 +190,7 @@ class TestMethodRun(Run):
                         parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}[{i}]'))
                         parameter_result = parameter_run.run_func(self.test_method.func)
                         parameter_result.name = f'{self.test_method.name}[{i}]'
+                        self.log_manager.on_parameterized_test_done(self.module_name, parameter_result)
                         return parameter_result
                     future_results = {
                         executor.submit(execute, i, self.test_method.func.parameterized_list): i
@@ -212,6 +215,7 @@ class TestMethodRun(Run):
                     parameter_run = Run(parameters_func, self.log_manager.get_test_logger(self.module_name, f'{self.test_method.name}[{i}]'))
                     parameter_result = parameter_run.run_func(self.test_method.func)
                     parameter_result.name = f'{self.test_method.name}[{i}]'
+                    self.log_manager.on_parameterized_test_done(self.module_name, parameter_result)
                     result.parameterized_results.append(parameter_result)
         else:
             logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)

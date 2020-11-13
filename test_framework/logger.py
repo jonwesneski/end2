@@ -13,7 +13,8 @@ from test_framework.enums import Status
 from test_framework.popo import (
     Result,
     TestMethodResult,
-    TestModuleResult
+    TestModuleResult,
+    TestSuiteResult
 )
 
 
@@ -39,9 +40,9 @@ def _cdt_time(*args):
 logging.Formatter.converter = _cdt_time
 
 
-def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG, formatter=None, filter_=None):
+def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG, formatter=None, filter_=None, mode='w'):
     os.makedirs(folder, exist_ok=True)
-    file_handler = logging.FileHandler(os.path.join(folder, f'{name}.log'), mode='w')
+    file_handler = logging.FileHandler(os.path.join(folder, f'{name}.log'), mode=mode)
     file_handler.setLevel(file_level)
     if formatter:
         file_handler.setFormatter(formatter)
@@ -64,7 +65,7 @@ def create_full_logger(folder: str, name: str, stream_level: int, file_name: str
     formatter = _FILTER_FORMATTER if filter_ else _FORMATTER
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-    logger.addHandler(create_file_handler(folder, file_name or name, file_level, formatter, filter_))
+    logger.addHandler(create_file_handler(folder, file_name or name, file_level, formatter, filter_, mode='a+'))
     logger.addHandler(create_stream_handler(stream_level, formatter, filter_))
     logger.propagate = propagate
     return logger
@@ -117,6 +118,7 @@ class LogManager:
         os.makedirs(self.folder, exist_ok=True)
         self.filter = InfixFilter('test_run')
         self.test_run_logger = create_full_logger(self.folder, self.run_logger_name, stream_level, file_level=logging.INFO, filter_=self.filter, propagate=False)
+        self.test_run_file_handler = get_log_handler(self.test_run_logger, logging.FileHandler)
         self._rotate_folders(base, 10)
         self._test_separator = '\n' + ('-' * 175)
         self._module_separator = '\n' + ('=' * 175)
@@ -140,6 +142,18 @@ class LogManager:
             if isinstance(handler, logging.FileHandler):
                 handler.close()
 
+    def _log_test_run_message(self, message):
+        self.test_run_logger.addHandler(self.test_run_file_handler)
+        self.test_run_logger.info(message)
+        self.test_run_logger.removeHandler(self.test_run_file_handler)
+
+    def on_suite_start(self):
+        LogManager._close_file_handlers(self.test_run_logger)
+        self.test_run_logger.removeHandler(self.test_run_file_handler)
+
+    def on_suite_stop(self, suite_result: TestSuiteResult):
+        self._log_test_run_message(str(suite_result))
+
     def on_setup_module_done(self, module_name: str, status: Status):
         # logger = logging.getLogger(f'{module_name}.setup')
         # TODO: Add Filter() logic
@@ -162,7 +176,8 @@ class LogManager:
     def on_test_done(self, module_name: str, test_method_result: TestMethodResult):
         logger = logging.getLogger(f'{module_name}.{test_method_result.name}')
         self._flush_log_memory_handler(logger)
-        self.test_run_logger.info(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_separator}')
+        self._log_test_run_message(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_separator}')
+        #self.test_run_logger.info(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_separator}')
         if test_method_result.status == Status.FAILED:
             for handler in logger.handlers:
                 if isinstance(handler, logging.FileHandler):
@@ -171,16 +186,13 @@ class LogManager:
                     os.rename(handler.baseFilename, os.path.join(self.folder, f'{Status.FAILED.upper()}_{module_name}.{base_name}'))
 
     def _flush_log_memory_handler(self, logger):
-        # for handler in self.test_run_logger.handlers:
-        #     if isinstance(handler, logging.FileHandler):
-        #         handler.flush()
         for handler in logger.handlers:
             if isinstance(handler, ManualFlushHandler):
-                print('hihihihihhi')
                 handler.flush()
                 handler.close()
 
-    def on_parameterized_test_done(self, module_name: str, test_name: str, parameter_result: Result):
+    def on_parameterized_test_done(self, module_name: str, parameter_result: Result):
+        self.on_test_done(module_name, parameter_result)
         # logger = logging.getLogger(f'{module_name}.setup')
         # TODO: Add Filter() logic
         pass
@@ -197,7 +209,8 @@ class LogManager:
         pass
 
     def on_module_done(self, test_module_result: TestModuleResult):
-        self.test_run_logger.info(f'{test_module_result}{self._module_separator}')
+        #self.test_run_logger.info(f'{test_module_result}{self._module_separator}')
+        self._log_test_run_message(f'{test_module_result}{self._module_separator}')
         if test_module_result.status in [Status.PASSED, Status.SKIPPED]:
             for test_result in test_module_result.test_results:
                 LogManager._close_file_handlers(logging.getLogger(f'{test_module_result.name}.{test_result.name}'))
@@ -218,9 +231,11 @@ class LogManager:
             logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG, filter_=filter_))
             logger.addHandler(create_stream_handler(filter_=filter_))
             logger.propagate = False
-            test_run_memory_handler = ManualFlushHandler(get_log_handler(self.test_run_logger, logging.FileHandler))
+            f= create_file_handler(self.folder, self.run_logger_name, logging.INFO, formatter=_FILTER_FORMATTER, filter_=filter_, mode='a+')
+            test_run_memory_handler = ManualFlushHandler(f)
+            test_run_memory_handler.setFormatter(_FILTER_FORMATTER)
+            #test_run_memory_handler = ManualFlushHandler(get_log_handler(self.test_run_logger, logging.FileHandler))
             test_run_memory_handler.addFilter(filter_)
-            print(test_run_memory_handler)
             logger.addHandler(test_run_memory_handler)
         LogManager._set_formatter(logger, f'{module_name.split(".")[-1]}::{formatter_infix}')
         return logger
@@ -241,34 +256,6 @@ class LogManager:
         return self.create_logger(module_name, 'teardown', 'teardown')
 
 
-class CustomFlushHandler(logging.handlers.MemoryHandler):
-    """
-    This class will not flush on "shutdown" and flushes to a separate file.
-    """
-    def __init__(self, folder, flush_level, flush_on_close):
-        super().__init__(capacity=None, flushLevel=flush_level, target=None, flushOnClose=flush_on_close)
-        self.folder = folder
-
-    def _get_test_name(self):
-        for filter_ in self.filters:
-            if isinstance(filter_, TestFilter) and filter_.test_name:
-                return f'{filter_.name}-{filter_.test_name.replace(" ", "_")}'
-
-    def shouldFlush(self, record):
-        return record.levelno >= self.flushLevel
-
-    def flush(self):
-        if inspect.stack()[1][3] != 'shutdown' and not self.flushOnClose:
-            test_name = self._get_test_name()
-            if test_name:
-                separate_handler = logging.FileHandler(os.path.join(self.folder, f'{test_name}.log'), mode='w')
-                separate_handler.setLevel(logging.DEBUG)
-                separate_handler.setFormatter(create_formatter())
-                self.setTarget(separate_handler)
-            super().flush()
-        self.setTarget(None)
-
-
 class ManualFlushHandler(logging.handlers.MemoryHandler):
     """
     This class will only flush on close; also emits at log level or above.
@@ -279,7 +266,6 @@ class ManualFlushHandler(logging.handlers.MemoryHandler):
 
     def emit(self, record):
         if record.levelno >= self.emit_level:
-            print('hello', self.target)
             super().emit(record)
 
     def shouldFlush(self, record):
