@@ -188,7 +188,6 @@ class LogManager:
 
     def on_module_done(self, test_module_result: TestModuleResult):
         #self.test_run_logger.info(f'{test_module_result}{self._module_terminator}')
-        self._log_test_run_message(f'{test_module_result}{self._module_terminator}')
         if test_module_result.status in [Status.PASSED, Status.SKIPPED]:
             for test_result in test_module_result.test_results:
                 LogManager._close_file_handlers(logging.getLogger(f'{test_module_result.name}.{test_result.name}'))
@@ -196,9 +195,11 @@ class LogManager:
                     LogManager._close_file_handlers(self.get_test_logger(test_module_result.name, result.name))
             for fixture_logger in [self.get_setup_logger(test_module_result.name), self.get_teardown_logger(test_module_result.name)]:
                 LogManager._close_file_handlers(fixture_logger)
+                self._flush_log_memory_handler(fixture_logger)
             os.rename(
                 os.path.join(self.folder, test_module_result.name),
                 os.path.join(self.folder, f'{test_module_result.status.upper()}_{test_module_result.name}'))
+        self._log_test_run_message(f'{test_module_result}{self._module_terminator}')
 
     def create_logger(self, module_name: str, test_name: str, formatter_infix: str) -> logging.Logger:
         name = f'{module_name}.{test_name}'
