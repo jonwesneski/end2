@@ -16,14 +16,20 @@ from test_framework.popo import (
 )
 
 
-def create_test_suite_instance(suite_paths: list, stop_on_first_failure: bool = False, test_parameters_func=None, log_manager: LogManager = None) -> tuple:
+def create_test_suite_instance(suite_paths: list, stop_on_first_failure: bool = False, test_parameters_func=None,
+                               log_manager: LogManager = None) -> tuple:
     log_manager_ = log_manager or LogManager()
     sequential_modules, parallel_modules, ignored_modules, failed_imports = discover_suites(suite_paths)
-    sequential_module_runs = tuple(TestModuleRun(x, stop_run=stop_on_first_failure, test_parameters_func=test_parameters_func, log_manager=log_manager_)
-                                   for x in sequential_modules)
-    parallel_module_runs = tuple(TestModuleRun(x, stop_run=stop_on_first_failure, test_parameters_func=test_parameters_func, log_manager=log_manager_)
-                                 for x in parallel_modules)
-    return TestSuiteRun(f"\"{' '.join(suite_paths)}\"", sequential_module_runs, parallel_module_runs, log_manager_), ignored_modules, failed_imports
+    sequential_module_runs = tuple(
+        TestModuleRun(x, stop_run=stop_on_first_failure, test_parameters_func=test_parameters_func, log_manager=log_manager_)
+        for x in sequential_modules
+    )
+    parallel_module_runs = tuple(
+        TestModuleRun(x, stop_run=stop_on_first_failure, test_parameters_func=test_parameters_func, log_manager=log_manager_)
+        for x in parallel_modules
+    )
+    return (TestSuiteRun(f"\"{' '.join(suite_paths)}\"", sequential_module_runs, parallel_module_runs, log_manager_),
+            ignored_modules, failed_imports)
 
 
 class Run:
@@ -137,7 +143,9 @@ class TestModuleRun(Run):
                         self.logger.error(traceback.format_exc())
         else:
             for test in self.test_module.tests:
-                test_module_result.append(TestMethodRun(self.test_module.name, test, self.stop_run, self.test_parameters_func, self.log_manager).execute())
+                test_module_result.append(
+                    TestMethodRun(self.test_module.name, test, self.stop_run, self.test_parameters_func, self.log_manager).execute()
+                )
                 if self.stop_run and test_module_result.test_results[-1].status == Status.FAILED:
                     raise StopTestRunException(test_module_result.test_results[-1].message)
         return test_module_result
