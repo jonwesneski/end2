@@ -55,7 +55,7 @@ def test_1(logger):
 ``` python
 import logging
 from test_framework.logger import create_full_logger
-from test_framework.runner import create_test_run_instance
+from test_framework.runner import create_test_suite_instance
 
 
 if __name__ == '__main__':
@@ -65,13 +65,13 @@ if __name__ == '__main__':
                                                                 # To run a single test: ['path.to.single_module::test_name']
 
     def test_parameters(logger_):  # This is how parameters for tests are injected. When overriding this
-        return [logger_], {}       # you must always return a tuple of list and dict. And the only
+        return (logger_,), {}      # you must always return a tuple of list and dict. And the only
                                    # parameter is the logger for test module
 
-    run_instance.test_parameters = test_parameters
-    run_instance.test_executor_engine(parallel=True)  # This kicks off the test run
+    run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, test_parameters_func=test_parameters)
+    test_suite_result = run_instance.execute(parallel=True)  # This kicks off the test run
 
-    exit(1 if run_instance.results.failed_tests > 0 else 0)
+    exit(test_suite_result.exit_code)
 ```
 
 ## There are a few logger factories already created for you
@@ -103,22 +103,22 @@ __run_mode__ = RunMode.SEQUENTIAL  # This is required for every test module
 
 @setup
 def my_setup(logger):
-    print('do something during setup')
+    logger.info('do something during setup')
 
 
 @setup_test
 def my_setup_test(logger):
-    print('do something during setup test')
+    logger.info('do something during setup test')
 
 
 @teardown_test
 def my_teardown_test(logger):
-    print('do something during teardown test')
+    logger.info('do something during teardown test')
 
 
 @teardown
 def my_teardown(logger):
-    print('do something during teardown')
+    logger.info('do something during teardown')
 
 
 # Parameterize takes 1 argument: list of tuples

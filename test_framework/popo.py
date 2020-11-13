@@ -63,6 +63,10 @@ class TestSuiteResult(Result):
         super().__init__(name, status, message)
         self.test_modules = test_modules if test_modules else []
 
+    @property
+    def exit_code(self):
+        return 0 if self.status == Status.PASSED else 1
+
     def end(self, status: str = None):
         super().end(status)
         self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0

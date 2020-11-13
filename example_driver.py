@@ -21,4 +21,4 @@ if __name__ == '__main__':
     run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, test_parameters_func=test_parameters)
     test_suite_result = run_instance.execute(parallel=False)
 
-    exit(1 if run_instance.suite_result.failed_count > 0 else 0)
+    exit(test_suite_result.exit_code)
