@@ -71,14 +71,14 @@ def create_full_logger(folder: str, name: str, stream_level: int, file_name: str
     return logger
 
 
-def create_file_logger(name):
+def create_file_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     logger.addHandler(create_file_handler(FOLDER, name, logging.DEBUG))
     return logger
 
 
-def create_stream_logger(name):
+def create_stream_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     logger.addHandler(create_stream_handler(logging.DEBUG))
@@ -191,7 +191,6 @@ class LogManager:
         LogManager._close_file_handlers(logger)
 
     def on_module_done(self, test_module_result: TestModuleResult):
-        #self.test_run_logger.info(f'{test_module_result}{self._module_terminator}')
         if test_module_result.status in [Status.PASSED, Status.SKIPPED]:
             for test_result in test_module_result.test_results:
                 LogManager._close_file_handlers(logging.getLogger(f'{test_module_result.name}.{test_result.name}'))
