@@ -137,22 +137,24 @@ class LogManager:
     def on_suite_stop(self, suite_result: TestSuiteResult):
         self._log_test_run_message(str(suite_result))
 
-    def on_setup_module_done(self, module_name: str, status: Status):
-        # logger = logging.getLogger(f'{module_name}.setup')
-        # TODO:
-        pass
+    def on_setup_module_done(self, module_name: str, result: Result):
+        logger = logging.getLogger(f'{module_name}.setup')
+        if result and result.status == Status.SKIPPED:
+            self._log_test_run_message(f'Skipping all tests: {result.message}')
+        self._flush_log_memory_handler(logger)
+        LogManager._close_file_handlers(logger)
 
     def on_setup_test_done(self, module_name: str, test_name: str, setup_test_result: Result):
         logger = logging.getLogger(f'{module_name}.{test_name}')
         if setup_test_result and setup_test_result.status == Status.SKIPPED:
             logger.critical(setup_test_result.message)
-            file_hanlder = None
+            file_handler = None
             for handler in logger.handlers:
                 if isinstance(handler, logging.FileHandler):
                     handler.close()
-                    file_hanlder = handler
+                    file_handler = handler
                     os.rename(handler.baseFilename, handler.baseFilename.replace(f'{test_name}', f'{Status.SKIPPED.upper()}_{test_name}'))
-            logger.removeHandler(file_hanlder)
+            logger.removeHandler(file_handler)
             logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG))
 
     def on_test_done(self, module_name: str, test_method_result: TestMethodResult):
@@ -181,10 +183,12 @@ class LogManager:
         if teardown_test_result and teardown_test_result.status != Status.PASSED:
             logger.critical(teardown_test_result.message)
 
-    def on_teardown_module_done(self, module_name: str, status: Status):
-        # logger = logging.getLogger(f'{module_name}.teardown')
-        # TODO:
-        pass
+    def on_teardown_module_done(self, module_name: str, result: Result):
+        logger = logging.getLogger(f'{module_name}.teardown')
+        if result and result.status == Status.FAILED:
+            self._log_test_run_message(f'Teardown Failed: {result.message}')
+        self._flush_log_memory_handler(logger)
+        LogManager._close_file_handlers(logger)
 
     def on_module_done(self, test_module_result: TestModuleResult):
         #self.test_run_logger.info(f'{test_module_result}{self._module_terminator}')

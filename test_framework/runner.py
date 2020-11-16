@@ -120,7 +120,9 @@ class TestModuleRun(Run):
 
     def setup(self) -> Result:
         logger = None if not self.test_module.setup else self.log_manager.get_setup_logger(self.test_module.name)
-        return self.run_func(self.test_module.setup, logger)
+        result = self.run_func(self.test_module.setup, logger)
+        self.log_manager.on_setup_module_done(self.test_module.name, result)
+        return result
 
     def run(self, parallel: bool) -> TestModuleResult:
         test_module_result = TestModuleResult(self.test_module.name)
@@ -152,7 +154,9 @@ class TestModuleRun(Run):
 
     def teardown(self) -> Result:
         logger = None if not self.test_module.teardown else self.log_manager.get_teardown_logger(self.test_module.name)
-        return self.run_func(self.test_module.teardown, logger)
+        result = self.run_func(self.test_module.teardown, logger)
+        self.log_manager.on_teardown_module_done(self.test_module.name, result)
+        return result
 
 
 class TestMethodRun(Run):
