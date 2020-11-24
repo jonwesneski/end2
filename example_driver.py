@@ -13,7 +13,7 @@ if __name__ == '__main__':
     default3=['example_tests.smoke.sample1', 'example_tests.regression']
     default4=['example_tests.regression.sample4::test_11']
     default5=['example_tests.regression.sample4::test_11[4]']
-    parser.add_argument('--suites', nargs='*', default=default1)
+    parser.add_argument('--suites', nargs='*', default=default4)
     args = parser.parse_args()
 
     def test_parameters(logger_):

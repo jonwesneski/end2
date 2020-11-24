@@ -121,6 +121,12 @@ class LogManager:
                 handler.close()
 
     def _log_test_run_message(self, message):
+        # TODO: This sometimes cause logging issues with logging parallel tests since I am adding and removing the same file handler
+        # test1-> addHandler
+        # test2-> addHandler
+        # test2-> write message
+        # test2-> remove handler
+        # test1-> write message; but handler no longer exists
         self.test_run_logger.addHandler(self.test_run_file_handler)
         self.test_run_logger.info(message)
         self.test_run_logger.removeHandler(self.test_run_file_handler)

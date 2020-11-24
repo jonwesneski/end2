@@ -4,11 +4,16 @@ from test_framework.enums import Status
 from test_framework.fixtures import get_fixture
 
 
+def build_full_name(module_name: str, test_name: str) -> str:
+    return f'{module_name}::{test_name}'
+
+
 class TestMethod:
     def __init__(self, setup_func, func, teardown_func):
         self.setup_func = setup_func
         self.func = func
         self.name = self.func.__name__
+        self.full_name = build_full_name(self.func.__module__, self.name)
         self.teardown_func = teardown_func
 
 
