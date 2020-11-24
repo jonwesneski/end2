@@ -99,7 +99,7 @@ class LogManager:
         self.run_logger_name = run_logger_name
         self.folder = os.path.join(base, datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
         os.makedirs(self.folder, exist_ok=True)
-        self.filter = InfixFilter('test_run')
+        self.filter = InfixFilter(self.run_logger_name)
         self.test_run_logger = create_full_logger(self.folder, self.run_logger_name, stream_level, file_level=logging.INFO, filter_=self.filter, propagate=False)
         self.test_run_file_handler = get_log_handler(self.test_run_logger, logging.FileHandler)
         self._rotate_folders(base, 10)
@@ -254,37 +254,6 @@ class ManualFlushHandler(logging.handlers.MemoryHandler):
 
     def shouldFlush(self, record):
         return False
-
-
-class TestFilter(logging.Filter):
-    def __init__(self, module_name):
-        super().__init__(module_name.split('.')[-1])
-        self._path = self.name
-        self._test_name = None
-
-    @property
-    def test_name(self):
-        return self._test_name
-
-    @test_name.setter
-    def test_name(self, test_name):
-        if test_name and isinstance(test_name, str):
-            self._test_name = test_name
-            self._path = f'{self.name}::{self._test_name}'
-        else:
-            self._test_name = None
-            self._path = self.name
-
-    @property
-    def path(self):
-        return self._path
-
-    def filter(self, record):
-        # When flushing I don't wan't it to pick up the current value of self.path
-        stack = inspect.stack()
-        if len(stack) >= 4 and stack[3][3] != 'flush':
-            record.module_method = self.path
-        return True
 
 
 class InfixFilter(logging.Filter):
