@@ -1,5 +1,4 @@
 from datetime import datetime
-import inspect
 import logging
 from logging.handlers import MemoryHandler
 import os
@@ -169,7 +168,6 @@ class LogManager:
         logger = logging.getLogger(f'{module_name}.{test_method_result.name}')
         self._flush_log_memory_handler(logger)
         self._log_test_run_message(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_terminator}')
-        #self.test_run_logger.info(f'{test_method_result.status}: {module_name}::{test_method_result.name}{self._test_terminator}')
         if test_method_result.status == Status.FAILED:
             for handler in logger.handlers:
                 if isinstance(handler, logging.FileHandler):
@@ -181,7 +179,6 @@ class LogManager:
         for handler in logger.handlers:
             if isinstance(handler, ManualFlushHandler):
                 handler.flush()
-                handler.close()
 
     def on_parameterized_test_done(self, module_name: str, parameter_result: Result):
         self.on_test_done(module_name, parameter_result)
@@ -190,6 +187,7 @@ class LogManager:
         logger = logging.getLogger(f'{module_name}.{test_name}')
         if teardown_test_result and teardown_test_result.status != Status.PASSED:
             logger.critical(teardown_test_result.message)
+        self._flush_log_memory_handler(logger)
 
     def on_teardown_module_done(self, module_name: str, result: Result):
         logger = logging.getLogger(f'{module_name}.teardown')
@@ -240,7 +238,6 @@ class LogManager:
                 create_file_handler(self.folder, self.run_logger_name, logging.INFO, filter_=filter_, mode='a+')
             )
             test_run_memory_handler.setFormatter(_FILTER_FORMATTER)
-            #test_run_memory_handler = ManualFlushHandler(get_log_handler(self.test_run_logger, logging.FileHandler))
             test_run_memory_handler.addFilter(filter_)
             logger.addHandler(test_run_memory_handler)
         else:
@@ -266,8 +263,5 @@ class ManualFlushHandler(logging.handlers.MemoryHandler):
 
 class InfixFilter(logging.Filter):
     def filter(self, record):
-        # When flushing I don't wan't it to pick up the current value of self.path
-        stack = inspect.stack()
-        if len(stack) >= 4 and stack[3][3] != 'flush':
-            record.infix = self.name
+        record.infix = self.name
         return True
