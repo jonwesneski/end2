@@ -47,6 +47,8 @@ def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG,
     if filter_:
         file_handler.addFilter(filter_)
         file_handler.setFormatter(_FILTER_FORMATTER)
+    else:
+        file_handler.setFormatter(_FORMATTER)
     return file_handler
 
 
@@ -210,6 +212,21 @@ class LogManager:
                 os.path.join(self.folder, f'{test_module_result.status.upper()}_{test_module_result.name}'))
         self._log_test_run_message(f'{test_module_result}{self._module_terminator}')
 
+    def get_setup_logger(self, module_name: str) -> logging.Logger:
+        return self.create_logger(module_name, 'setup', 'setup')
+
+    def get_setup_test_logger(self, module_name: str, test_name: str) -> logging.Logger:
+        return self.create_logger(module_name, test_name, 'setup_test')
+
+    def get_test_logger(self, module_name: str, test_name: str) -> logging.Logger:
+        return self.create_logger(module_name, test_name, test_name)
+
+    def get_teardown_test_logger(self, module_name: str, test_name: str) -> logging.Logger:
+        return self.create_logger(module_name, test_name, 'teardown_test')
+
+    def get_teardown_logger(self, module_name: str) -> logging.Logger:
+        return self.create_logger(module_name, 'teardown', 'teardown')
+
     def create_logger(self, module_name: str, test_name: str, formatter_infix: str) -> logging.Logger:
         name = f'{module_name}.{test_name}'
         logger = logging.getLogger(name)
@@ -229,21 +246,6 @@ class LogManager:
         else:
             self._change_filter_name(logger, f'{module_name.split(".")[-1]}::{formatter_infix}')
         return logger
-
-    def get_setup_logger(self, module_name: str) -> logging.Logger:
-        return self.create_logger(module_name, 'setup', 'setup')
-
-    def get_setup_test_logger(self, module_name: str, test_name: str) -> logging.Logger:
-        return self.create_logger(module_name, test_name, 'setup_test')
-
-    def get_test_logger(self, module_name: str, test_name: str) -> logging.Logger:
-        return self.create_logger(module_name, test_name, test_name)
-
-    def get_teardown_test_logger(self, module_name: str, test_name: str) -> logging.Logger:
-        return self.create_logger(module_name, test_name, 'teardown_test')
-
-    def get_teardown_logger(self, module_name: str) -> logging.Logger:
-        return self.create_logger(module_name, 'teardown', 'teardown')
 
 
 class ManualFlushHandler(logging.handlers.MemoryHandler):

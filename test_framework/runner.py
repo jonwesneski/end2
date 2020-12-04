@@ -181,7 +181,6 @@ class TestMethodRun(Run):
         result.setup = setup
         result.teardown = self.teardown()
         result.end()
-        self.log_manager.on_test_done(self.module_name, result)
         return result
 
     def setup(self) -> Result:
@@ -243,6 +242,7 @@ class TestMethodRun(Run):
                 result.message = e
                 result.status = Status.FAILED
                 logger.error(e)
+            self.log_manager.on_test_done(self.module_name, result)
         return result
 
     def teardown(self) -> Result:
