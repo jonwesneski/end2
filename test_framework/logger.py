@@ -27,6 +27,7 @@ FOLDER = 'logs'
 _DATEFORMAT = '%Y-%m-%d %H:%M:%S CDT'
 _FORMATTER = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]   %(message)s', datefmt=_DATEFORMAT)
 _FILTER_FORMATTER = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] %(infix)s   %(message)s', datefmt=_DATEFORMAT)
+_, _COLUMN_SIZE = os.popen('stty size', 'r').read().split()
 
 
 def _cdt_time(*args):
@@ -104,8 +105,8 @@ class LogManager:
         self.test_run_logger = create_full_logger(self.folder, self.run_logger_name, stream_level, file_level=logging.INFO, filter_=self.filter, propagate=False)
         self.test_run_file_handler = get_log_handler(self.test_run_logger, logging.FileHandler)
         self._rotate_folders(base, 10)
-        self._test_terminator = '\n' + ('-' * 175)
-        self._module_terminator = '\n' + ('=' * 175)
+        self._test_terminator = '\n' + ('-' * _COLUMN_SIZE)
+        self._module_terminator = '\n' + ('=' * _COLUMN_SIZE)
 
     @staticmethod
     def _rotate_folders(base_folder: str, max_folders: int):
