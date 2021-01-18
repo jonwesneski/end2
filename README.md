@@ -15,7 +15,7 @@ This framework is more focused on heavy logging in your tests for easier analysi
     - It will hold folders from the last 10 test runs
     - Each test module will be in its own folder
     - Each test will be in it's own file
-    - Failed test will be renamed to `FAILED_<test_name>.log`
+    - Failed tests will be renamed to `FAILED_<test_name>.log`
 
 
 ## Runner psuedo code
@@ -54,16 +54,11 @@ def test_1(logger):
 
 ## Simple example of a driver
 ``` python
-import logging
-from test_framework.logger import create_full_logger
 from test_framework.runner import create_test_suite_instance
 
 
 if __name__ == '__main__':
-    logger = create_full_logger('logger_name', stream_level=logging.INFO, file_level=logging.DEBUG)
-    run_instance = create_test_run_instance(['tests'], logger)  # 1st arg is a list of test packages
-                                                                # To run a single test module: ['path.to.single_module']
-                                                                # To run a single test: ['path.to.single_module::test_name']
+    run_instance = create_test_run_instance(suite_paths=['tests'])  # This arg is a list of test packages, test modules, and tests methods; more on this in the next section
 
     def test_parameters(logger_):  # This is how parameters for tests are injected. When overriding this
         return (logger_,), {}      # you must always return a tuple of list and dict. And the only
@@ -75,8 +70,27 @@ if __name__ == '__main__':
     exit(test_suite_result.exit_code)
 ```
 
+## Test Suite Paths
+A suite path is a string that contains the path to the module delimited by a period:
+- To run a single test package: `['path.to.package']`
+- To run a single test module: `['path.to.package.module']`
+- To run multiple test packages: ['path.to.package', 'path2.to.package']
+- To run multiple test packages and modules: ['path.to.package', 'path2.to.package', 'path3.to.package.module', 'path4.to.package.module']
+It can also contains filters:
+- `::` which is to run specific tests in a module: `['path.to.package.module::test_1']`
+- `;` which is delimiter for modules: `['path.to.package.module;module2']`
+- `,` which is a delimiter for tests: `['path.to.package.module::test_1,test_2;module2']`
+- `!` which means run everything before the `!` but nothing after:
+    - `['path.to.package.!module;module2']`  runs everything in `path.to.package` except `module` and `module2`
+    - `['path.to.package.module::!test_1,test_2;module2']`  runs `module2` and everything in `module` except `test_1` and `test_2`
+- `[n]` which will run specific parameterized tests:
+    - `['path.to.package.module::test_name[1]']`  runs the 2nd test in the parameterized list
+    - `['path.to.module::test_name[2:6]']`  runs tests 2 through 6 in the parameterized list
+    - `['path.to.module::test_name[2:6:2]']`  runs the 2nd, 4th, 6th test in the parameterized list
+
+
 ## There are a few logger factories already created for you
-If you want to create other tools in your repo you can use these logging factories to keep the logging format consistent
+If you want to create other tools in your repo you can use these logging factories to keep the logging format consistent as well as the rotating timestampted folders
 - test_framework.logger.create_stream_logger()
     - Creates a console logger with the custom formatter
 
@@ -85,12 +99,13 @@ If you want to create other tools in your repo you can use these logging factori
 
 - test_framework.logger.create_full_logger()
     - Creates a logger that has both a stream and file handler with the custom formatter
+- If you want a different number than 10 folders rotating then you can add this to your environment variables `AUTOMATION_LOGS_SUB_FOLDER_COUNT` and set it to a number of your choice
 
 
 ## Fixture example of a test module
 ``` python
 from test_framework.enums import RunMode
-from test_framework.utils import (
+from test_framework.fixtures import (
     parameterize,
     setup,
     setup_test,

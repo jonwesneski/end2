@@ -46,10 +46,10 @@ def parallel_parameterize(parameters_list: list, first_arg_is_name: bool = False
 def _parameterize(parameters_list: list, is_parallel: bool, first_arg_is_name: bool):
     def wrapper(func):
         if first_arg_is_name:
-            func.names = [f'{func.__name__} {i} {args[0]}' for i, args in enumerate(parameters_list, start=1)]
+            func.names = [f'{func.__name__}[{i}] {args[0]}' for i, args in enumerate(parameters_list)]
             func.parameterized_list = tuple(p[1:] for p in parameters_list)
         else:
-            func.names = [f'{func.__name__} {i}' for i in range(1, len(parameters_list)+1)]
+            func.names = [f'{func.__name__}[{i}]' for i in range(len(parameters_list))]
             func.parameterized_list = tuple(parameters_list)
         func.is_parallel = is_parallel
         func.range = range(len(parameters_list))
