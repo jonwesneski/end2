@@ -5,39 +5,34 @@ from random import shuffle
 
 from test_framework.fixtures import get_fixture
 from test_framework.enums import RunMode
-from test_framework.popo import TestMethod, TestModule
+from test_framework.popo import TestMethod, TestModule, GlobalObject
 
 
 FUNCTION_TYPE = type(lambda: None)
 
 
-def discover_suites(suite_paths: list) -> tuple:
-    # """
-    # >>> sequential, parallel, ignored, failed = discover_suites(['test_framework.example.smoke.!ignored_module,sample1', 'test_framework.example.regression'])
-    # >>> sequential
-    # 0
-    # >>> parallel
-    # 0
-    # >>> failed
-    # 0
-    # >>> assert len(sequential) == 2 and len(parallel) == 2 and not failed
-    # """
-    importables, ignored_modules = _parse_suite_paths(suite_paths)
-    ignored_paths = [x.replace('.', os.sep) for x in ignored_modules]
-    modules, failed_imports = {}, set()
-    for importable in importables:
-        m, f = _recursive_discover(importable, ignored_paths)
-        for k, v in m.items():
-            if k in modules:
-                modules[k].update(v)
-            else:
-                modules[k] = v
-        failed_imports |= f
-    sequential_modules = list(filter(lambda x: x.module.__run_mode__ == RunMode.SEQUENTIAL, modules.values()))
-    parallel_modules = list(filter(lambda x: x.module.__run_mode__ in [RunMode.PARALLEL, RunMode.PARALLEL_TEST], modules.values()))
-    shuffle(sequential_modules)
-    shuffle(parallel_modules)
-    return sequential_modules, parallel_modules, tuple(ignored_modules), tuple(failed_imports)
+def discover_suite(paths) -> tuple:
+    importables, ignored_paths = _parse_suite_paths(paths)
+    shuffle(importables)
+    def _walk_paths(importables_):
+        for importable in importables_:
+            path = importable.path
+            if os.path.exists(path):
+                if os.path.isdir(path):
+                    yield from discover_package(importable)
+                    # items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(path)))
+                    # shuffle(items)
+                    # for item in os.listdir(path):
+                    #     full_path = os.path.join(path, item)
+                    #     if os.path.isdir(full_path) and os.path.basename(full_path) != '__pycache__':
+                    #         # todo rework _ImportableFilters so that I dont have to instantiate a new instance
+                    #         _walk_paths(_ImportableFilters(full_path.replace('.py', '').replace(os.sep, '.'), importable.tests, importable.ignored_tests))
+                    #     elif item.endswith('.py') and item != '__init__.py' and full_path.replace('.py', ''):
+                    #         # todo rework _ImportableFilters so that I dont have to instantiate a new instance
+                    #         yield discover_module(_ImportableFilters(full_path.replace('.py', '').replace(os.sep, '.'), importable.tests, importable.ignored_tests))
+                else:
+                    yield discover_module(_ImportableFilters(path.replace('.py', '').replace(os.sep, '.'), importable.tests, importable.ignored_tests))
+    return _walk_paths(importables), ignored_paths
 
 
 class _ImportableFilters:
@@ -284,7 +279,26 @@ def _recursive_discover(importable: _ImportableFilters, ignored_paths: list) -> 
     return modules, failed_imports
 
 
-def discover_module(importable: _ImportableFilters) -> tuple:
+def discover_package(importable: _ImportableFilters) -> tuple:
+    try:
+        test_package = importlib.import_module(importable._path)
+    except Exception as e:
+        yield None, f'Failed to load {importable._path} - {e}'
+    items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable.path)))
+    shuffle(items)
+    test_package_globals = getattr(test_package, 'setup', lambda x: x)(GlobalObject())
+    for item in items:
+        full_path = os.path.join(importable._path, item)
+        if os.path.isdir(full_path) and os.path.basename(full_path) != '__pycache__':
+            # todo rework _ImportableFilters so that I dont have to instantiate a new instance
+            yield from discover_package(_ImportableFilters(full_path.replace('.py', '').replace(os.sep, '.'), importable.tests, importable.ignored_tests))
+        elif item.endswith('.py') and item != '__init__.py' and full_path.replace('.py', ''):
+            # todo rework _ImportableFilters so that I dont have to instantiate a new instance
+            yield discover_module(_ImportableFilters(full_path.replace('.py', '').replace(os.sep, '.'), importable.tests, importable.ignored_tests), test_package_globals)
+    getattr(test_package, 'teardown', lambda x: None)(test_package_globals)
+
+
+def discover_module(importable: _ImportableFilters, test_package_globals) -> tuple:
     # """
     # >>> module, error_str = discover_module('test_framework.example.smoke.sample1', [])
     # >>> assert module and error_str == ''
@@ -296,7 +310,7 @@ def discover_module(importable: _ImportableFilters) -> tuple:
         module = importlib.import_module(importable._path)
         tests = discover_tests(module, importable)
         if tests:
-            test_module = TestModule(module, tests, set(importable.ignored_tests))
+            test_module = TestModule(module, tests, set(importable.ignored_tests), test_package_globals)
     except ModuleNotFoundError as me:
         if me.name == importable._path:
             error_str = f"Module doesn't exist - {importable._path}"

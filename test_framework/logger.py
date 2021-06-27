@@ -10,7 +10,7 @@ import struct
 import subprocess
 import sys
 
-from pytz import timezone
+# from pytz import timezone
 
 from test_framework.enums import Status
 from test_framework.popo import (
@@ -35,6 +35,11 @@ try:
     _MAX_SUB_FOLDERS = int(os.getenv('AUTOMATION_LOGS_SUB_FOLDER_COUNT'))
 except:
     _MAX_SUB_FOLDERS = 10
+
+
+empty_logger = logging.getLogger('EMPTY')
+empty_logger.propagate = False
+empty_logger.disabled = True
 
 
 def get_terminal_size():
@@ -116,15 +121,6 @@ def _get_terminal_size_linux():
 
 _COLUMN_SIZE = get_terminal_size()[0]
 
-
-def _cdt_time(*args):
-    cdt_time = datetime.fromtimestamp(args[1])
-    cdt_time_zone = timezone('America/Chicago')
-    converted = cdt_time.astimezone(cdt_time_zone)
-    return converted.timetuple()
-
-
-logging.Formatter.converter = _cdt_time
 
 
 def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG, filter_: logging.Filter = None, mode: str = 'w') -> logging.FileHandler:

@@ -1,21 +1,138 @@
 # Test Automation Framework
-This framework is more focused on heavy logging in your tests for easier analysis. This framework makes you create your own driver for your test automation so you can: have more custom control on setup before a test run, use the same parameters for all your test cases, and have custom control on steps after a test run. Tests are written in methods at the module level, and when running tests you can specify a folder to be able to run all tests in that folder. This framework supports the typical test fixtures: setup before any test in a module, setup between tests, teardown between tests, and testdown in a module, and parameterizing tests. These test modules also support running the tests sequentially or parallelly by specifiying the run mode.
+The focus of this framework is:
+- Minimal framework with easy learning curve
+- For folks that like programatic ways instead of configurations
+- e2e type of testing
+- For testing that has heavy logging and need to analyze failures in logs rather than test case code
 
 
-## Framework Features:
-- Test Runner
+## intent/philosophy
+- Become better
+    This framework was designed to be to also help test writers become better coders as well. Only test functions are allowed in this framework and all test cases are shuffled before they run to make sure no tests depend on each other. All below intents/philosophies tie back to this first one of become better at test writing/coding
+- Randomizing
+    By having tests run randomly, we are ensuring that tests don't need to run in a specific order. If test-1 fails, then test-2 will obviously fail, but test-2 is a false negaive. It might be better to consider test-1 and test-2 as test steps and just combine test-1 and test-2 in one test case instead. Another plus to randomizing is the test writer will be able to find out if there are any side effects on the test case side or the SUT and be able to fix what is necessary. This will make them have a better understanding of there own coding, others memberings coding, and the SUT as well if the side effect is on the SUT itself
+- Declaring
+    Test case design is very important and the design should speak for itself in the file/module. Declaring the concurrency/run-mode in the file lets everyone know that that particular file can run in parallel. Passing that info in the command line can be confusing over time because not everyone will remember what can and can't run parallel
+- 1 set of parameters per suite:
+    When we do a suite run we are only testing 1 system, therefore whatever is needed to communicate to the system should be the same throughout all test cases in that suite. As a result parameters should be the same for all test cases
+
+
+## Features
+- Test Runner:
     - Discovers tests at runtime
     - Can run individual tests and test modules
     - Test Fixtures
     - Can specify tests to ignore
     - Runs tests sequentially and parallelly in 1 run
-- Logging (LogManager):
+- Fixtures:
+    - setup package
+    - teardown package
+    - setup module
+    - teardown module
+    - setup test
+    - teardown test
+    - metadata
+    - parameterize
+- Logging:
     - Records are timestamped
-    - Assertion failures are logging at `[ERROR]`
+    - Assertion failures are logged at `[ERROR]`
     - It will hold folders from the last 10 test runs
     - Each test module will be in its own folder
     - Each test will be in it's own file
     - Failed tests will be renamed to `FAILED_<test_name>.log`
+
+
+## Getting Started
+### Understanding the Runner (psuedo code)
+``` python
+def discover_suite(parent_path):
+     paths = get_all_paths(parent_path)
+     modules = []
+    for path in paths:
+        if is_dir(path):
+            package = discover(path)
+            package.setup()
+            modules += discover_modules(package)
+            package.teardown()
+        else:
+            modules.append(get_module(path))
+    return shuffle(modules)
+
+def run_tests(discovered_modules):
+    for module in discovered_modules:
+        module.setup():
+        for test in shuffle(module.tests):
+            module.setup_test()
+            test()
+            module.teardown_test()
+        module.teardown()
+```
+
+### Simple example of a test module
+``` python
+from test_framework.enums import RunMode
+
+__run_mode__ = RunMode.SEQUENTIAL  # This is required for every test module
+
+def test_1(logger):
+    assert 1 == 1        # assert is used for validation; if assertion fails the test fails and exits on that assert
+    assert True is True  #
+    logger.info('Hi')
+```
+
+### Simple example of a driver
+``` python
+from test_framework.runner import create_test_suite_instance
+
+
+if __name__ == '__main__':
+    run_instance = create_test_run_instance(suite_paths=['tests'])  # This arg is a list of test packages, test modules, and tests methods; more on this in the next section
+
+    def test_parameters(logger_):  # This is how parameters for tests are injected. When overriding this
+        return (logger_,), {}      # you must always return a tuple of list and dict. And the only
+                                   # parameter is the logger for test module
+
+    run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, test_parameters_func=test_parameters)
+    test_suite_result = run_instance.execute(parallel=True)  # This kicks off the test run
+
+    exit(test_suite_result.exit_code)
+```
+
+
+## TODO:
+- [] change suites to be file path instead of dot notation
+- [] support async fixtures
+- [] .testingrc or maybe setting.conf
+    - have this file as a profile with setting about how to configure runner
+    - [] max threads
+    - [] max sub folder logs
+    - [] list of last failed tests
+    - [] suite-aliases
+    - [] ignored tests
+- [] cli (overrides .testingrc)
+    - [] make a default arparser
+        - [] suite
+        - [] suite-glob
+        - [] suite-regex
+        - [] run-last-failures
+        - [] max threads
+        - [] max sub folder logs
+- [] update readme
+    - [] focus/intent/philosophy
+        - [x] this is for heaving logging
+        - [x] more for e2e
+        - [x] more for those that like to program more (do there own custom integrations)
+        - [x] minimal and not much to learn
+        - [x] tests are randomized to ensure they dont depend on other tests and to be state-aware of the thing you are testing
+        - [x] there are no tests classes. Test classes means you probably store state for other tests to use; which means they depend on each other
+        - [x] The test file itself should have the declaration of concurrency (that way you dont have to memorize what can and cant run parallel or specify it every time in the command line)
+        - [x] when we do a suite run we have the same parameters for each test
+    - [] update featrues
+    - [] getting started
+        - [] write a test
+        - [] write a test with parameters
+    - [] .testingrc or maybe setting.conf
+    - [] cli
 
 
 ## Runner psuedo code

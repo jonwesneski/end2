@@ -27,6 +27,14 @@ def teardown_test(func):
     return wrapper
 
 
+def metadata(func, **kwargs):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    wrapper.metadata = kwargs
+    return wrapper
+
+
 def teardown(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):

@@ -24,13 +24,14 @@ class TestMethod:
 
 
 class TestModule:
-    def __init__(self, module, tests: dict, ignored_tests: set = None):
+    def __init__(self, module, tests: dict, ignored_tests: set = None, package_globals: object = None):
         self.module = module
         self.name = module.__name__
         self.setup = get_fixture(self.module, 'setup')
         self.tests = tests
         self.teardown = get_fixture(self.module, 'teardown')
         self.ignored_tests = ignored_tests if ignored_tests else set()
+        self.package_globals = package_globals
 
     def __eq__(self, rhs) -> bool:
         return self.name == rhs.name
@@ -47,7 +48,7 @@ class TestModule:
 
 
 class Result:
-    def __init__(self, name: str, status: str = None, message: str = None):
+    def __init__(self, name: str, status: str = None, message: str = ""):
         self.name = name
         self.start_time = datetime.now()
         self._end_time = None
@@ -110,7 +111,8 @@ class TestSuiteResult(Result):
 
 
 class TestModuleResult(Result):
-    def __init__(self, name: str, setup: Result = None, teardown: Result = None, test_results: list = None, status: str = None, message: str = None):
+    def __init__(self, name: str, setup: Result = None, teardown: Result = None,
+                 test_results: list = None, status: str = None, message: str = None):
         super().__init__(name, status, message)
         self.setup = setup
         self.teardown = teardown
@@ -147,7 +149,16 @@ class TestModuleResult(Result):
 
 
 class TestMethodResult(Result):
-    def __init__(self, name: str, setup: Result = None, teardown: Result = None, status: str = None, message: str = None):
+    def __init__(self, name: str, setup: Result = None, teardown: Result = None,
+                 status: str = None, message: str = "", metadata: dict = None):
         super().__init__(name, status, message)
         self.setup_result = setup
         self.teardown_result = teardown
+        self.metadata = metadata or {}
+
+
+class GlobalObject:
+    def copy(self, obj):
+        for attribute in dir(obj):
+            if not attribute.startswith('__'):
+                setattr(self, attribute) = getattr(obj, attribute)

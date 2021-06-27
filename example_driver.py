@@ -5,7 +5,13 @@ from test_framework.runner import create_test_suite_instance
 if __name__ == '__main__':
     # Must run from inside examples folder
     import argparse
+    from test_framework.runner2 import start_test_run
+ #   testasdfa(['example_tests.smoke.!ignored_module;sample1::test_ignored_test,test_2'])
+#    exit()
+    #start_test_run(['example_tests.smoke.!ignored_module;sample1::test_ignored_test,test_2'])
+    start_test_run(['example_tests'])
 
+    exit()
     parser = argparse.ArgumentParser()
     default0=['example_tests.smoke.!ignored_module;sample1::test_ignored_test,test_2']
     default1=['example_tests']
