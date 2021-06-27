@@ -7,14 +7,14 @@ The focus of this framework is:
 
 
 ## intent/philosophy
-- Become better
-    This framework was designed to be to also help test writers become better coders as well. Only test functions are allowed in this framework and all test cases are shuffled before they run to make sure no tests depend on each other. All below intents/philosophies tie back to this first one of become better at test writing/coding
-- Randomizing
-    By having tests run randomly, we are ensuring that tests don't need to run in a specific order. If test-1 fails, then test-2 will obviously fail, but test-2 is a false negaive. It might be better to consider test-1 and test-2 as test steps and just combine test-1 and test-2 in one test case instead. Another plus to randomizing is the test writer will be able to find out if there are any side effects on the test case side or the SUT and be able to fix what is necessary. This will make them have a better understanding of there own coding, others memberings coding, and the SUT as well if the side effect is on the SUT itself
-- Declaring
-    Test case design is very important and the design should speak for itself in the file/module. Declaring the concurrency/run-mode in the file lets everyone know that that particular file can run in parallel. Passing that info in the command line can be confusing over time because not everyone will remember what can and can't run parallel
+- Become better:
+    - This framework was designed to be to also help test writers become better coders as well. Only test functions are allowed in this framework and all test cases are shuffled before they run to make sure no tests depend on each other. All below intents/philosophies tie back to this first one of become better at test writing/coding
+- Randomizing:
+    - By having tests run randomly, we are ensuring that tests don't need to run in a specific order. If test-1 fails, then test-2 will obviously fail, but test-2 is a false negaive. It might be better to consider test-1 and test-2 as test steps and just combine test-1 and test-2 in one test case instead. Another plus to randomizing is the test writer will be able to find out if there are any side effects on the test case side or the SUT and be able to fix what is necessary. This will make them have a better understanding of there own coding, others memberings coding, and the SUT as well if the side effect is on the SUT itself
+- Declaring:
+    - Test case design is very important and the design should speak for itself in the file/module. Declaring the concurrency/run-mode in the file lets everyone know that that particular file can run in parallel. Passing that info in the command line can be confusing over time because not everyone will remember what can and can't run parallel
 - 1 set of parameters per suite:
-    When we do a suite run we are only testing 1 system, therefore whatever is needed to communicate to the system should be the same throughout all test cases in that suite. As a result parameters should be the same for all test cases
+    - When we do a suite run we are only testing 1 system, therefore whatever is needed to communicate to the system should be the same throughout all test cases in that suite. As a result parameters should be the same for all test cases
 
 
 ## Features
