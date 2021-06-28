@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-from test_framework.runner import create_test_suite_instance
+from test_framework.runner import start_test_run
+from test_framework.parser import default_parser
+
 
 
 if __name__ == '__main__':
     # Must run from inside examples folder
     import argparse
-    from test_framework.runner2 import start_test_run
  #   testasdfa(['example_tests.smoke.!ignored_module;sample1::test_ignored_test,test_2'])
 #    exit()
     #start_test_run(['example_tests.smoke.!ignored_module;sample1::test_ignored_test,test_2'])
+    default_parser()
     start_test_run(['example_tests'])
 
     exit()

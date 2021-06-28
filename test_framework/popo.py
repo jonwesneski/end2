@@ -161,4 +161,4 @@ class GlobalObject:
     def copy(self, obj):
         for attribute in dir(obj):
             if not attribute.startswith('__'):
-                setattr(self, attribute) = getattr(obj, attribute)
+                setattr(self, attribute, getattr(obj, attribute))

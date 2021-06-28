@@ -6,7 +6,7 @@ The focus of this framework is:
 - For testing that has heavy logging and need to analyze failures in logs rather than test case code
 
 
-## intent/philosophy
+## Intent/Philosophy
 - Become better:
     - This framework was designed to be to also help test writers become better coders as well. Only test functions are allowed in this framework and all test cases are shuffled before they run to make sure no tests depend on each other. All below intents/philosophies tie back to this first one of become better at test writing/coding
 - Randomizing:
@@ -115,8 +115,9 @@ if __name__ == '__main__':
         - [] suite-glob
         - [] suite-regex
         - [] run-last-failures
-        - [] max threads
-        - [] max sub folder logs
+        - [x] max threads
+        - [x] max sub folder logs
+- [] make code use/read cli and .testingrc
 - [] update readme
     - [] focus/intent/philosophy
         - [x] this is for heaving logging
