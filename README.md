@@ -1,4 +1,4 @@
-# Test Automation Framework
+# end² Test Automation Framework
 The focus of this framework is:
 - Minimal framework with easy learning curve
 - For folks that like programatic ways instead of configurations

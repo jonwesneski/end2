@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from test_framework.runner import start_test_run
-from test_framework.parser import default_parser
+from test_framework.arg_parser import default_parser
 
 
 
