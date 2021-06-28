@@ -20,8 +20,8 @@ excluding - anything on the right side of a '\!' will be excluded:
     parent_parser.add_argument('--max-workers', type=int, default=20, help='Total number of workers allowed to run concurrently')
     parent_parser.add_argument('--max-sub-folders', type=int, default=10, help='Total number of max log folders')
     parent_parser.add_argument('--no-concurrency', action='store_true', help='Make all tests run sequentially')
+    parent_parser.add_argument('--stop-on-fail', action='store_true', help='Make all tests run sequentially')
     print(parent_parser.parse_args().suite)
-    exit()
     return parent_parser
 
 
@@ -46,46 +46,67 @@ class SuiteFactoryAction(argparse.Action):
 
 class IncludeExclude:
     def __init__(self, items: list, include: bool):
-        self.items = items
-        self.include_ = include
+        self._items = items
+        self._include = include
 
     @classmethod
     def parse_str(cls, string: str, delimiter: str = ',', include: bool = True):
         return cls(string.split(delimiter), include)
 
     def __str__(self) -> str:
-        return f"{'include' if self.include_ else 'exclude'}: {self.items}"
+        return f"{'include' if self._include else 'exclude'}: {self._items}"
 
-    def include(self, item: str) -> bool:
+    @property
+    def included_items(self):
+        return self._items if self._include else []
+
+    @property
+    def excluded_items(self):
+        return self._items if not self._include else []
+
+    def included(self, item: str) -> bool:
         """
-        >>> IncludeExclude.include(IncludeExclude(['a'], True), 'a')
+        >>> IncludeExclude.included(IncludeExclude(['a'], True), 'a')
         True
-        >>> IncludeExclude.include(IncludeExclude(['a'], True), 'b')
+        >>> IncludeExclude.included(IncludeExclude(['a'], True), 'b')
         False
-        >>> IncludeExclude.include(IncludeExclude(['a'], False), 'a')
+        >>> IncludeExclude.included(IncludeExclude(['a'], False), 'a')
         False
-        >>> IncludeExclude.include(IncludeExclude(['a'], False), 'b')
+        >>> IncludeExclude.included(IncludeExclude(['a'], False), 'b')
         True
-        >>> IncludeExclude.include(IncludeExclude([], True), 'a')
+        >>> IncludeExclude.included(IncludeExclude([], True), 'a')
         True
-        >>> IncludeExclude.include(IncludeExclude([], False), 'b')
+        >>> IncludeExclude.included(IncludeExclude([], False), 'b')
         True
         """
-        if item in self.items:
-            value = self.include_
+        if item in self._items:
+            value = self._include
         else:
-            value = not self.include_
-            if not self.items:
+            value = not self._include
+            if not self._items:
                 value = True
         return value
+
+    def excluded(self, item: str) -> bool:
+        """
+        >>> IncludeExclude.excluded(IncludeExclude(['a'], True), 'a')
+        False
+        >>> IncludeExclude.excluded(IncludeExclude(['a'], True), 'b')
+        True
+        >>> IncludeExclude.excluded(IncludeExclude(['a'], False), 'a')
+        True
+        >>> IncludeExclude.excluded(IncludeExclude(['a'], False), 'b')
+        False
+        >>> IncludeExclude.excluded(IncludeExclude([], True), 'a')
+        False
+        >>> IncludeExclude.excluded(IncludeExclude([], False), 'b')
+        False
+        """
+        return not self.included(item)
 
 
 class ModuleIncludeExclude(IncludeExclude):
     excluder = '!'
-
-    @property
-    def suite_modules(self):
-        return self.items
 
     @classmethod
     def parse_str(cls, string: str, delimiter: str = ';', include: bool = True):
@@ -97,13 +118,10 @@ class ModuleIncludeExclude(IncludeExclude):
 
 
 class TestCaseIncludeExclude(ModuleIncludeExclude):
-    @property
-    def test_cases(self):
-        return self.items
-
     @classmethod
     def parse_str(cls, string: str, delimiter: str = ',', include: bool = True):
         return super(TestCaseIncludeExclude, cls).parse_str(string, delimiter, include)
+
 
 
 class SuiteArg:
@@ -115,10 +133,10 @@ class SuiteArg:
             if '::' in path:
                 modules_str, tests_str = path.split('::')
             modules = module_class.parse_str(modules_str)
-            if modules.include_:
-                self.modules = {item: test_class.parse_str(tests_str) for item in modules.items }
+            if modules.included_items:
+                self.modules = {item: test_class.parse_str(tests_str) for item in modules.included_items }
             else:
-                self.excluded_modules.extend(modules.items)
+                self.excluded_modules.extend(modules.excluded_items)
 
 
     def __str__(self):

@@ -5,27 +5,20 @@ from test_framework.arg_parser import default_parser
 
 
 if __name__ == '__main__':
-    # Must run from inside examples folder
-    import argparse
- #   testasdfa(['example_tests.smoke.!ignored_module;sample1::test_ignored_test,test_2'])
-#    exit()
-    #start_test_run(['example_tests.smoke.!ignored_module;sample1::test_ignored_test,test_2'])
-    default_parser()
-    start_test_run(['example_tests'])
-
-    exit()
-    parser = argparse.ArgumentParser()
-    default0=['example_tests.smoke.!ignored_module;sample1::test_ignored_test,test_2']
-    default1=['example_tests']
-    default2=['example_tests.smoke.!ignored_module']
-    default3=['example_tests.smoke.sample1', 'example_tests.regression']
-    default4=['example_tests.regression.sample4::test_11']
-    default5=['example_tests.regression.sample4::test_11[4]']
-    parser.add_argument('--suites', nargs='*', default=default4)
-    args = parser.parse_args()
+    temp_args0=['--suite', 'example_tests\\smoke\\!ignored_module.py;sample1.py::test_ignored_test,test_2']
+    temp_args1=['--suite', 'example_tests.py']
+    temp_args2=['--suite', 'example_tests\\smoke\\!ignored_module.py']
+    temp_args3=['--suite', 'example_tests\\smoke\\sample1.py', 'example_tests\\regression.py']
+    temp_args4=['--suite', 'example_tests\\regression\\sample4.py::test_11']
+    temp_args5=['--suite', 'example_tests\\regression\\sample4.py::test_11[4]']
+    args = default_parser().parse_args()
 
     def test_parameters(logger_):
         return (logger_,), {}
+
+    start_test_run(args, test_parameters)
+
+    exit()
 
     run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, test_parameters_func=test_parameters)
     test_suite_result = run_instance.execute(parallel=False)

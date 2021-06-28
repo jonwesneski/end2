@@ -33,9 +33,9 @@ def default_test_parameters(logger_):
     return (logger_,), {}
 
 
-def start_test_run(paths, test_parameters_func=default_test_parameters, is_concurrent=True) -> tuple:
+def start_test_run(args, test_parameters_func=default_test_parameters) -> tuple:
     suite_run = SuiteRun()
-    print(suite_run.run(paths, test_parameters_func))
+    print(suite_run.run(args.suite.modules, test_parameters_func, not args.no_concurrency, args.stop_on_fail))
     return suite_run.results
 
 
@@ -48,7 +48,7 @@ class SuiteRun:
         self.logger = self.log_manager.logger
 
     def run(self, paths, test_parameters_func, is_concurrent=True, stop_on_fail=False) -> tuple:
-        iter_modules, self.ignored_paths = discover_suite(paths)
+        iter_modules = discover_suite(paths)
         self.results, failed_imports = [], set()
         for test_module, failed_import in iter_modules:
             if test_module:

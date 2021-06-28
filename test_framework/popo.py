@@ -112,10 +112,11 @@ class TestSuiteResult(Result):
 
 class TestModuleResult(Result):
     def __init__(self, name: str, setup: Result = None, teardown: Result = None,
-                 test_results: list = None, status: str = None, message: str = None):
+                 test_results: list = None, status: str = None, message: str = None, description: str = None):
         super().__init__(name, status, message)
         self.setup = setup
         self.teardown = teardown
+        self.description = description
         self.test_results = test_results if test_results else []
         self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
 
@@ -150,11 +151,12 @@ class TestModuleResult(Result):
 
 class TestMethodResult(Result):
     def __init__(self, name: str, setup: Result = None, teardown: Result = None,
-                 status: str = None, message: str = "", metadata: dict = None):
+                 status: str = None, message: str = None, description: str = None, metadata: dict = None):
         super().__init__(name, status, message)
         self.setup_result = setup
         self.teardown_result = teardown
         self.metadata = metadata or {}
+        self.description = description
 
 
 class GlobalObject:
