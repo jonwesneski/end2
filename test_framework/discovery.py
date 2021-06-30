@@ -12,7 +12,7 @@ from test_framework.popo import TestMethod, TestModule, GlobalObject
 FUNCTION_TYPE = type(lambda: None)
 
 
-def _shuffle_dict(dict_: dict):
+def _shuffle_dict(dict_: dict) -> dict:
     list_ = list(dict_.items())
     shuffle(list_)
     return dict(list_)

@@ -1,9 +1,13 @@
 import argparse
+from configparser import ConfigParser
+import configparser
 
 
 def default_parser() -> argparse.ArgumentParser:
+    rc = _get_rc()
     parent_parser = argparse.ArgumentParser()
-    parent_parser.add_argument('--suite', nargs='*', action=SuiteFactoryAction, help="""works by specifying a file path examples:
+    parent_parser.add_argument('--suite', nargs='*', action=SuiteFactoryAction,
+                               help="""works by specifying a file path examples:
 file:
  --suite path/to/file1.py path/to/file2.py
 file-delimited:
@@ -15,14 +19,36 @@ test-case-delimited:
 excluding - anything on the right side of a '\!' will be excluded:
 --suite path/to/!file.py  # will run everything under path/to except path/to/file.py
 --suite path/to/file.py::!test_1,test_2  # will run everything under path/to/file.py except test_1 and test_2""")
-    parent_parser.add_argument('--suite-glob', nargs='*', action=SuiteFactoryAction, help="list of glob expression to search for tests")
-    parent_parser.add_argument('--suite-regex', nargs='*', action=SuiteFactoryAction, help="list of regex expression to search for tests")
-    parent_parser.add_argument('--max-workers', type=int, default=20, help='Total number of workers allowed to run concurrently')
-    parent_parser.add_argument('--max-sub-folders', type=int, default=10, help='Total number of max log folders')
-    parent_parser.add_argument('--no-concurrency', action='store_true', help='Make all tests run sequentially')
-    parent_parser.add_argument('--stop-on-fail', action='store_true', help='Make all tests run sequentially')
+    parent_parser.add_argument('--suite-glob', nargs='*', action=SuiteFactoryAction,
+                               help="list of glob expression to search for tests")
+    parent_parser.add_argument('--suite-regex', nargs='*', action=SuiteFactoryAction,
+                               help="list of regex expression to search for tests")
+    parent_parser.add_argument('--max-workers', type=int, default=rc['settings'].getint('max-workers'),
+                               help='Total number of workers allowed to run concurrently')
+    parent_parser.add_argument('--max-sub-folders', type=int, default=rc['settings'].getint('max-workers'),
+                               help='Total number of max log folders')
+    parent_parser.add_argument('--no-concurrency', action='store_true', default=rc['settings'].getboolean('no-concurrency'),
+                               help='Make all tests run sequentially')
+    parent_parser.add_argument('--stop-on-fail', action='store_true', default=rc['settings'].getboolean('stop-on-fail'),
+                               help='Make all tests run sequentially')
     print(parent_parser.parse_args().suite)
     return parent_parser
+
+
+def _get_rc() -> ConfigParser:
+    file_name = 'end2.rc'
+    rc = ConfigParser()
+    if not rc.read(file_name):
+        rc['settings'] = {
+            'max-workers': 20,
+            'max-sub-folders': 10,
+            'no-concurrency': False,
+            'stop-on-fail': False
+        }
+        rc['suite-aliases'] = {}
+        with open(file_name, 'w') as configfile:
+            rc.write(configfile)
+    return rc
 
 
 class SuiteFactoryAction(argparse.Action):

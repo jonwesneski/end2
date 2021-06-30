@@ -104,25 +104,24 @@ if __name__ == '__main__':
 ## TODO:
 - [] change suites to be file path instead of dot notation
 - [] support async fixtures
-- [] .testingrc or maybe setting.conf
-    - have this file as a profile with setting about how to configure runner
-    - [] max threads
-    - [] max sub folder logs
-    - [] list of last failed tests
+- [] .testingrc or maybe setting.conf (have this file as a profile with setting about how to configure runner)
+    - [x] max threads
+    - [x] max sub folder logs
     - [] suite-aliases
     - [] ignored tests
 - [] cli (overrides .testingrc)
     - [] make a default arparser
-        - [] suite
+        - [x] suite
         - [] suite-glob
         - [] suite-regex
         - [] suite-tag
-        - [] run-last-failures
+        - [] run-last-failures (store failures as a text file in logs/)
         - [x] max threads
         - [x] max sub folder logs
-- [] make code use/read cli and .testingrc
+- [x] make code use/read cli and .testingrc
+- [] keep track of last failed tests in logs folder
 - [] update readme
-    - [] focus/intent/philosophy
+    - [x] focus/intent/philosophy
         - [x] this is for heaving logging
         - [x] more for e2e
         - [x] more for those that like to program more (do there own custom integrations)

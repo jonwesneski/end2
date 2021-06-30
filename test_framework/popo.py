@@ -50,14 +50,18 @@ class TestModule:
 class Result:
     def __init__(self, name: str, status: str = None, message: str = ""):
         self.name = name
-        self.start_time = datetime.now()
         self._end_time = None
         self.duration = None
         self.status = status
         self.message = message
+        self.start()
 
     def __str__(self) -> str:
         return f'{self.name} Result: {{{self.status} | Duration: {self.duration}}}'
+
+    @property
+    def start_time(self) -> datetime:
+        return self._start_time
 
     @property
     def end_time(self) -> datetime:
@@ -66,11 +70,17 @@ class Result:
     @end_time.setter
     def end_time(self, value: datetime):
         self._end_time = value
-        self.duration = self._end_time - self.start_time
+        self.duration = self._end_time - self._start_time
 
     @property
     def total_seconds(self) -> float:
         return 0.0 if not self.duration else self.duration.total_seconds()
+
+    def _now(self) -> datetime:
+        return datetime.now()
+
+    def start(self):
+        self._start_time = self._now()
 
     def end(self, status: str = None):
         self.end_time = datetime.now()

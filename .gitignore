@@ -1,3 +1,7 @@
+# Folders
 .vscode
 __pycache__
 logs
+
+# Files
+end2.rc
