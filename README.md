@@ -104,11 +104,11 @@ if __name__ == '__main__':
 ## TODO:
 - [] change suites to be file path instead of dot notation
 - [] support async fixtures
-- [] .testingrc or maybe setting.conf (have this file as a profile with setting about how to configure runner)
+- [x] .testingrc or maybe setting.conf (have this file as a profile with setting about how to configure runner)
     - [x] max threads
     - [x] max sub folder logs
-    - [] suite-aliases
-    - [] ignored tests
+    - [x] suite-aliases
+    - [x] disabled tests
 - [] cli (overrides .testingrc)
     - [] make a default arparser
         - [x] suite

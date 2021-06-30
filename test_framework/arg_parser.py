@@ -1,6 +1,5 @@
 import argparse
 from configparser import ConfigParser
-import configparser
 
 
 def default_parser() -> argparse.ArgumentParser:
@@ -36,19 +35,44 @@ excluding - anything on the right side of a '\!' will be excluded:
 
 
 def _get_rc() -> ConfigParser:
-    file_name = 'end2.rc'
-    rc = ConfigParser()
+    file_name = '.end2rc'
+    rc = ConfigParser(comment_prefixes=('#',))
     if not rc.read(file_name):
-        rc['settings'] = {
-            'max-workers': 20,
-            'max-sub-folders': 10,
-            'no-concurrency': False,
-            'stop-on-fail': False
-        }
-        rc['suite-aliases'] = {}
+        # Temporarily recreating with a different comment_prefix
+        # so I can have comments
+        rc = ConfigParser(comment_prefixes=(';',))
+        rc.read_string('''[settings]
+max-workers = 20
+max-sub-folders = 10
+no-concurrency = False
+stop-on-fail = False
+
+[suite-alias]
+# Examples
+# short_suite_name = path/to/suite1.py path/to/another/suite2.py
+# super_suite = short_suite_name path/to/suite3.py
+
+[suite-disabled]
+# Examples
+# path/to/suite3.py = BUG-1234
+# short_suite_name = Need to refactor stuff
+''')
         with open(file_name, 'w') as configfile:
             rc.write(configfile)
+        rc = ConfigParser(comment_prefixes=('#',))
+        rc.read(file_name)
+    else:
+        _check_for_corruption(rc)
     return rc
+
+
+def _check_for_corruption(rc: ConfigParser, file_name: str):
+    # TODO finish
+    try:
+        rc['settings']['max-workers']
+    except:
+        with open(file_name, 'w') as configfile:
+            rc.write(configfile)
 
 
 class SuiteFactoryAction(argparse.Action):
@@ -60,7 +84,7 @@ class SuiteFactoryAction(argparse.Action):
         elif option_string == '--suite-regex':
             setattr(namespace, 'suite', self._parse_suite_regex(values))
 
-    def _parse_suite(self, suite: list) -> list:
+    def _parse_suite(self, suite: list):
         return SuiteArg(suite, ModuleIncludeExclude, TestCaseIncludeExclude)
 
     def _parse_suite_glob(self, suite: list) -> list:
@@ -83,11 +107,11 @@ class IncludeExclude:
         return f"{'include' if self._include else 'exclude'}: {self._items}"
 
     @property
-    def included_items(self):
+    def included_items(self) -> list:
         return self._items if self._include else []
 
     @property
-    def excluded_items(self):
+    def excluded_items(self) -> list:
         return self._items if not self._include else []
 
     def included(self, item: str) -> bool:
@@ -151,10 +175,15 @@ class TestCaseIncludeExclude(ModuleIncludeExclude):
 
 
 class SuiteArg:
+    rc_alias = 'suite-alias'
+    rc_disabled = 'suite-disabled'
+
+
     def __init__(self, paths: list, module_class: IncludeExclude, test_class: IncludeExclude):
         self.modules = {}
         self.excluded_modules = []
-        for path in paths:
+        rc = _get_rc()
+        for path in self._resolve_paths(set(paths), rc[self.rc_alias], list(rc[self.rc_disabled].keys())):
             modules_str, tests_str = path, ''
             if '::' in path:
                 modules_str, tests_str = path.split('::')
@@ -164,6 +193,36 @@ class SuiteArg:
             else:
                 self.excluded_modules.extend(modules.excluded_items)
 
+    @staticmethod
+    def _resolve_paths(paths: set, suite_aliases: dict, disabled_suites: list) -> set:
+        '''
+        >>> SuiteArg._resolve_paths({'a'}, {'a': 'b'}, [])
+        {'b'}
+        >>> SuiteArg._resolve_paths({'a', 'b'}, {'a': 'b'}, [])
+        {'b'}
+        >>> SuiteArg._resolve_paths({'a', 'b'}, {'a': 'c'}, []) ^ {'b', 'c'}
+        set()
+        >>> SuiteArg._resolve_paths({'a', 'b', 'c'}, {}, []) ^ {'a', 'b', 'c'}
+        set()
+        >>> SuiteArg._resolve_paths({'a'}, {'a': 'b c', 'b': 'd', 'c': 'e'}, []) ^ {'d', 'e'}
+        set()
+        >>> SuiteArg._resolve_paths({'a'}, {'a': 'b'}, ['b'])
+        set()
+        >>> SuiteArg._resolve_paths({'a', 'b'}, {'a': 'b'}, ['a'])
+        {'b'}
+        >>> SuiteArg._resolve_paths({'a'}, {'a': 'c'}, ['b']) ^ {'c'}
+        set()
+        '''
+        paths_ = set()
+        for path in paths:
+            if path not in disabled_suites:
+                if path in suite_aliases:
+                    paths_ |= SuiteArg._resolve_paths(
+                        suite_aliases[path].split(' '), suite_aliases, disabled_suites
+                    )
+                else:
+                    paths_.add(path)
+        return paths_
 
     def __str__(self):
         temp_ = {
