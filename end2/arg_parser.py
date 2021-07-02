@@ -1,9 +1,9 @@
 import argparse
-from configparser import ConfigParser
+from end2.resource_profile import get_rc
 
 
 def default_parser() -> argparse.ArgumentParser:
-    rc = _get_rc()
+    rc = get_rc()
     parent_parser = argparse.ArgumentParser()
     parent_parser.add_argument('--suite', nargs='*', action=SuiteFactoryAction,
                                help="""works by specifying a file path examples:
@@ -35,84 +35,13 @@ excluding - anything on the right side of a '\!' will be excluded:
     return parent_parser
 
 
-
-_default_rc_dict = {
-    'settings': {
-        'max-workers': (int, 20),
-        'max-sub-folders': (int, 10),
-        'no-concurrency': (bool, False),
-        'stop-on-fail': (bool, False)
-    },
-    'suite-alias': {
-        '# Examples': (str, ''),
-        '# short_suite_name': (str, 'path/to/suite1.py path/to/another/suite2.py'),
-        '# super_suite': (str, 'short_suite_name path/to/suite3.py')
-    },
-    'suite-disabled': {
-        '# Examples': (str, ''),
-        '# path/to/suite3.py': (str, 'BUG-1234'),
-        '# short_suite_name': (str, 'Need to refactor stuff')
-    }
-}
-
-def _create_default_rc_string() -> str:
-    lines = []
-    for section, options in _default_rc_dict.items():
-        lines.append(f'[{section}]' + "\n")
-        for k, v in options.items():
-            lines.append(f"{k} = {str(v[1])}" + "\n")
-        lines.append("\n")
-    return ''.join(lines)
-
-
-def _get_rc() -> ConfigParser:
-    file_name = '.end2rc'
-    rc = ConfigParser(comment_prefixes=('#',))
-    if not rc.read(file_name):
-        # Temporarily recreating with a different comment_prefix
-        # so I can have comments
-        rc = ConfigParser(comment_prefixes=(';',))
-        rc.read_string(_create_default_rc_string())
-        with open(file_name, 'w') as configfile:
-            rc.write(configfile)
-        rc = ConfigParser(comment_prefixes=('#',))
-        rc.read(file_name)
-    else:
-        rc = _check_for_corruption(file_name)
-    return rc
-
-
-def _check_for_corruption(file_name: str):
-    corrupted = False
-    rc = ConfigParser(comment_prefixes=(';',))
-    rc.read(file_name)
-    for section, options in _default_rc_dict.items():
-        if section == 'settings':
-            for k, v in options.items():
-                try:
-                    if not isinstance(rc[section][k], v[0]):
-                        raise Exception()
-                except:
-                    corrupted = True
-                    rc[section][k] = str(v[1])
-        elif section not in rc:
-            corrupted = True
-            rc[section] = _default_rc_dict[section]
-    if corrupted:
-        with open(file_name, 'w') as configfile:
-            rc.write(configfile)
-        rc = ConfigParser(comment_prefixes=('#',))
-        rc.read(file_name)
-    return rc
-
-
 class SuiteFactoryAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         arg_to_name = f"_parse_{option_string[2:].replace('-', '_')}"
         setattr(namespace, 'suite', getattr(self, arg_to_name)(values))
 
     def _parse_suite(self, suite: list):
-        return SuiteArg(suite, ModuleIncludeExclude, TestCaseIncludeExclude)
+        return SuiteArg(suite, ProductModulePatternMatcher, ProductTestCasePatternMatcher)
 
     def _parse_suite_glob(self, suite: list) -> list:
         raise NotImplementedError()
@@ -124,7 +53,7 @@ class SuiteFactoryAction(argparse.Action):
         raise NotImplementedError()
 
 
-class IncludeExclude:
+class PatternMatcherBase:
     def __init__(self, items: list, include: bool):
         self._items = items
         self._include = include
@@ -185,7 +114,7 @@ class IncludeExclude:
         return not self.included(item)
 
 
-class ModuleIncludeExclude(IncludeExclude):
+class ProductModulePatternMatcher(PatternMatcherBase):
     excluder = '!'
 
     @classmethod
@@ -197,10 +126,10 @@ class ModuleIncludeExclude(IncludeExclude):
         return cls(string[index:].split(delimiter) if string else [], include)
 
 
-class TestCaseIncludeExclude(ModuleIncludeExclude):
+class ProductTestCasePatternMatcher(ProductModulePatternMatcher):
     @classmethod
     def parse_str(cls, string: str, delimiter: str = ',', include: bool = True):
-        return super(TestCaseIncludeExclude, cls).parse_str(string, delimiter, include)
+        return super(ProductTestCasePatternMatcher, cls).parse_str(string, delimiter, include)
 
 
 
@@ -209,10 +138,10 @@ class SuiteArg:
     rc_disabled = 'suite-disabled'
 
 
-    def __init__(self, paths: list, module_class: IncludeExclude, test_class: IncludeExclude):
+    def __init__(self, paths: list, module_class: PatternMatcherBase, test_class: PatternMatcherBase):
         self.modules = {}
         self.excluded_modules = []
-        rc = _get_rc()
+        rc = get_rc()
         for path in self._resolve_paths(set(paths), rc[self.rc_alias], list(rc[self.rc_disabled].keys())):
             modules_str, tests_str = path, ''
             if '::' in path:

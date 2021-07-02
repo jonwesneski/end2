@@ -11,8 +11,8 @@ import subprocess
 import sys
 
 
-from test_framework.enums import Status
-from test_framework.popo import (
+from end2.enums import Status
+from end2.popo import (
     Result,
     TestMethodResult,
     TestModuleResult,

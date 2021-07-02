@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from test_framework.enums import Status
-from test_framework.fixtures import get_fixture
+from end2.enums import Status
+from end2.fixtures import get_fixture
 
 
 def build_full_name(module_name: str, test_name: str) -> str:

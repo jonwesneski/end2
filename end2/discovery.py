@@ -4,9 +4,9 @@ import os
 from random import shuffle
 from typing import Generator
 
-from test_framework.fixtures import get_fixture
-from test_framework.enums import RunMode
-from test_framework.popo import TestMethod, TestModule, GlobalObject
+from end2.fixtures import get_fixture
+from end2.enums import RunMode
+from end2.popo import TestMethod, TestModule, GlobalObject
 
 
 FUNCTION_TYPE = type(lambda: None)

@@ -6,12 +6,12 @@ import traceback
 import sys
 
 sys.path.insert(0, 'C:\\Users\\jon.wesneski\\repos\\test_framework')
-from test_framework import exceptions
-from test_framework.discovery import discover_suite, discover_module
-from test_framework.enums import Status, RunMode
-from test_framework.fixtures import metadata
-from test_framework.logger import SuiteLogManager
-from test_framework.popo import (
+from end2 import exceptions
+from end2.discovery import discover_suite, discover_module
+from end2.enums import Status, RunMode
+from end2.fixtures import metadata
+from end2.logger import SuiteLogManager
+from end2.popo import (
     Result,
     TestMethod,
     TestMethodResult,
@@ -24,9 +24,6 @@ from test_framework.popo import (
 _empty_logger = logging.getLogger('EMPTY')
 _empty_logger.propagate = False
 _empty_logger.disabled = True
-
-
-
 
 
 def default_test_parameters(logger_):
