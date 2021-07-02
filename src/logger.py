@@ -11,8 +11,8 @@ import subprocess
 import sys
 
 
-from end2.enums import Status
-from end2.popo import (
+from src.enums import Status
+from src.popo import (
     Result,
     TestMethodResult,
     TestModuleResult,

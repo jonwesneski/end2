@@ -1,5 +1,5 @@
 import argparse
-from end2.resource_profile import get_rc
+from src.resource_profile import get_rc
 
 
 def default_parser() -> argparse.ArgumentParser:

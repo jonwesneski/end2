@@ -7,11 +7,11 @@ import sys
 
 sys.path.insert(0, 'C:\\Users\\jon.wesneski\\repos\\test_framework')
 from end2 import exceptions
-from end2.discovery import discover_suite, discover_module
-from end2.enums import Status, RunMode
-from end2.fixtures import metadata
-from end2.logger import SuiteLogManager
-from end2.popo import (
+from src.discovery import discover_suite, discover_module
+from src.enums import Status, RunMode
+from src.fixtures import metadata
+from src.logger import SuiteLogManager
+from src.popo import (
     Result,
     TestMethod,
     TestMethodResult,

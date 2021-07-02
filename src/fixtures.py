@@ -1,6 +1,6 @@
 import functools
 
-from test_framework.enums import FUNCTION_TYPE
+from src.enums import FUNCTION_TYPE
 
 
 def setup(func):
