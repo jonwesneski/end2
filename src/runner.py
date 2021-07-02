@@ -6,7 +6,7 @@ import traceback
 import sys
 
 sys.path.insert(0, 'C:\\Users\\jon.wesneski\\repos\\test_framework')
-from end2 import exceptions
+from src import exceptions
 from src.discovery import discover_suite, discover_module
 from src.enums import Status, RunMode
 from src.fixtures import metadata
