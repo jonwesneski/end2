@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, 'C:\\Users\\jon.wesneski\\repos\\test_framework')
 from test_framework import exceptions
-from test_framework.discovery import discover_suite, discover_module, _ImportableFilters, _parse_suite_paths
+from test_framework.discovery import discover_suite, discover_module
 from test_framework.enums import Status, RunMode
 from test_framework.fixtures import metadata
 from test_framework.logger import SuiteLogManager

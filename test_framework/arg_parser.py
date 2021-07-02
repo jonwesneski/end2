@@ -22,6 +22,8 @@ excluding - anything on the right side of a '\!' will be excluded:
                                help="list of glob expression to search for tests")
     parent_parser.add_argument('--suite-regex', nargs='*', action=SuiteFactoryAction,
                                help="list of regex expression to search for tests")
+    parent_parser.add_argument('--suite-last-failed', nargs=0, action=SuiteFactoryAction,
+                               help="list of regex expression to search for tests")
     parent_parser.add_argument('--max-workers', type=int, default=rc['settings'].getint('max-workers'),
                                help='Total number of workers allowed to run concurrently')
     parent_parser.add_argument('--max-sub-folders', type=int, default=rc['settings'].getint('max-workers'),
@@ -30,8 +32,37 @@ excluding - anything on the right side of a '\!' will be excluded:
                                help='Make all tests run sequentially')
     parent_parser.add_argument('--stop-on-fail', action='store_true', default=rc['settings'].getboolean('stop-on-fail'),
                                help='Make all tests run sequentially')
-    print(parent_parser.parse_args().suite)
     return parent_parser
+
+
+
+_default_rc_dict = {
+    'settings': {
+        'max-workers': (int, 20),
+        'max-sub-folders': (int, 10),
+        'no-concurrency': (bool, False),
+        'stop-on-fail': (bool, False)
+    },
+    'suite-alias': {
+        '# Examples': (str, ''),
+        '# short_suite_name': (str, 'path/to/suite1.py path/to/another/suite2.py'),
+        '# super_suite': (str, 'short_suite_name path/to/suite3.py')
+    },
+    'suite-disabled': {
+        '# Examples': (str, ''),
+        '# path/to/suite3.py': (str, 'BUG-1234'),
+        '# short_suite_name': (str, 'Need to refactor stuff')
+    }
+}
+
+def _create_default_rc_string() -> str:
+    lines = []
+    for section, options in _default_rc_dict.items():
+        lines.append(f'[{section}]' + "\n")
+        for k, v in options.items():
+            lines.append(f"{k} = {str(v[1])}" + "\n")
+        lines.append("\n")
+    return ''.join(lines)
 
 
 def _get_rc() -> ConfigParser:
@@ -41,48 +72,44 @@ def _get_rc() -> ConfigParser:
         # Temporarily recreating with a different comment_prefix
         # so I can have comments
         rc = ConfigParser(comment_prefixes=(';',))
-        rc.read_string('''[settings]
-max-workers = 20
-max-sub-folders = 10
-no-concurrency = False
-stop-on-fail = False
-
-[suite-alias]
-# Examples
-# short_suite_name = path/to/suite1.py path/to/another/suite2.py
-# super_suite = short_suite_name path/to/suite3.py
-
-[suite-disabled]
-# Examples
-# path/to/suite3.py = BUG-1234
-# short_suite_name = Need to refactor stuff
-''')
+        rc.read_string(_create_default_rc_string())
         with open(file_name, 'w') as configfile:
             rc.write(configfile)
         rc = ConfigParser(comment_prefixes=('#',))
         rc.read(file_name)
     else:
-        _check_for_corruption(rc)
+        rc = _check_for_corruption(file_name)
     return rc
 
 
-def _check_for_corruption(rc: ConfigParser, file_name: str):
-    # TODO finish
-    try:
-        rc['settings']['max-workers']
-    except:
+def _check_for_corruption(file_name: str):
+    corrupted = False
+    rc = ConfigParser(comment_prefixes=(';',))
+    rc.read(file_name)
+    for section, options in _default_rc_dict.items():
+        if section == 'settings':
+            for k, v in options.items():
+                try:
+                    if not isinstance(rc[section][k], v[0]):
+                        raise Exception()
+                except:
+                    corrupted = True
+                    rc[section][k] = str(v[1])
+        elif section not in rc:
+            corrupted = True
+            rc[section] = _default_rc_dict[section]
+    if corrupted:
         with open(file_name, 'w') as configfile:
             rc.write(configfile)
+        rc = ConfigParser(comment_prefixes=('#',))
+        rc.read(file_name)
+    return rc
 
 
 class SuiteFactoryAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
-        if option_string == '--suite':
-            setattr(namespace, 'suite', self._parse_suite(values))
-        elif option_string == '--suite-glob':
-            setattr(namespace, 'suite', self._parse_suite_glob(values))
-        elif option_string == '--suite-regex':
-            setattr(namespace, 'suite', self._parse_suite_regex(values))
+        arg_to_name = f"_parse_{option_string[2:].replace('-', '_')}"
+        setattr(namespace, 'suite', getattr(self, arg_to_name)(values))
 
     def _parse_suite(self, suite: list):
         return SuiteArg(suite, ModuleIncludeExclude, TestCaseIncludeExclude)
@@ -91,6 +118,9 @@ class SuiteFactoryAction(argparse.Action):
         raise NotImplementedError()
 
     def _parse_suite_regex(self, suite: list) -> list:
+        raise NotImplementedError()
+
+    def _parse_suite_last_failed(self, _: None) -> list:
         raise NotImplementedError()
 
 

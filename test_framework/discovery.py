@@ -41,10 +41,8 @@ def discover_package(importable: str, test_includer) -> tuple:
     for item in items:
         full_path = os.path.join(importable, item)
         if os.path.isdir(full_path):
-            # todo rework _ImportableFilters so that I dont have to instantiate a new instance
             yield from discover_package(full_path, test_includer)
         elif full_path.endswith('.py'):
-            # todo rework _ImportableFilters so that I dont have to instantiate a new instance
             yield discover_module(full_path, test_includer)
     getattr(test_package, 'teardown', lambda x: None)(test_package_globals)
 

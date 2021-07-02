@@ -10,7 +10,6 @@ import struct
 import subprocess
 import sys
 
-# from pytz import timezone
 
 from test_framework.enums import Status
 from test_framework.popo import (
