@@ -60,8 +60,8 @@ class PatternMatcherBase:
         self._include = include
 
     @classmethod
-    def parse_str(cls, string: str, delimiter: str = ',', include: bool = True):
-        return cls(string.split(delimiter), include)
+    def parse_str(cls, string: str, include: bool = True):
+        return cls(string, include)
 
     def __str__(self) -> str:
         return f"{'include' if self._include else 'exclude'}: {self._items}"
@@ -117,27 +117,28 @@ class PatternMatcherBase:
 
 class ProductModulePatternMatcher(PatternMatcherBase):
     excluder = '!'
+    delimiter = ';'
 
     @classmethod
-    def parse_str(cls, string: str, delimiter: str = ';', include: bool = True):
+    def parse_str(cls, string: str, include: bool = True):
         index, include = None, True
         if string.startswith(cls.excluder):
             index = 1
             include = False
-        return cls(string[index:].split(delimiter) if string else [], include)
+        return cls(string[index:].split(cls.delimiter) if string else [], include)
 
 
 class ProductTestCasePatternMatcher(ProductModulePatternMatcher):
-    @classmethod
-    def parse_str(cls, string: str, delimiter: str = ',', include: bool = True):
-        return super(ProductTestCasePatternMatcher, cls).parse_str(string, delimiter, include)
+    delimiter = ','
 
+    @classmethod
+    def parse_str(cls, string: str, include: bool = True):
+        return super(ProductTestCasePatternMatcher, cls).parse_str(string, include)
 
 
 class SuiteArg:
     rc_alias = 'suite-alias'
     rc_disabled = 'suite-disabled'
-
 
     def __init__(self, paths: list, module_class: PatternMatcherBase, test_class: PatternMatcherBase):
         self.modules = {}
