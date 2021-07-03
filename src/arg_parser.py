@@ -38,7 +38,8 @@ excluding - anything on the right side of a '\!' will be excluded:
 class SuiteFactoryAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         arg_to_name = f"_parse_{option_string[2:].replace('-', '_')}"
-        setattr(namespace, 'suite', getattr(self, arg_to_name)(values))
+        if values:
+            setattr(namespace, 'suite', getattr(self, arg_to_name)(values))
 
     def _parse_suite(self, suite: list):
         return SuiteArg(suite, ProductModulePatternMatcher, ProductTestCasePatternMatcher)
@@ -148,7 +149,8 @@ class SuiteArg:
                 modules_str, tests_str = path.split('::')
             modules = module_class.parse_str(modules_str)
             if modules.included_items:
-                self.modules = {item: test_class.parse_str(tests_str) for item in modules.included_items }
+                for item in modules.included_items:
+                    self.modules[item] = test_class.parse_str(tests_str)
             else:
                 self.excluded_modules.extend(modules.excluded_items)
 

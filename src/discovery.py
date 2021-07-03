@@ -26,32 +26,33 @@ def discover_suite(paths: dict) -> Generator:
                 yield from discover_package(importable, test_includer)
             else:
                 yield discover_module(importable, test_includer)
-
-    yield [], ""
+        else:
+            yield [], f"Path: {importable} does not exist"
 
 
 def discover_package(importable: str, test_includer) -> tuple:
     try:
-        test_package = importlib.import_module(importable)
+        test_package = importlib.import_module(importable.replace(os.sep, '.'))
+    
+        items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
+        shuffle(items)
+        test_package_globals = getattr(test_package, 'setup', lambda x: x)(GlobalObject())
+        for item in items:
+            full_path = os.path.join(importable, item)
+            if os.path.isdir(full_path):
+                yield from discover_package(full_path, test_includer)
+            elif full_path.endswith('.py'):
+                yield discover_module(full_path, test_includer)
+        getattr(test_package, 'teardown', lambda x: None)(test_package_globals)
     except Exception as e:
         yield None, f'Failed to load {importable} - {e}'
-    items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
-    shuffle(items)
-    test_package_globals = getattr(test_package, 'setup', lambda x: x)(GlobalObject())
-    for item in items:
-        full_path = os.path.join(importable, item)
-        if os.path.isdir(full_path):
-            yield from discover_package(full_path, test_includer)
-        elif full_path.endswith('.py'):
-            yield discover_module(full_path, test_includer)
-    getattr(test_package, 'teardown', lambda x: None)(test_package_globals)
 
 
 def discover_module(importable: str, test_includer, test_package_globals=None) -> tuple:
     # """
-    # >>> module, error_str = discover_module('test_framework.example.smoke.sample1', [])
+    # >>> module, error_str = discover_module('src.example.smoke.sample1', [])
     # >>> assert module and error_str == ''
-    # >>> module, error_str = discover_module('test_framework.example.dont_exist', [])
+    # >>> module, error_str = discover_module('src.example.dont_exist', [])
     # >>> assert module is None and error_str
     # """
     test_module, error_str = None, ''
@@ -73,7 +74,7 @@ def discover_module(importable: str, test_includer, test_package_globals=None) -
 
 def discover_tests(module, test_includer) -> list:
     # """
-    # >>> from test_framework.example.smoke import sample1
+    # >>> from src.example.smoke import sample1
     # >>> tests, ignored_tests = discover_tests(sample1, [])
     # >>> assert tests and ignored_tests == []
     # >>> tests, ignored_tests = discover_tests(sample1, ['!test_ignored_test', 'test_1', 'test_2'])

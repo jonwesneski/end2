@@ -72,7 +72,7 @@ def run_tests(discovered_modules):
 
 ### Simple example of a test module
 ``` python
-from test_framework.enums import RunMode
+from src.enums import RunMode
 
 __run_mode__ = RunMode.SEQUENTIAL  # This is required for every test module
 
@@ -84,7 +84,7 @@ def test_1(logger):
 
 ### Simple example of a driver
 ``` python
-from test_framework.runner import create_test_suite_instance
+from src.runner import create_test_suite_instance
 
 
 if __name__ == '__main__':
@@ -163,7 +163,7 @@ def run_tests(discovered_modules):
 
 ## Simple example of a test module
 ``` python
-from test_framework.enums import RunMode
+from src.enums import RunMode
 
 __run_mode__ = RunMode.SEQUENTIAL  # This is required for every test module
 
@@ -175,7 +175,7 @@ def test_1(logger):
 
 ## Simple example of a driver
 ``` python
-from test_framework.runner import create_test_suite_instance
+from src.runner import create_test_suite_instance
 
 
 if __name__ == '__main__':
@@ -212,21 +212,21 @@ It can also contains filters:
 
 ## There are a few logger factories already created for you
 If you want to create other tools in your repo you can use these logging factories to keep the logging format consistent as well as the rotating timestampted folders
-- test_framework.logger.create_stream_logger()
+- src.logger.create_stream_logger()
     - Creates a console logger with the custom formatter
 
-- test_framework.logger.create_file_logger()
+- src.logger.create_file_logger()
     - Creates a logger with a file handler with the custom formatter
 
-- test_framework.logger.create_full_logger()
+- src.logger.create_full_logger()
     - Creates a logger that has both a stream and file handler with the custom formatter
 - If you want a different number than 10 folders rotating then you can add this to your environment variables `AUTOMATION_LOGS_SUB_FOLDER_COUNT` and set it to a number of your choice
 
 
 ## Fixture example of a test module
 ``` python
-from test_framework.enums import RunMode
-from test_framework.fixtures import (
+from src.enums import RunMode
+from src.fixtures import (
     parameterize,
     setup,
     setup_test,

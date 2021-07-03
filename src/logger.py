@@ -289,7 +289,7 @@ class SuiteLogManager(LogManager):
                 if isinstance(handler, logging.FileHandler):
                     handler.close()
                     file_handler = handler
-                    os.rename(handler.baseFilename, handler.baseFilename.replace(f'{test_name}', f'{Status.SKIPPED.upper()}_{test_name}'))
+                    os.rename(handler.baseFilename, handler.baseFilename.replace(f'{test_name}', f'{Status.SKIPPED.name}_{test_name}'))
             logger.removeHandler(file_handler)
             logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG))
 
@@ -308,7 +308,7 @@ class SuiteLogManager(LogManager):
             if isinstance(handler, logging.FileHandler):
                 handler.close()
                 base_name = os.path.basename(handler.baseFilename)
-                os.rename(handler.baseFilename, os.path.join(self.folder, f'{Status.FAILED.upper()}_{module_name}.{base_name}'))
+                os.rename(handler.baseFilename, os.path.join(self.folder, f'{Status.FAILED.name}_{module_name}.{base_name}'))
 
     def on_teardown_test_done(self, module_name: str, test_name: str, teardown_test_result: Result):
         logger, infix_name = self._get_logger(module_name, test_name, 'teardown_test')
@@ -336,7 +336,7 @@ class SuiteLogManager(LogManager):
                 self._close_file_handlers(self._get_logger(test_module_result.name, test_result.name)[0])
             os.rename(
                 os.path.join(self.folder, test_module_result.name),
-                os.path.join(self.folder, f'{test_module_result.status.upper()}_{test_module_result.name}'))
+                os.path.join(self.folder, f'{test_module_result.status.name}_{test_module_result.name}'))
         self.logger.info(f'{test_module_result}{self._module_terminator}')
 
     def on_suite_stop(self, suite_result: TestSuiteResult):
