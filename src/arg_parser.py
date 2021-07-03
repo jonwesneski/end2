@@ -75,17 +75,17 @@ class PatternMatcherBase:
 
     def included(self, item: str) -> bool:
         """
-        >>> IncludeExclude.included(IncludeExclude(['a'], True), 'a')
+        >>> PatternMatcherBase.included(PatternMatcherBase(['a'], True), 'a')
         True
-        >>> IncludeExclude.included(IncludeExclude(['a'], True), 'b')
+        >>> PatternMatcherBase.included(PatternMatcherBase(['a'], True), 'b')
         False
-        >>> IncludeExclude.included(IncludeExclude(['a'], False), 'a')
+        >>> PatternMatcherBase.included(PatternMatcherBase(['a'], False), 'a')
         False
-        >>> IncludeExclude.included(IncludeExclude(['a'], False), 'b')
+        >>> PatternMatcherBase.included(PatternMatcherBase(['a'], False), 'b')
         True
-        >>> IncludeExclude.included(IncludeExclude([], True), 'a')
+        >>> PatternMatcherBase.included(PatternMatcherBase([], True), 'a')
         True
-        >>> IncludeExclude.included(IncludeExclude([], False), 'b')
+        >>> PatternMatcherBase.included(PatternMatcherBase([], False), 'b')
         True
         """
         if item in self._items:
@@ -98,17 +98,17 @@ class PatternMatcherBase:
 
     def excluded(self, item: str) -> bool:
         """
-        >>> IncludeExclude.excluded(IncludeExclude(['a'], True), 'a')
+        >>> PatternMatcherBase.excluded(PatternMatcherBase(['a'], True), 'a')
         False
-        >>> IncludeExclude.excluded(IncludeExclude(['a'], True), 'b')
+        >>> PatternMatcherBase.excluded(PatternMatcherBase(['a'], True), 'b')
         True
-        >>> IncludeExclude.excluded(IncludeExclude(['a'], False), 'a')
+        >>> PatternMatcherBase.excluded(PatternMatcherBase(['a'], False), 'a')
         True
-        >>> IncludeExclude.excluded(IncludeExclude(['a'], False), 'b')
+        >>> PatternMatcherBase.excluded(PatternMatcherBase(['a'], False), 'b')
         False
-        >>> IncludeExclude.excluded(IncludeExclude([], True), 'a')
+        >>> PatternMatcherBase.excluded(PatternMatcherBase([], True), 'a')
         False
-        >>> IncludeExclude.excluded(IncludeExclude([], False), 'b')
+        >>> PatternMatcherBase.excluded(PatternMatcherBase([], False), 'b')
         False
         """
         return not self.included(item)

@@ -37,7 +37,7 @@ def start_test_run(args, test_parameters_func=default_test_parameters) -> tuple:
 
 
 class SuiteRun:
-    def __init__(self, log_manager=None):
+    def __init__(self, log_manager: SuiteLogManager = None):
         self.results = []
         self.failed_imports = []
         self.ignored_paths = []
@@ -124,22 +124,22 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     """
     >>> def test_1():
     ...     assert True
-    >>> result = run_func(_empty_logger, test_1)
+    >>> result = run_test_func(_empty_logger, test_1)
     >>> result.status == Status.PASSED and result.message == "" and result.end_time is not None
     True
     >>> def test_2(a):
     ...     assert False
-    >>> result = run_func(_empty_logger, test_2, 1)
+    >>> result = run_test_func(_empty_logger, test_2, 1)
     >>> result.status == Status.FAILED and result.message != "" and result.end_time is not None
     True
     >>> def test_3(a, b):
     ...     raise exceptions.SkipTestException("I skip")
-    >>> result = run_func(_empty_logger, test_3, a=1, b=2)
+    >>> result = run_test_func(_empty_logger, test_3, a=1, b=2)
     >>> result.status == Status.SKIPPED and result.message == "I skip" and result.end_time is not None
     True
     >>> def test_4(a, b, c):
     ...     raise Exception("Error")
-    >>> result = run_func(_empty_logger, test_4, 1, 2, 3)
+    >>> result = run_test_func(_empty_logger, test_4, 1, 2, 3)
     >>> result.status == Status.FAILED and "Encountered an exception" in result.message and result.end_time is not None
     True
     """
@@ -167,24 +167,26 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
 
 async def run_async_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     """
-    >>> def test_1():
+    >>> import asyncio
+    >>> loop = asyncio.get_event_loop()
+    >>> async def test_1():
     ...     assert True
-    >>> result = run_func(_empty_logger, test_1)
+    >>> result = loop.run_until_complete(run_async_test_func(_empty_logger, test_1))
     >>> result.status == Status.PASSED and result.message == "" and result.end_time is not None
     True
     >>> def test_2(a):
     ...     assert False
-    >>> result = run_func(_empty_logger, test_2, 1)
+    >>> result = loop.run_until_complete(run_async_test_func(_empty_logger, test_2, 1))
     >>> result.status == Status.FAILED and result.message != "" and result.end_time is not None
     True
     >>> def test_3(a, b):
     ...     raise exceptions.SkipTestException("I skip")
-    >>> result = run_func(_empty_logger, test_3, a=1, b=2)
+    >>> result = loop.run_until_complete(run_async_test_func(_empty_logger, test_3, a=1, b=2))
     >>> result.status == Status.SKIPPED and result.message == "I skip" and result.end_time is not None
     True
     >>> def test_4(a, b, c):
     ...     raise Exception("Error")
-    >>> result = run_func(_empty_logger, test_4, 1, 2, 3)
+    >>> result = loop.run_until_complete(run_async_test_func(_empty_logger, test_4, 1, 2, 3))
     >>> result.status == Status.FAILED and "Encountered an exception" in result.message and result.end_time is not None
     True
     """

@@ -48,7 +48,7 @@ class TestModule:
 
 
 class Result:
-    def __init__(self, name: str, status: str = None, message: str = ""):
+    def __init__(self, name: str, status: Status = None, message: str = ""):
         self.name = name
         self._end_time = None
         self.duration = None
@@ -80,9 +80,10 @@ class Result:
         return datetime.now()
 
     def start(self):
-        self._start_time = self._now()
+        if self._end_time is None:
+            self._start_time = self._now()
 
-    def end(self, status: str = None):
+    def end(self, status: Status = None):
         self.end_time = datetime.now()
         if status:
             self.status = status
@@ -90,7 +91,7 @@ class Result:
 
 
 class TestSuiteResult(Result):
-    def __init__(self, name: str, test_modules: list = None, status: str = None, message: str = None):
+    def __init__(self, name: str, test_modules: list = None, status: Status = None, message: str = ""):
         super().__init__(name, status, message)
         self.test_modules = test_modules if test_modules else []
         self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
@@ -109,7 +110,7 @@ class TestSuiteResult(Result):
     def append(self, test_module_result):
         self.test_modules.append(test_module_result)
 
-    def end(self, status: str = None):
+    def end(self, status: Status = None):
         super().end(status)
         self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
         for result in self.test_modules:
@@ -122,7 +123,7 @@ class TestSuiteResult(Result):
 
 class TestModuleResult(Result):
     def __init__(self, name: str, setup: Result = None, teardown: Result = None,
-                 test_results: list = None, status: str = None, message: str = None, description: str = None):
+                 test_results: list = None, status: Status = None, message: str = "", description: str = ""):
         super().__init__(name, status, message)
         self.setup = setup
         self.teardown = teardown
@@ -140,7 +141,7 @@ class TestModuleResult(Result):
     def extend(self, test_results: list):
         self.test_results.extend(test_results)
 
-    def end(self, status: str = None):
+    def end(self, status: Status = None):
         super().end(status)
         self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
         if self.test_results:
@@ -161,7 +162,7 @@ class TestModuleResult(Result):
 
 class TestMethodResult(Result):
     def __init__(self, name: str, setup: Result = None, teardown: Result = None,
-                 status: str = None, message: str = None, description: str = None, metadata: dict = None):
+                 status: Status = None, message: str = "", description: str = "", metadata: dict = None):
         super().__init__(name, status, message)
         self.setup_result = setup
         self.teardown_result = teardown

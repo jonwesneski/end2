@@ -3,18 +3,19 @@
     * Please keep class names alphabetical
     * Please keep variables in classes alphabetical
 """
+from enum import Enum
 
 
 FUNCTION_TYPE = type(lambda: None)
 
 
-class RunMode:
+class RunMode(Enum):
     PARALLEL = 'parallel'
     PARALLEL_TEST = 'parallel_test'
     SEQUENTIAL = 'sequential'
 
 
-class Status:
+class Status(Enum):
     FAILED = 'Failed'
     IGNORED = 'Ignored'
     PASSED = 'Passed'
