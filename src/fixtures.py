@@ -51,7 +51,6 @@ def parameterize(parameters_list, first_arg_is_name: bool = False):
         else:
             func.names = [f'{func.__name__}[{i}]' for i in range(len(parameters_list))]
             func.parameterized_list = tuple(parameters_list)
-        func.range = range(len(parameters_list))  # TODO: do I still need this?
         return func
     return wrapper
 
