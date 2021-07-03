@@ -1,4 +1,4 @@
-from src.enums import RunMode
+from src import RunMode
 
 
 __run_mode__ = RunMode.PARALLEL

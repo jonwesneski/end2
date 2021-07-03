@@ -7,11 +7,11 @@ from src.fixtures import get_fixture
 def build_full_name(module_name: str, test_name: str) -> str:
     return f'{module_name}::{test_name}'
 
-
 class TestMethod:
-    def __init__(self, setup_func, func, teardown_func):
+    def __init__(self, setup_func, func, teardown_func, parameterized_tuple: tuple = None):
         self.setup_func = setup_func
         self.func = func
+        self.parameterized_tuple = parameterized_tuple or tuple()
         self.name = self.func.__name__
         self.full_name = build_full_name(self.func.__module__, self.name)
         self.teardown_func = teardown_func
@@ -27,9 +27,10 @@ class TestModule:
     def __init__(self, module, tests: dict, ignored_tests: set = None, package_globals: object = None):
         self.module = module
         self.name = module.__name__
-        self.setup = get_fixture(self.module, 'setup')
+        self.run_mode = module.__run_mode__
+        self.setup_func = get_fixture(self.module, 'setup')
         self.tests = tests
-        self.teardown = get_fixture(self.module, 'teardown')
+        self.teardown_func = get_fixture(self.module, 'teardown')
         self.ignored_tests = ignored_tests if ignored_tests else set()
         self.package_globals = package_globals
 

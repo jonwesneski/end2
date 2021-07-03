@@ -1,5 +1,5 @@
-from src.enums import RunMode
-from src.fixtures import (
+from src import (
+    RunMode,
     setup_test,
     teardown
 )

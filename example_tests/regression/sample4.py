@@ -1,7 +1,7 @@
 from src.enums import RunMode
-from src.fixtures import (
-    parallel_parameterize,
+from src import (
     parameterize,
+    RunMode,
     setup,
     teardown_test
 )
@@ -46,7 +46,7 @@ def test_1(logger, it_works, lhs, rhs):
 
 
 
-@parallel_parameterize([
+@parameterize([
     (False, 'B', 'AB'),
     (True, 2, 2),
     (True, [], []),

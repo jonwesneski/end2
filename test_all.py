@@ -1,3 +1,5 @@
+import traceback
+
 from src import (
     arg_parser,
     discovery,
@@ -34,4 +36,5 @@ if __name__ == '__main__':
         try:
             _test()
         except:
+            print(traceback.format_exc())
             print("FAILED:", _test.__name__)

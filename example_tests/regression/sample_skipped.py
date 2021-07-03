@@ -1,5 +1,7 @@
-from src.enums import RunMode
-from src.fixtures import setup
+from src import (
+    RunMode,
+    setup
+)
 
 
 __run_mode__ = RunMode.PARALLEL

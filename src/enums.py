@@ -11,7 +11,6 @@ FUNCTION_TYPE = type(lambda: None)
 
 class RunMode(Enum):
     PARALLEL = 'parallel'
-    PARALLEL_TEST = 'parallel_test'
     SEQUENTIAL = 'sequential'
 
 

@@ -3,5 +3,14 @@ import macpath
 import asyncio
 import argparse
 from time import time
-aaaaaa = 'asdfasdfasdf'
-#print(aaaaaa)
+from src import setup, teardown
+
+
+@setup
+def my_smoke_setup(global_object):
+    global_object.cheesy = 4
+
+
+@teardown
+def my_smoke_teardown(global_object):
+    print(global_object.cheesy)

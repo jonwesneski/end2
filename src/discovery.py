@@ -30,25 +30,26 @@ def discover_suite(paths: dict) -> Generator:
             yield [], f"Path: {importable} does not exist"
 
 
-def discover_package(importable: str, test_includer) -> tuple:
+def discover_package(importable: str, test_includer, test_package_globals: GlobalObject = None) -> tuple:
     try:
         test_package = importlib.import_module(importable.replace(os.sep, '.'))
     
         items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
         shuffle(items)
-        test_package_globals = getattr(test_package, 'setup', lambda x: x)(GlobalObject())
+        test_package_globals_ = test_package_globals or GlobalObject()
+        getattr(test_package, 'setup', lambda x: None)(test_package_globals_)
         for item in items:
             full_path = os.path.join(importable, item)
             if os.path.isdir(full_path):
-                yield from discover_package(full_path, test_includer)
+                yield from discover_package(full_path, test_includer, test_package_globals_)
             elif full_path.endswith('.py'):
-                yield discover_module(full_path, test_includer)
-        getattr(test_package, 'teardown', lambda x: None)(test_package_globals)
+                yield discover_module(full_path, test_includer, test_package_globals_)
+        getattr(test_package, 'teardown', lambda x: None)(test_package_globals_)
     except Exception as e:
         yield None, f'Failed to load {importable} - {e}'
 
 
-def discover_module(importable: str, test_includer, test_package_globals=None) -> tuple:
+def discover_module(importable: str, test_includer, test_package_globals: GlobalObject = None) -> tuple:
     # """
     # >>> module, error_str = discover_module('src.example.smoke.sample1', [])
     # >>> assert module and error_str == ''
@@ -62,6 +63,7 @@ def discover_module(importable: str, test_includer, test_package_globals=None) -
         tests = discover_tests(module, test_includer)
         if tests:
             test_module = TestModule(module, tests, set(test_includer.excluded_items), test_package_globals)
+            discover_fixtures(test_module)
     except ModuleNotFoundError as me:
         if me.name == module_str:
             error_str = f"Module doesn't exist - {module_str}"
@@ -88,12 +90,13 @@ def discover_tests(module, test_includer) -> list:
             attribute = getattr(module, name)
             if type(attribute) is FUNCTION_TYPE and name.startswith('test_'):
                 if test_includer.included(name):
-                    tests[name] = TestMethod(setup, attribute, teardown)
-                elif hasattr(attribute, 'parameterized_list'):
-                    range_ = discover_parameterized_test_range(name, attribute.parameterized_list)
-                    if range_:
-                        attribute.range = range_
-                    tests[name] = TestMethod(setup, attribute, teardown)
+                    if hasattr(attribute, 'parameterized_list'):
+                        range_ = discover_parameterized_test_range(name, attribute.parameterized_list)
+                        for i in range_:
+                            attribute.range = range_
+                            tests[f'{name}[{i}]'] = TestMethod(setup, attribute, teardown, attribute.parameterized_list[i])
+                    else:
+                        tests[name] = TestMethod(setup, attribute, teardown)
         tests = _shuffle_dict(tests)
     return tests
 
@@ -166,3 +169,15 @@ def discover_parameterized_test_range(test_name: str, parameterized_list: list):
     elif '[' not in test_name and ']' not in test_name:
         range_ = range(len(parameterized_list))
     return range_
+
+
+def discover_fixtures(test_module):
+    pass  #TODO: remove from fixtures.py and implement here
+# def get_fixture(module, name: str):
+#     fixture = empty_func
+#     for key in dir(module):
+#         attribute = getattr(module, key)
+#         if type(attribute) is FUNCTION_TYPE and  hasattr(attribute, name):
+#             fixture = attribute
+#             break
+#     return fixture
