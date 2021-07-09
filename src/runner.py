@@ -2,6 +2,7 @@ import asyncio
 import concurrent.futures
 import inspect
 import logging
+from src.resource_profile import create_last_run_rc
 import traceback
 import sys
 
@@ -50,7 +51,7 @@ class SuiteRun:
         for test_module, failed_import in iter_modules:
             if test_module:
                 self.log_manager.on_module_start(test_module.name)
-                module_result = TestModuleResult(test_module.name)
+                module_result = TestModuleResult(test_module)
                 args, kwargs = test_parameters_func(self.logger)
                 module_result.setup_result = run_test_func(self.logger, test_module.setup_func, *args, **kwargs)
                 module_result.test_results = self._run_tests(test_parameters_func,
@@ -65,6 +66,7 @@ class SuiteRun:
             else:
                 failed_imports.add(failed_import)
         self.failed_imports = list(failed_imports)
+        create_last_run_rc(self.results)
         return self.results, self.failed_imports, self.ignored_paths
 
     def _run_tests(self, tests_parameters_func, tests, is_concurrent=True, stop_on_fail=False):

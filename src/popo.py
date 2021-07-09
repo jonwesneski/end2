@@ -27,6 +27,7 @@ class TestModule:
     def __init__(self, module, tests: dict, ignored_tests: set = None, package_globals: object = None):
         self.module = module
         self.name = module.__name__
+        self.file_name = module.__file__
         self.run_mode = module.__run_mode__
         self.setup_func = get_fixture(self.module, 'setup')
         self.tests = tests
@@ -123,9 +124,10 @@ class TestSuiteResult(Result):
 
 
 class TestModuleResult(Result):
-    def __init__(self, name: str, setup: Result = None, teardown: Result = None,
+    def __init__(self, module, setup: Result = None, teardown: Result = None,
                  test_results: list = None, status: Status = None, message: str = "", description: str = ""):
-        super().__init__(name, status, message)
+        super().__init__(module.name, status, message)
+        self.file_name = module.file_name
         self.setup = setup
         self.teardown = teardown
         self.description = description

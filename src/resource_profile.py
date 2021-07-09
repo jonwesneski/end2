@@ -1,8 +1,12 @@
 from configparser import ConfigParser
+import os
+
+from src.enums import Status
 
 
 _PRODUCT_NAME = 'end2'
 _FILE_NAME = f'.{_PRODUCT_NAME}rc'
+LAST_RUN_PATH = os.path.join('logs', f'.{_PRODUCT_NAME}lastrunrc')
 
 
 def get_rc() -> ConfigParser:
@@ -51,17 +55,14 @@ def _create_default_rc_string() -> str:
     return ''.join(lines)
 
 
-def _check_for_corruption(file_name: str):
+def _check_for_corruption(file_name: str) -> ConfigParser:
     corrupted = False
     rc = ConfigParser(comment_prefixes=(';',))
     rc.read(file_name)
     for section, options in _default_rc_dict.items():
         if section == 'settings':
             for k, v in options.items():
-                try:
-                    if not isinstance(rc[section][k], v[0]):
-                        raise Exception()
-                except:
+                if not isinstance(rc[section][k], v[0]):
                     corrupted = True
                     rc[section][k] = str(v[1])
         elif section not in rc:
@@ -72,4 +73,28 @@ def _check_for_corruption(file_name: str):
             rc.write(configfile)
         rc = ConfigParser(comment_prefixes=('#',))
         rc.read(file_name)
+    return rc
+
+
+def create_last_run_rc(results):
+    failed_test_dict = {}
+    for module in results:
+        if module.status is Status.FAILED:
+            test_list = []
+            for test in module.test_results:
+                if test.status is Status.FAILED:
+                    test_list.append(test.name)
+            failed_test_dict[f'{os.path.relpath(module.file_name)}::{",".join(test_list)}'] = test.message
+    with open(LAST_RUN_PATH, 'w') as configfile:
+        rc = ConfigParser()
+        rc.read_dict({
+            'failures': failed_test_dict
+        })
+        rc.write(configfile)
+
+
+def get_last_run_rc() -> ConfigParser:
+    rc = ConfigParser()
+    if not rc.read(LAST_RUN_PATH):
+        raise FileNotFoundError(LAST_RUN_PATH)
     return rc

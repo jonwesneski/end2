@@ -1,6 +1,9 @@
 import argparse
 
-from src.resource_profile import get_rc
+from src.resource_profile import (
+    get_last_run_rc,
+    get_rc
+)
 from src.pattern_matchers import (
     PatternMatcherBase,
     DefaultModulePatternMatcher,
@@ -19,6 +22,8 @@ def default_parser() -> argparse.ArgumentParser:
     parent_parser = argparse.ArgumentParser()
     parent_parser.add_argument('--suite', nargs='*', action=SuiteFactoryAction,
                                help="""works by specifying a file path examples:
+folder:
+--suite folder
 file:
  --suite path/to/file1.py path/to/file2.py
 file-delimited:
@@ -52,23 +57,23 @@ excluding - anything on the right side of a '\!' will be excluded:
 class SuiteFactoryAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         arg_to_name = f"_parse_{option_string[2:].replace('-', '_')}"
-        if values:
+        if values or option_string == '--suite-last-failed':
             setattr(namespace, 'suite', getattr(self, arg_to_name)(values))
 
     def _parse_suite(self, suite: list):
         return SuiteArg(suite, DefaultModulePatternMatcher, DefaultTestCasePatternMatcher)
 
-    def _parse_suite_glob(self, suite: list) -> list:
+    def _parse_suite_glob(self, suite: list):
         return SuiteArg(suite, GlobModulePatternMatcher, GlobTestCasePatternMatcher)
 
-    def _parse_suite_regex(self, suite: list) -> list:
+    def _parse_suite_regex(self, suite: list):
         return SuiteArg(suite, RegexModulePatternMatcher, RegexTestCasePatternMatcher)
 
-    def _parse_suite_tag(self, suite: list) -> list:
+    def _parse_suite_tag(self, suite: list):
         return SuiteArg(suite, TagModulePatternMatcher, TagTestCasePatternMatcher)
 
-    def _parse_suite_last_failed(self, _: list) -> list:
-        raise NotImplementedError()
+    def _parse_suite_last_failed(self, _: list):
+        return self._parse_suite(get_last_run_rc()['failures'])
 
 
 class SuiteArg:
