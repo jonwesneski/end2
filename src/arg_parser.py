@@ -1,5 +1,15 @@
 import argparse
+
 from src.resource_profile import get_rc
+from src.pattern_matchers import (
+    PatternMatcherBase,
+    DefaultModulePatternMatcher,
+    DefaultTestCasePatternMatcher,
+    GlobModulePatternMatcher,
+    GlobTestCasePatternMatcher,
+    RegexModulePatternMatcher,
+    RegexTestCasePatternMatcher
+)
 
 
 def default_parser() -> argparse.ArgumentParser:
@@ -42,98 +52,16 @@ class SuiteFactoryAction(argparse.Action):
             setattr(namespace, 'suite', getattr(self, arg_to_name)(values))
 
     def _parse_suite(self, suite: list):
-        return SuiteArg(suite, ProductModulePatternMatcher, ProductTestCasePatternMatcher)
+        return SuiteArg(suite, DefaultModulePatternMatcher, DefaultTestCasePatternMatcher)
 
     def _parse_suite_glob(self, suite: list) -> list:
-        raise NotImplementedError()
+        return SuiteArg(suite, GlobModulePatternMatcher, GlobTestCasePatternMatcher)
 
     def _parse_suite_regex(self, suite: list) -> list:
+        return SuiteArg(suite, RegexModulePatternMatcher, RegexTestCasePatternMatcher)
+
+    def _parse_suite_last_failed(self, _: list) -> list:
         raise NotImplementedError()
-
-    def _parse_suite_last_failed(self, _: None) -> list:
-        raise NotImplementedError()
-
-
-class PatternMatcherBase:
-    def __init__(self, items: list, include: bool):
-        self._items = items
-        self._include = include
-
-    @classmethod
-    def parse_str(cls, string: str, include: bool = True):
-        return cls(string, include)
-
-    def __str__(self) -> str:
-        return f"{'include' if self._include else 'exclude'}: {self._items}"
-
-    @property
-    def included_items(self) -> list:
-        return self._items if self._include else []
-
-    @property
-    def excluded_items(self) -> list:
-        return self._items if not self._include else []
-
-    def included(self, item: str) -> bool:
-        """
-        >>> PatternMatcherBase.included(PatternMatcherBase(['a'], True), 'a')
-        True
-        >>> PatternMatcherBase.included(PatternMatcherBase(['a'], True), 'b')
-        False
-        >>> PatternMatcherBase.included(PatternMatcherBase(['a'], False), 'a')
-        False
-        >>> PatternMatcherBase.included(PatternMatcherBase(['a'], False), 'b')
-        True
-        >>> PatternMatcherBase.included(PatternMatcherBase([], True), 'a')
-        True
-        >>> PatternMatcherBase.included(PatternMatcherBase([], False), 'b')
-        True
-        """
-        if item in self._items:
-            value = self._include
-        else:
-            value = not self._include
-            if not self._items:
-                value = True
-        return value
-
-    def excluded(self, item: str) -> bool:
-        """
-        >>> PatternMatcherBase.excluded(PatternMatcherBase(['a'], True), 'a')
-        False
-        >>> PatternMatcherBase.excluded(PatternMatcherBase(['a'], True), 'b')
-        True
-        >>> PatternMatcherBase.excluded(PatternMatcherBase(['a'], False), 'a')
-        True
-        >>> PatternMatcherBase.excluded(PatternMatcherBase(['a'], False), 'b')
-        False
-        >>> PatternMatcherBase.excluded(PatternMatcherBase([], True), 'a')
-        False
-        >>> PatternMatcherBase.excluded(PatternMatcherBase([], False), 'b')
-        False
-        """
-        return not self.included(item)
-
-
-class ProductModulePatternMatcher(PatternMatcherBase):
-    excluder = '!'
-    delimiter = ';'
-
-    @classmethod
-    def parse_str(cls, string: str, include: bool = True):
-        index, include = None, True
-        if string.startswith(cls.excluder):
-            index = 1
-            include = False
-        return cls(string[index:].split(cls.delimiter) if string else [], include)
-
-
-class ProductTestCasePatternMatcher(ProductModulePatternMatcher):
-    delimiter = ','
-
-    @classmethod
-    def parse_str(cls, string: str, include: bool = True):
-        return super(ProductTestCasePatternMatcher, cls).parse_str(string, include)
 
 
 class SuiteArg:
@@ -144,7 +72,8 @@ class SuiteArg:
         self.modules = {}
         self.excluded_modules = []
         rc = get_rc()
-        for path in self._resolve_paths(set(paths), rc[self.rc_alias], list(rc[self.rc_disabled].keys())):
+        disabled_suites = list(rc[self.rc_disabled].keys())
+        for path in self._resolve_paths(set(paths), rc[self.rc_alias], disabled_suites):
             modules_str, tests_str = path, ''
             if '::' in path:
                 modules_str, tests_str = path.split('::')
@@ -154,6 +83,7 @@ class SuiteArg:
                     self.modules[item] = test_class.parse_str(tests_str)
             else:
                 self.excluded_modules.extend(modules.excluded_items)
+        self.excluded_modules.extend(disabled_suites)
 
     @staticmethod
     def _resolve_paths(paths: set, suite_aliases: dict, disabled_suites: list) -> set:

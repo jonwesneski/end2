@@ -227,9 +227,9 @@ def test_1(logger, package_globals):
 - [] cli (overrides .testingrc)
     - [] make a default arparser
         - [x] suite
-        - [] suite-glob
+        - [x] suite-glob
         - [] suite-regex
-        - [] suite-tag
+        - [] suite-tag (e.g path::tag_name) [recurse path]
         - [] suite-last-failures (store failures as a text file in logs/)
         - [x] max threads
         - [x] max sub folder logs
