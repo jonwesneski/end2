@@ -89,7 +89,7 @@ def discover_tests(module, test_includer) -> list:
         for name in dir(module):
             attribute = getattr(module, name)
             if type(attribute) is FUNCTION_TYPE and name.startswith('test_'):
-                if test_includer.included(name):
+                if test_includer.included(attribute):
                     if hasattr(attribute, 'parameterized_list'):
                         range_ = discover_parameterized_test_range(name, attribute.parameterized_list)
                         for i in range_:

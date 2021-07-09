@@ -224,12 +224,12 @@ def test_1(logger, package_globals):
     - [x] max sub folder logs
     - [x] suite-aliases
     - [x] disabled tests
-- [] cli (overrides .testingrc)
+- [x] cli (overrides .testingrc)
     - [] make a default arparser
         - [x] suite
         - [x] suite-glob
-        - [] suite-regex
-        - [] suite-tag (e.g path::tag_name) [recurse path]
+        - [x] suite-regex
+        - [x] suite-tag (e.g path::tag_name) [recurse path]
         - [] suite-last-failures (store failures as a text file in logs/)
         - [x] max threads
         - [x] max sub folder logs

@@ -7,6 +7,7 @@ from src import (
     runner
 )
 
+
 def _test_integration_simple():
     # Can't run this way right now due to https://github.com/pytest-dev/pytest/issues/5908
     # """

@@ -27,14 +27,6 @@ def teardown_test(func):
     return wrapper
 
 
-def metadata(func, **kwargs):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.metadata = kwargs
-    return wrapper
-
-
 def teardown(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -54,8 +46,18 @@ def parameterize(parameters_list, first_arg_is_name: bool = False):
         return func
     return wrapper
 
+
+def metadata(func, **kwargs):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    wrapper.metadata = kwargs
+    return wrapper
+
+
 def empty_func(*args, **kwargs):
     pass
+
 
 def get_fixture(module, name: str):
     fixture = empty_func

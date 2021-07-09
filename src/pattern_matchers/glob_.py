@@ -16,5 +16,5 @@ class GlobTestCasePatternMatcher(PatternMatcherBase):
         pattern_ = pattern.replace('?', '.').replace('*', '.*')
         return cls([], pattern_, True)
 
-    def included(self, item: str) -> bool:
-        return True if re.match(self._pattern, item) else False
+    def included(self, func) -> bool:
+        return True if re.match(self._pattern, func.__name__) else False

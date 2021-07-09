@@ -8,7 +8,9 @@ from src.pattern_matchers import (
     GlobModulePatternMatcher,
     GlobTestCasePatternMatcher,
     RegexModulePatternMatcher,
-    RegexTestCasePatternMatcher
+    RegexTestCasePatternMatcher,
+    TagModulePatternMatcher,
+    TagTestCasePatternMatcher
 )
 
 
@@ -32,6 +34,8 @@ excluding - anything on the right side of a '\!' will be excluded:
                                help="list of glob expression to search for tests")
     parent_parser.add_argument('--suite-regex', nargs='*', action=SuiteFactoryAction,
                                help="list of regex expression to search for tests")
+    parent_parser.add_argument('--suite-tag', nargs='*', action=SuiteFactoryAction,
+                               help="list of path-tags to search for tests")
     parent_parser.add_argument('--suite-last-failed', nargs=0, action=SuiteFactoryAction,
                                help="list of regex expression to search for tests")
     parent_parser.add_argument('--max-workers', type=int, default=rc['settings'].getint('max-workers'),
@@ -59,6 +63,9 @@ class SuiteFactoryAction(argparse.Action):
 
     def _parse_suite_regex(self, suite: list) -> list:
         return SuiteArg(suite, RegexModulePatternMatcher, RegexTestCasePatternMatcher)
+
+    def _parse_suite_tag(self, suite: list) -> list:
+        return SuiteArg(suite, TagModulePatternMatcher, TagTestCasePatternMatcher)
 
     def _parse_suite_last_failed(self, _: list) -> list:
         raise NotImplementedError()

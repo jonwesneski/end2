@@ -20,3 +20,6 @@ class DefaultTestCasePatternMatcher(DefaultModulePatternMatcher):
     @classmethod
     def parse_str(cls, pattern: str, include: bool = True):
         return super(DefaultTestCasePatternMatcher, cls).parse_str(pattern, include)
+
+    def included(self, func) -> bool:
+        return super().included(func.__name__)
