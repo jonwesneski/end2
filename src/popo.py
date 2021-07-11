@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 
 from src.enums import Status
 from src.fixtures import get_fixture
@@ -27,7 +28,7 @@ class TestModule:
     def __init__(self, module, tests: dict, ignored_tests: set = None, package_globals: object = None):
         self.module = module
         self.name = module.__name__
-        self.file_name = module.__file__
+        self.file_name = os.path.relpath(module.__file__)
         self.run_mode = module.__run_mode__
         self.setup_func = get_fixture(self.module, 'setup')
         self.tests = tests
@@ -135,7 +136,11 @@ class TestModuleResult(Result):
         self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
 
     def __str__(self) -> str:
-        return f'{self.name} Results: {{Total: {self.passed_count+self.failed_count+self.skipped_count} | Passed: {self.passed_count} | Failed: {self.failed_count} | Skipped: {self.skipped_count} | Duration: {self.duration}}}'
+        return f'{self.name} Results: {{Total: {self.total_count} | Passed: {self.passed_count} | Failed: {self.failed_count} | Skipped: {self.skipped_count} | Duration: {self.duration}}}'
+
+    @property
+    def total_count(self) -> int:
+        return self.passed_count + self.failed_count + self.skipped_count
 
     def append(self, test_result):
         if test_result:

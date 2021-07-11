@@ -80,11 +80,14 @@ def create_last_run_rc(results):
     failed_test_dict = {}
     for module in results:
         if module.status is Status.FAILED:
-            test_list = []
-            for test in module.test_results:
-                if test.status is Status.FAILED:
-                    test_list.append(test.name)
-            failed_test_dict[f'{os.path.relpath(module.file_name)}::{",".join(test_list)}'] = test.message
+            if module.failed_count == module.total_count:
+                failed_test_dict[module.file_name] = "All Failed"
+            else:
+                test_list = []
+                for test in module.test_results:
+                    if test.status is Status.FAILED:
+                        test_list.append(test.name)
+                failed_test_dict[f'{module.file_name}::{",".join(test_list)}'] = "Some failed"
     with open(LAST_RUN_PATH, 'w') as configfile:
         rc = ConfigParser()
         rc.read_dict({

@@ -19,7 +19,7 @@ The focus of this framework is:
 - Declaring:
     - Test case design is very important and the design should speak for itself in the file/module. Declaring the concurrency/run-mode in the file lets everyone know that that particular file can run in parallel. Passing that info in the command line can be confusing over time because not everyone will remember what can and can't run parallel
 - 1 set of parameters per suite:
-    - When we do a suite run we are only testing 1 system, therefore whatever is needed to communicate to the system should be the same throughout all test cases in that suite. As a result parameters should be the same for all test cases
+    - When we do a suite run we are only testing 1 system, therefore whatever is needed to communicate to the system should be the same throughout all test cases in that suite. As a result parameters should be the same for all test cases. This always helps keep test cases dry and makes them more step focused
 - Root of truth:
     - Single source of truth is a very good thing to have, when the single source is up-to-date and working then everyone will know it is 100% accurate information. By having your test cases as the single-source of truth, you can then publish your truth anywhere necessary and that destination will always have the info of the latest results. So the test cases should speak for themselves and have any doc strings necessary so that everyone can view the latest version of your testing
 
