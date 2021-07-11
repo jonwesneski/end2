@@ -20,17 +20,17 @@ def _shuffle_dict(dict_: dict) -> dict:
 
 def discover_suite(paths: dict) -> Generator:
     importables = _shuffle_dict(paths)
-    for importable, test_includer in importables.items():
+    for importable, test_pattern_matcher in importables.items():
         if os.path.exists(importable):
             if os.path.isdir(importable):
-                yield from discover_package(importable, test_includer)
+                yield from discover_package(importable, test_pattern_matcher)
             else:
-                yield discover_module(importable, test_includer)
+                yield discover_module(importable, test_pattern_matcher)
         else:
             yield [], f"Path: {importable} does not exist"
 
 
-def discover_package(importable: str, test_includer, test_package_globals: GlobalObject = None) -> tuple:
+def discover_package(importable: str, test_pattern_matcher, test_package_globals: GlobalObject = None) -> tuple:
     try:
         test_package = importlib.import_module(importable.replace(os.sep, '.'))
     
@@ -41,15 +41,15 @@ def discover_package(importable: str, test_includer, test_package_globals: Globa
         for item in items:
             full_path = os.path.join(importable, item)
             if os.path.isdir(full_path):
-                yield from discover_package(full_path, test_includer, test_package_globals_)
+                yield from discover_package(full_path, test_pattern_matcher, test_package_globals_)
             elif full_path.endswith('.py'):
-                yield discover_module(full_path, test_includer, test_package_globals_)
+                yield discover_module(full_path, test_pattern_matcher, test_package_globals_)
         getattr(test_package, 'teardown', lambda x: None)(test_package_globals_)
     except Exception as e:
         yield None, f'Failed to load {importable} - {e}'
 
 
-def discover_module(importable: str, test_includer, test_package_globals: GlobalObject = None) -> tuple:
+def discover_module(importable: str, test_pattern_matcher, test_package_globals: GlobalObject = None) -> tuple:
     # """
     # >>> module, error_str = discover_module('src.example.smoke.sample1', [])
     # >>> assert module and error_str == ''
@@ -60,9 +60,9 @@ def discover_module(importable: str, test_includer, test_package_globals: Global
     module_str = importable.replace('.py', '').replace(os.sep, '.')
     try:
         module = importlib.import_module(module_str)
-        tests = discover_tests(module, test_includer)
+        tests = discover_tests(module, test_pattern_matcher)
         if tests:
-            test_module = TestModule(module, tests, set(test_includer.excluded_items), test_package_globals)
+            test_module = TestModule(module, tests, set(test_pattern_matcher.excluded_items), test_package_globals)
             discover_fixtures(test_module)
     except ModuleNotFoundError as me:
         if me.name == module_str:
@@ -74,7 +74,7 @@ def discover_module(importable: str, test_includer, test_package_globals: Global
     return test_module, error_str
 
 
-def discover_tests(module, test_includer) -> list:
+def discover_tests(module, test_pattern_matcher) -> list:
     # """
     # >>> from src.example.smoke import sample1
     # >>> tests, ignored_tests = discover_tests(sample1, [])
@@ -89,7 +89,7 @@ def discover_tests(module, test_includer) -> list:
         for name in dir(module):
             attribute = getattr(module, name)
             if type(attribute) is FUNCTION_TYPE and name.startswith('test_'):
-                if test_includer.included(attribute):
+                if test_pattern_matcher.included(attribute):
                     if hasattr(attribute, 'parameterized_list'):
                         range_ = discover_parameterized_test_range(name, attribute.parameterized_list)
                         for i in range_:
