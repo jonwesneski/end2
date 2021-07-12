@@ -6,6 +6,7 @@ from typing import Generator
 
 from src.fixtures import get_fixture
 from src.enums import RunMode
+from src.exceptions import MoreThan1FixtureException
 from src.popo import TestMethod, TestModule, GlobalObject
 
 
@@ -69,6 +70,8 @@ def discover_module(importable: str, test_pattern_matcher, test_package_globals:
             error_str = f"Module doesn't exist - {module_str}"
         else:
             error_str = f"Failed to load {importable} - {me}"
+    except MoreThan1FixtureException as mt1fe:
+        error_str = mt1fe.message
     except Exception as e:
             error_str = f'Failed to load {importable} - {e}'
     return test_module, error_str

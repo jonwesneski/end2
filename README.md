@@ -9,6 +9,7 @@ The focus of this framework is:
 - [Intent/Philosophy](#intent/philosophy)
 - [Features](#features)
 - [Getting Started](#getting-started)
+- [Suite Pattern Matcher](#suite-pattern-matcher)
 - [Suite Log Manager](#suite-log-manager)
 
 ## Intent/Philosophy
@@ -27,9 +28,8 @@ The focus of this framework is:
 ## Features
 - Test Runner:
     - Discovers tests at runtime
-    - Can run individual tests and test modules
     - Test Fixtures
-    - Can specify tests to ignore
+    - Test Pattern Matching: Can run individual tests and test modules
     - Runs tests sequentially and parallelly in 1 run
 - Fixtures:
     - setup package
@@ -43,7 +43,7 @@ The focus of this framework is:
 - Logging:
     - Records are timestamped
     - Assertion failures are logged at `[ERROR]`
-    - It will hold folders from the last 10 test runs
+    - It will hold folders from the last n test runs
     - Each test module will be in its own folder
     - Each test will be in it's own file
     - Failed tests will be renamed to `FAILED_<test_name>.log`
@@ -77,6 +77,7 @@ def run_tests(discovered_modules):
 ```
 
 ### Simple example of a test module
+In order for a method to become a discoverable test you must prefix your method name with `test_`. Each test method will have the same parameters
 ``` python
 from end2 import RunMode
 
@@ -104,14 +105,16 @@ from end2.runner import create_test_suite_instance
 if __name__ == '__main__':
     run_instance = create_test_run_instance(suite_paths=['tests'])  # This arg is a list of test packages, test modules, and tests methods; more on this in the next section
 
-    def test_parameters(logger_) -> tuple:  # This is how parameters for tests are injected. When overriding this
-        return (logger_,), {}               # you must always return a tuple of tuple and dict. The logger_ arg
-                                            # here will be the logger specific to the test. If you do not create
-                                            # a test_parameters method then this is the method signature that
-                                            # will be used
+    def test_parameters(logger_) -> tuple:     # This is how parameters for tests are injected. When overriding this
+        return (create_client(), logger_), {}  # you must always return a tuple of tuple and dict. The logger_ arg
+                                               # here will be the logger specific to the test. If you do not create
+                                               # a test_parameters method then this is the method signature that
+                                               # will be used
 
     run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, test_parameters_func=test_parameters)
+    # ... Do something before the test run
     test_suite_result = run_instance.execute(parallel=True)  # This kicks off the test run
+    # ... Do something after the test run
 
     exit(test_suite_result.exit_code)
 ```
@@ -234,7 +237,7 @@ def test_1(logger, package_globals):
         - [x] max threads
         - [x] max sub folder logs
 - [x] make code use/read cli and .testingrc
-- [] keep track of last failed tests in logs folder
+- [x] keep track of last failed tests in logs folder
 - [] update readme
     - [x] focus/intent/philosophy
         - [x] this is for heaving logging
@@ -246,13 +249,14 @@ def test_1(logger, package_globals):
         - [x] The test file itself should have the declaration of concurrency (that way you dont have to memorize what can and cant run parallel or specify it every time in the command line)
         - [x] when we do a suite run we have the same parameters for each test
     - [] update features
-    - [] getting started
-        - [] write a test
-        - [] write a test with parameters
+    - [x] getting started
+        - [x] write a test
+        - [x] write a test with parameters
     - [] .testingrc or maybe setting.conf
     - [] cli
 
-## Default Suite Pattern Matcher
+## Suite Pattern Matcher
+#### Default
 A suite path is a string that contains the path to the module delimited by a period:
 - To run a single test package: `['path.to.package']`
 - To run a single test module: `['path.to.package.module']`
@@ -269,6 +273,9 @@ It can also contains filters:
     - `['path.to.package.module::test_name[1]']`  runs the 2nd test in the parameterized list
     - `['path.to.module::test_name[2:6]']`  runs tests 2 through 6 in the parameterized list
     - `['path.to.module::test_name[2:6:2]']`  runs the 2nd, 4th, 6th test in the parameterized list
+
+#### Other
+There is also support for regex, glob, and tags pattern matching
 
 ## Suite Log Manager
 ## There are a few logger factories already created for you

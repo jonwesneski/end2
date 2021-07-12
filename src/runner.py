@@ -66,19 +66,39 @@ class SuiteRun:
             else:
                 failed_imports.add(failed_import)
         self.failed_imports = list(failed_imports)
+        self.log_manager.on_suite_stop(self.results)
         create_last_run_rc(self.results)
         return self.results, self.failed_imports, self.ignored_paths
 
     def _run_tests(self, tests_parameters_func, tests, is_concurrent=True, stop_on_fail=False):
-        results = []
         def intialize_args_and_run(test_method):
             args, kwargs = tests_parameters_func(self.logger)
             return run_test_func(self.logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
+
+        async def intialize_args_and_run_async(test_method):
+            args, kwargs = tests_parameters_func(self.logger)
+            return await run_async_test_func(self.logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
+        
+        async def as_completed(coroutines_, results_, stop_on_first_fail_):
+            for fs in coroutines_:
+                result = await fs
+                results_.append(result)
+                if result.status == Status.FAILED and stop_on_first_fail_:
+                    [f.cancel() for f in coroutines_]
+        
+        routines, coroutines = [], []
+        for k, test in tests.items():
+            if inspect.iscoroutinefunction(test):
+                coroutines.append(test)
+            else:
+                routines.append(test)
+        results = []
+        loop = asyncio.get_event_loop()
         if is_concurrent:
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                 future_results = [
                     executor.submit(intialize_args_and_run, test)
-                    for k, test in tests.items()
+                    for test in routines
                 ]
                 try:
                     for future_result in concurrent.futures.as_completed(future_results):
@@ -90,10 +110,15 @@ class SuiteRun:
                     self.logger.critical(stre)
                 except:
                     self.logger.error(traceback.format_exc())
+            loop.run_until_complete(as_completed(coroutines, results, stop_on_fail))
         else:
             try:
-                for k, test in tests.items():
+                for test in routines:
                     results.append(intialize_args_and_run(test))
+                    if stop_on_fail and results[-1].status is Status.FAILED:
+                        raise exceptions.StopTestRunException(results[-1].message)
+                for test in coroutines:
+                    results.append(loop.run_until_complete(intialize_args_and_run_async(test)))
                     if stop_on_fail and results[-1].status is Status.FAILED:
                         raise exceptions.StopTestRunException(results[-1].message)
             except exceptions.StopTestRunException as stre:

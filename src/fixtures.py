@@ -1,6 +1,7 @@
 import functools
 
 from src.enums import FUNCTION_TYPE
+from src.exceptions import MoreThan1FixtureException
 
 
 def setup(func):
@@ -61,9 +62,12 @@ def empty_func(*args, **kwargs):
 
 def get_fixture(module, name: str):
     fixture = empty_func
+    found = False
     for key in dir(module):
         attribute = getattr(module, key)
-        if type(attribute) is FUNCTION_TYPE and  hasattr(attribute, name):
+        if type(attribute) is FUNCTION_TYPE and hasattr(attribute, name):
+            if found:
+                raise MoreThan1FixtureException(name, module.__name__)
             fixture = attribute
-            break
+            found = True
     return fixture
