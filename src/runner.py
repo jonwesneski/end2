@@ -6,7 +6,6 @@ from src.resource_profile import create_last_run_rc
 import traceback
 import sys
 
-sys.path.insert(0, 'C:\\Users\\jon.wesneski\\repos\\test_framework')
 from src import exceptions
 from src.discovery import discover_suite, discover_module
 from src.enums import Status, RunMode
@@ -41,15 +40,15 @@ class SuiteRun:
     def __init__(self, log_manager: SuiteLogManager = None):
         self.name = 'suite_run'
         self.results = None
-        self.failed_imports = []
-        self.ignored_paths = []
+        self.failed_imports = tuple()
+        self.ignored_paths = tuple()
         self.log_manager = log_manager or SuiteLogManager(run_logger_name='suite_run')
         self.logger = self.log_manager.logger
 
     def run(self, paths, test_parameters_func, allow_concurrency=True, stop_on_fail=False) -> tuple:
         sequential_modules, parallel_modules, self.failed_imports = discover_suite(paths)
         self.log_manager.on_suite_start(self.name)
-        self.results, failed_imports = TestSuiteResult(self.name), set()
+        self.results = TestSuiteResult(self.name)
         for test_module in (sequential_modules + parallel_modules):
             if test_module:
                 self.log_manager.on_module_start(test_module.name)
@@ -67,7 +66,7 @@ class SuiteRun:
                 module_result.end()
                 self.results.append(module_result)
                 self.log_manager.on_module_done(module_result)
-        self.failed_imports = list(failed_imports)
+        self.results.end()
         self.log_manager.on_suite_stop(self.results)
         create_last_run_rc(self.results)
         return self.results, self.failed_imports, self.ignored_paths
@@ -250,8 +249,3 @@ async def run_async_test_func(logger, func, *args, **kwargs) -> TestMethodResult
         logger.error(result.message)
     result.end()
     return result
-
-
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()

@@ -1,3 +1,4 @@
+import os
 import traceback
 
 from src import (
@@ -13,7 +14,7 @@ def _test_integration_simple():
     # """
     # >>> assert test_simple_e2e()
     # """
-    arg_list=['--suite', 'example_tests\\smoke\\sample1.py', 'example_tests\\regression']
+    arg_list=['--suite', os.path.join('examples', 'simple', 'smoke', 'sample1.py'), os.path.join('examples', 'simple', 'regression')]
     args = arg_parser.default_parser().parse_args(arg_list)
 
     def test_parameters(logger_):

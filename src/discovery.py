@@ -77,12 +77,14 @@ def discover_package(importable: str, test_pattern_matcher, test_package_globals
 
 
 def discover_module(importable: str, test_pattern_matcher, test_package_globals: GlobalObject = None) -> tuple:
-    # """
-    # >>> module, error_str = discover_module('src.example.smoke.sample1', [])
-    # >>> assert module and error_str == ''
-    # >>> module, error_str = discover_module('src.example.dont_exist', [])
-    # >>> assert module is None and error_str
-    # """
+    """
+    >>> from src.pattern_matchers import PatternMatcherBase
+    >>> matcher = PatternMatcherBase([], '', True)
+    >>> module, error_str = discover_module(os.path.join('examples', 'simple', 'smoke', 'sample1'), matcher)
+    >>> assert module and error_str == ''
+    >>> module, error_str = discover_module('examples.dont_exist', matcher)
+    >>> assert module is None and error_str
+    """
     test_module, error_str = None, ''
     module_str = importable.replace('.py', '').replace(os.sep, '.')
     try:
@@ -107,14 +109,17 @@ def discover_module(importable: str, test_pattern_matcher, test_package_globals:
     return test_module, error_str
 
 
-def discover_tests(module, test_pattern_matcher) -> list:
-    # """
-    # >>> from src.example.smoke import sample1
-    # >>> tests, ignored_tests = discover_tests(sample1, [])
-    # >>> assert tests and ignored_tests == []
-    # >>> tests, ignored_tests = discover_tests(sample1, ['!test_ignored_test', 'test_1', 'test_2'])
-    # >>> assert len(tests) == 2 and 'test_ignored_test' in ignored_tests
-    # """
+def discover_tests(module, test_pattern_matcher) -> dict:
+    """
+    >>> from src.pattern_matchers import DefaultTestCasePatternMatcher
+    >>> matcher = DefaultTestCasePatternMatcher([], '', True)
+    >>> from examples.simple.smoke import sample1
+    >>> tests = discover_tests(sample1, matcher)
+    >>> assert tests
+    >>> matcher = DefaultTestCasePatternMatcher(['test_1', 'test_2'], '', True)
+    >>> tests = discover_tests(sample1, matcher)
+    >>> assert len(tests) == 2
+    """
     tests = {}
     if inspect.ismodule(module):
         setup = get_fixture(module, 'setup_test')
@@ -134,7 +139,7 @@ def discover_tests(module, test_pattern_matcher) -> list:
     return tests
 
 
-def discover_parameterized_test_range(test_name: str, parameterized_list: list):
+def discover_parameterized_test_range(test_name: str, parameterized_list: list) -> range:
     """
     >>> x = [1, 2, 3, 4, 5, 6, 7, 8]
     >>> assert discover_parameterized_test_range('test_1', x) == range(len(x))
