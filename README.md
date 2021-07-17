@@ -277,15 +277,23 @@ It can also contains filters:
 #### Other
 There is also support for regex, glob, and tags pattern matching
 
-## Suite Log Manager
-## There are a few logger factories already created for you
-If you want to create other tools in your repo you can use these logging factories to keep the logging format consistent as well as the rotating timestampted folders
-- src.logger.create_stream_logger()
-    - Creates a console logger with the custom formatter
+## Log Manager
+A log manager is meant to help organize your logging into timestamped folders that rotate every n number of folders, you can create you own, or use the default own
 
-- src.logger.create_file_logger()
-    - Creates a logger with a file handler with the custom formatter
+##### Default Suite Log Manager
+- Rotates your suite run log folders
+- Logs INFO to stdin
+- Logs INFO to a standalone file as well and it is not interlaced
+- Has a delimiter for both modules and tests
+- Handles events before and after on:
+    - suite
+    - modules
+    - fixtures
+    - tests
+- Creates a log subfolder for each module
+- Creates a file for both setup and teardown of a module
+- Creates a log file for each test
+- Marks (Prefixes) file name as PASSED, FAILED, SKIPPED
 
-- src.logger.create_full_logger()
-    - Creates a logger that has both a stream and file handler with the custom formatter
-- If you want a different number than 10 folders rotating then you can add this to your environment variables `AUTOMATION_LOGS_SUB_FOLDER_COUNT` and set it to a number of your choice
+##### Default Log Manager
+There is also a simple log manager that just does the timestamped folder rotation, you can use this if you have other tools in you repo that have logging as well

@@ -39,32 +39,34 @@ def start_test_run(args, test_parameters_func=default_test_parameters) -> tuple:
 
 class SuiteRun:
     def __init__(self, log_manager: SuiteLogManager = None):
-        self.results = []
+        self.name = 'suite_run'
+        self.results = None
         self.failed_imports = []
         self.ignored_paths = []
         self.log_manager = log_manager or SuiteLogManager(run_logger_name='suite_run')
         self.logger = self.log_manager.logger
 
     def run(self, paths, test_parameters_func, allow_concurrency=True, stop_on_fail=False) -> tuple:
-        iter_modules = discover_suite(paths)
-        self.results, failed_imports = [], set()
-        for test_module, failed_import in iter_modules:
+        sequential_modules, parallel_modules, self.failed_imports = discover_suite(paths)
+        self.log_manager.on_suite_start(self.name)
+        self.results, failed_imports = TestSuiteResult(self.name), set()
+        for test_module in (sequential_modules + parallel_modules):
             if test_module:
                 self.log_manager.on_module_start(test_module.name)
                 module_result = TestModuleResult(test_module)
                 args, kwargs = test_parameters_func(self.logger)
                 module_result.setup_result = run_test_func(self.logger, test_module.setup_func, *args, **kwargs)
+                self.log_manager.on_setup_module_done(test_module.name, module_result.setup_result)
                 module_result.test_results = self._run_tests(test_parameters_func,
                                                               test_module.tests, 
                                                               allow_concurrency and test_module.run_mode is RunMode.PARALLEL,
                                                               stop_on_fail)
                 args, kwargs = test_parameters_func(self.logger)
-                module_result.setup_result = run_test_func(self.logger, test_module.teardown_func, *args, **kwargs)
+                module_result.teardown_result = run_test_func(self.logger, test_module.teardown_func, *args, **kwargs)
+                self.log_manager.on_teardown_module_done(test_module.name, module_result.teardown_result)
                 module_result.end()
                 self.results.append(module_result)
                 self.log_manager.on_module_done(module_result)
-            else:
-                failed_imports.add(failed_import)
         self.failed_imports = list(failed_imports)
         self.log_manager.on_suite_stop(self.results)
         create_last_run_rc(self.results)

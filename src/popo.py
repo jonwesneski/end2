@@ -8,6 +8,7 @@ from src.fixtures import get_fixture
 def build_full_name(module_name: str, test_name: str) -> str:
     return f'{module_name}::{test_name}'
 
+
 class TestMethod:
     def __init__(self, setup_func, func, teardown_func, parameterized_tuple: tuple = None):
         self.setup_func = setup_func
@@ -102,6 +103,10 @@ class TestSuiteResult(Result):
     def __str__(self) -> str:
         return f'{self.name} Results: {{Total: {self.total_count} | Passed: {self.passed_count} | Failed: {self.failed_count} | Skipped: {self.skipped_count} | Duration: {self.duration}}}'
 
+    def __iter__(self):
+        for result in self.test_modules:
+            yield result
+
     @property
     def exit_code(self) -> int:
         return 0 if self.status is Status.PASSED else 1
@@ -137,6 +142,10 @@ class TestModuleResult(Result):
 
     def __str__(self) -> str:
         return f'{self.name} Results: {{Total: {self.total_count} | Passed: {self.passed_count} | Failed: {self.failed_count} | Skipped: {self.skipped_count} | Duration: {self.duration}}}'
+
+    def __iter__(self):
+        for result in self.test_results:
+            yield result
 
     @property
     def total_count(self) -> int:

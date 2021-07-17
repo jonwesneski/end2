@@ -2,7 +2,6 @@ import importlib
 import inspect
 import os
 from random import shuffle
-from typing import Generator
 
 from src.fixtures import get_fixture
 from src.enums import RunMode
@@ -19,22 +18,38 @@ def _shuffle_dict(dict_: dict) -> dict:
     return dict(list_)
 
 
-def discover_suite(paths: dict) -> Generator:
+def discover_suite(paths: dict) -> tuple:
     importables = _shuffle_dict(paths)
+    sequential_modules = set()
+    parallel_modules = set()
+    failed_imports = set()
     for importable, test_pattern_matcher in importables.items():
         if os.path.exists(importable):
             if os.path.isdir(importable):
-                yield from discover_package(importable, test_pattern_matcher)
+                sm, pm, fi = discover_package(importable, test_pattern_matcher)
+                sequential_modules |= sm
+                parallel_modules |= pm
+                failed_imports |= fi
             else:
-                yield discover_module(importable, test_pattern_matcher)
+                m, fi = discover_module(importable, test_pattern_matcher)
+                if m:
+                    if m.run_mode is RunMode.SEQUENTIAL:
+                        sequential_modules.add(m)
+                    else:
+                        parallel_modules.add(m)
+                else:
+                    failed_imports.add(fi)
         else:
-            yield [], f"Path: {importable} does not exist"
+            failed_imports.add(f"Path: {importable} does not exist")
+    return tuple(sequential_modules), tuple(parallel_modules), tuple(failed_imports)
 
 
 def discover_package(importable: str, test_pattern_matcher, test_package_globals: GlobalObject = None) -> tuple:
+    sequential_modules = set()
+    parallel_modules = set()
+    failed_imports = set()
     try:
         test_package = importlib.import_module(importable.replace(os.sep, '.'))
-    
         items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
         shuffle(items)
         test_package_globals_ = test_package_globals or GlobalObject()
@@ -42,12 +57,23 @@ def discover_package(importable: str, test_pattern_matcher, test_package_globals
         for item in items:
             full_path = os.path.join(importable, item)
             if os.path.isdir(full_path):
-                yield from discover_package(full_path, test_pattern_matcher, test_package_globals_)
+                sm, pm, fi = discover_package(full_path, test_pattern_matcher, test_package_globals_)
+                sequential_modules |= sm
+                parallel_modules |= pm
+                failed_imports |= fi
             elif full_path.endswith('.py'):
-                yield discover_module(full_path, test_pattern_matcher, test_package_globals_)
+                m, fi = discover_module(full_path, test_pattern_matcher, test_package_globals_)
+                if m:
+                    if m.run_mode is RunMode.SEQUENTIAL:
+                        sequential_modules.add(m)
+                    else:
+                        parallel_modules.add(m)
+                else:
+                    failed_imports.add(fi)
         getattr(test_package, 'teardown', lambda x: None)(test_package_globals_)
     except Exception as e:
-        yield None, f'Failed to load {importable} - {e}'
+        failed_imports.add(f'Failed to load {importable} - {e}')
+    return sequential_modules, parallel_modules, failed_imports
 
 
 def discover_module(importable: str, test_pattern_matcher, test_package_globals: GlobalObject = None) -> tuple:
@@ -65,6 +91,10 @@ def discover_module(importable: str, test_pattern_matcher, test_package_globals:
         if tests:
             test_module = TestModule(module, tests, set(test_pattern_matcher.excluded_items), test_package_globals)
             discover_fixtures(test_module)
+            if test_module.run_mode not in RunMode:
+                error = f'{test_module.run_mode} is not a valid RunMode'
+                test_module = None
+                raise Exception(error)
     except ModuleNotFoundError as me:
         if me.name == module_str:
             error_str = f"Module doesn't exist - {module_str}"

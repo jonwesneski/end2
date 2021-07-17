@@ -84,7 +84,7 @@ def create_last_run_rc(results):
                 failed_test_dict[module.file_name] = "All Failed"
             else:
                 test_list = []
-                for test in module.test_results:
+                for test in module:
                     if test.status is Status.FAILED:
                         test_list.append(test.name)
                 failed_test_dict[f'{module.file_name}::{",".join(test_list)}'] = "Some failed"
