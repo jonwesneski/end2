@@ -313,7 +313,7 @@ class SuiteLogManager(LogManager):
     def on_teardown_test_done(self, module_name: str, test_name: str, teardown_test_result: Result):
         logger, infix_name = self._get_logger(module_name, test_name, 'teardown_test')
         self._flush_and_close_log_memory_handler(logger, infix_name)
-        if teardown_test_result and teardown_test_result.status != Status.PASSED:
+        if teardown_test_result and teardown_test_result.status is not Status.PASSED:
             self.logger.critical(f'Teardown Test Failed for {test_name}')
 
     def on_test_execution_done(self, module_name: str, test_method_result: TestMethodResult):

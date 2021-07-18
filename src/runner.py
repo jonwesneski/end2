@@ -9,7 +9,7 @@ import sys
 from src import exceptions
 from src.discovery import discover_suite, discover_module
 from src.enums import Status, RunMode
-from src.fixtures import metadata
+from src.fixtures import metadata, teardown
 from src.logger import SuiteLogManager
 from src.popo import (
     Result,
@@ -45,7 +45,7 @@ class SuiteRun:
         self.log_manager = log_manager or SuiteLogManager(run_logger_name='suite_run')
         self.logger = self.log_manager.logger
 
-    def run(self, paths, test_parameters_func, allow_concurrency=True, stop_on_fail=False) -> tuple:
+    def run(self, paths: list, test_parameters_func, allow_concurrency: bool = True, stop_on_fail: bool = False) -> tuple:
         sequential_modules, parallel_modules, self.failed_imports = discover_suite(paths)
         self.log_manager.on_suite_start(self.name)
         self.results = TestSuiteResult(self.name)
@@ -53,15 +53,17 @@ class SuiteRun:
             if test_module:
                 self.log_manager.on_module_start(test_module.name)
                 module_result = TestModuleResult(test_module)
-                args, kwargs = test_parameters_func(self.logger)
-                module_result.setup_result = run_test_func(self.logger, test_module.setup_func, *args, **kwargs)
+                setup_logger = self.log_manager.get_setup_logger(test_module.name)
+                args, kwargs = test_parameters_func(setup_logger)
+                module_result.setup_result = run_test_func(setup_logger, test_module.setup_func, *args, **kwargs)
                 self.log_manager.on_setup_module_done(test_module.name, module_result.setup_result)
-                module_result.test_results = self._run_tests(test_parameters_func,
-                                                              test_module.tests, 
-                                                              allow_concurrency and test_module.run_mode is RunMode.PARALLEL,
-                                                              stop_on_fail)
-                args, kwargs = test_parameters_func(self.logger)
-                module_result.teardown_result = run_test_func(self.logger, test_module.teardown_func, *args, **kwargs)
+                module_result.test_results = self._run_tests(test_module,
+                                                             test_parameters_func,
+                                                             allow_concurrency and test_module.run_mode is RunMode.PARALLEL,
+                                                             stop_on_fail)
+                teardown_logger = self.log_manager.get_teardown_logger(test_module.name)
+                args, kwargs = test_parameters_func(teardown_logger)
+                module_result.teardown_result = run_test_func(teardown_logger, test_module.teardown_func, *args, **kwargs)
                 self.log_manager.on_teardown_module_done(test_module.name, module_result.teardown_result)
                 module_result.end()
                 self.results.append(module_result)
@@ -71,24 +73,26 @@ class SuiteRun:
         create_last_run_rc(self.results)
         return self.results, self.failed_imports, self.ignored_paths
 
-    def _run_tests(self, tests_parameters_func, tests, is_concurrent=True, stop_on_fail=False):
+    def _run_tests(self, test_module: TestModule, tests_parameters_func, is_concurrent: bool = True, stop_on_fail: bool = False):
         def intialize_args_and_run(test_method):
-            args, kwargs = tests_parameters_func(self.logger)
-            return run_test_func(self.logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
+            logger = self.log_manager.get_test_logger(test_module.name, test_method.name)
+            args, kwargs = tests_parameters_func(logger)
+            return run_test_func(logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
 
         async def intialize_args_and_run_async(test_method):
-            args, kwargs = tests_parameters_func(self.logger)
-            return await run_async_test_func(self.logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
+            logger = self.log_manager.get_test_logger(test_module.name, test_method.name)
+            args, kwargs = tests_parameters_func(logger)
+            return await run_async_test_func(logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
         
         async def as_completed(coroutines_, results_, stop_on_first_fail_):
             for fs in coroutines_:
                 result = await fs
                 results_.append(result)
-                if result.status == Status.FAILED and stop_on_first_fail_:
+                if result.status is Status.FAILED and stop_on_first_fail_:
                     [f.cancel() for f in coroutines_]
         
         routines, coroutines = [], []
-        for k, test in tests.items():
+        for k, test in test_module.tests.items():
             if inspect.iscoroutinefunction(test):
                 coroutines.append(test)
             else:
@@ -127,32 +131,6 @@ class SuiteRun:
             except:
                 self.logger.error(traceback.format_exc())
         return results
-
-    def _run_tests2(self, funcs, stop_on_first_fail: bool = True, sequential: bool = False):
-        def handle_awaited_result(result, coroutines_, results_, stop_on_first_fail_):
-            results_.append(result)
-            if result.status == Status.FAILED and stop_on_first_fail_:
-                [f.cancel() for f in coroutines_]
-
-        async def as_completed(coroutines_, results_, stop_on_first_fail_):
-            for fs in coroutines_:
-                handle_awaited_result(await fs, coroutines_, results_, stop_on_first_fail_)
-    
-        coroutines = []
-        results = []
-        loop = asyncio.get_event_loop()
-        for func in funcs:
-            if inspect.iscoroutinefunction(func):
-                coroutines.append(loop.create_task(run_async_test_func(logging.getLogger(), func)))
-            else:
-                results.append(run_test_func(logging.getLogger(), func))
-
-        if coroutines:
-            if sequential:
-                for fs in coroutines:
-                    handle_awaited_result(loop.run_until_complete(fs), coroutines, results, stop_on_first_fail)
-            else:          
-                loop.run_until_complete(as_completed(coroutines, results, stop_on_first_fail))
 
 
 def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:

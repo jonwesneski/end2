@@ -9,6 +9,8 @@ The focus of this framework is:
 - [Intent/Philosophy](#intent/philosophy)
 - [Features](#features)
 - [Getting Started](#getting-started)
+- [CLI](#cli)
+- [Resource Files](#resource-files)
 - [Suite Pattern Matcher](#suite-pattern-matcher)
 - [Suite Log Manager](#suite-log-manager)
 
@@ -252,8 +254,16 @@ def test_1(logger, package_globals):
     - [x] getting started
         - [x] write a test
         - [x] write a test with parameters
-    - [] .testingrc or maybe setting.conf
+    - [x] .testingrc or maybe setting.conf
     - [] cli
+
+## CLI
+
+## Resource Files
+- `.end2rc`: defines a default value for cli as well as:
+    - Aliases: a short name given to a suite that is long. Aliases can also mention other aliases
+    - Disabled Suites: The is a list of disabled suites/tests; this way you don't have to remember which ones to disable. Also the list of suites/tests are centralized here; you won't have to hunt them down in each file
+- `logs/.lastrunrc`: defines a list of tests that failed in the last run
 
 ## Suite Pattern Matcher
 #### Default
