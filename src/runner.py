@@ -1,8 +1,6 @@
 import asyncio
 import concurrent.futures
 import inspect
-import logging
-from src.resource_profile import create_last_run_rc
 import traceback
 import sys
 
@@ -19,11 +17,7 @@ from src.popo import (
     TestModuleResult,
     TestSuiteResult,
 )
-
-
-_empty_logger = logging.getLogger('EMPTY')
-_empty_logger.propagate = False
-_empty_logger.disabled = True
+from src.resource_profile import create_last_run_rc
 
 
 def default_test_parameters(logger_):
@@ -31,57 +25,82 @@ def default_test_parameters(logger_):
 
 
 def start_test_run(args, test_parameters_func=default_test_parameters) -> tuple:
-    suite_run = SuiteRun()
-    print(suite_run.run(args.suite.modules, test_parameters_func, not args.no_concurrency, args.stop_on_fail))
+    suite_run = SuiteRun(args)
+    print(suite_run.run(args.suite.modules, test_parameters_func))
     return suite_run.results
 
 
 class SuiteRun:
-    def __init__(self, log_manager: SuiteLogManager = None):
+    def __init__(self, args, log_manager: SuiteLogManager = None):
+        self.args = args
+        self.allow_concurrency = not self.args.no_concurrency
         self.name = 'suite_run'
         self.results = None
         self.failed_imports = tuple()
         self.ignored_paths = tuple()
-        self.log_manager = log_manager or SuiteLogManager(run_logger_name='suite_run')
+        self.log_manager = log_manager or SuiteLogManager(run_logger_name='suite_run', max_folders=self.args.max_log_folders)
         self.logger = self.log_manager.logger
 
-    def run(self, paths: list, test_parameters_func, allow_concurrency: bool = True, stop_on_fail: bool = False) -> tuple:
+    def run(self, paths: list, test_parameters_func) -> tuple:
         sequential_modules, parallel_modules, self.failed_imports = discover_suite(paths)
         self.log_manager.on_suite_start(self.name)
         self.results = TestSuiteResult(self.name)
-        for test_module in (sequential_modules + parallel_modules):
-            if test_module:
-                self.log_manager.on_module_start(test_module.name)
-                module_result = TestModuleResult(test_module)
-                setup_logger = self.log_manager.get_setup_logger(test_module.name)
-                args, kwargs = test_parameters_func(setup_logger)
-                module_result.setup_result = run_test_func(setup_logger, test_module.setup_func, *args, **kwargs)
-                self.log_manager.on_setup_module_done(test_module.name, module_result.setup_result)
-                module_result.test_results = self._run_tests(test_module,
-                                                             test_parameters_func,
-                                                             allow_concurrency and test_module.run_mode is RunMode.PARALLEL,
-                                                             stop_on_fail)
-                teardown_logger = self.log_manager.get_teardown_logger(test_module.name)
-                args, kwargs = test_parameters_func(teardown_logger)
-                module_result.teardown_result = run_test_func(teardown_logger, test_module.teardown_func, *args, **kwargs)
-                self.log_manager.on_teardown_module_done(test_module.name, module_result.teardown_result)
-                module_result.end()
-                self.results.append(module_result)
-                self.log_manager.on_module_done(module_result)
+        concurrent_executor = None
+        sequential_modules_ = sequential_modules + parallel_modules
+        if self.allow_concurrency:
+            concurrent_executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.args.max_workers)
+            sequential_modules_ = sequential_modules
+        try:
+            for test_module in sequential_modules_:
+                module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail)
+                self.results.append(module_run.run())
+            if concurrent_executor:
+                for test_module in parallel_modules:
+                    module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail, concurrent_executor)
+                    self.results.append(module_run.run())
+        except exceptions.StopTestRunException as stre:
+            self.logger.critical(stre)
+        if concurrent_executor:
+            concurrent_executor.shutdown(True)
         self.results.end()
         self.log_manager.on_suite_stop(self.results)
         create_last_run_rc(self.results)
         return self.results, self.failed_imports, self.ignored_paths
 
-    def _run_tests(self, test_module: TestModule, tests_parameters_func, is_concurrent: bool = True, stop_on_fail: bool = False):
+
+class TestModuleRun:
+    def __init__(self, test_parameters_func, module, log_manager: SuiteLogManager, stop_on_fail: bool, concurrent_executor: concurrent.futures.ThreadPoolExecutor = None):
+        self.test_parameters_func = test_parameters_func
+        self.module = module
+        self.log_manager = log_manager
+        self.stop_on_fail = stop_on_fail
+        self.concurrent_executor = concurrent_executor
+
+    def run(self) -> TestModuleResult:
+        setup_result = self.setup()
+        result = TestModuleResult(self.module, setup_result)
+        result.test_results = self.run_tests()
+        result.teardown = self.teardown()
+        result.end()
+        self.log_manager.on_module_done(result)
+        return result
+
+    def setup(self) -> Result:
+        setup_logger = self.log_manager.get_setup_logger(self.module.name)
+        args, kwargs = self.test_parameters_func(setup_logger)
+        result = run_test_func(setup_logger, self.module.setup_func, *args, **kwargs)
+        self.log_manager.on_setup_module_done(self.module.name, result)
+        return result
+
+    def run_tests(self) -> list:
         def intialize_args_and_run(test_method):
-            logger = self.log_manager.get_test_logger(test_module.name, test_method.name)
-            args, kwargs = tests_parameters_func(logger)
+            logger = self.log_manager.get_test_logger(self.module.name, test_method.name)
+            args, kwargs = self.test_parameters_func(logger)
             return run_test_func(logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
 
         async def intialize_args_and_run_async(test_method):
-            logger = self.log_manager.get_test_logger(test_module.name, test_method.name)
-            args, kwargs = tests_parameters_func(logger)
+            logger = self.log_manager.get_test_logger(self.module.name, test_method.name)
+            args, kwargs = self.test_parameters_func(logger)
             return await run_async_test_func(logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
         
         async def as_completed(coroutines_, results_, stop_on_first_fail_):
@@ -92,45 +111,51 @@ class SuiteRun:
                     [f.cancel() for f in coroutines_]
         
         routines, coroutines = [], []
-        for k, test in test_module.tests.items():
+        for k, test in self.module.tests.items():
             if inspect.iscoroutinefunction(test):
                 coroutines.append(test)
             else:
                 routines.append(test)
         results = []
         loop = asyncio.get_event_loop()
-        if is_concurrent:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-                future_results = [
-                    executor.submit(intialize_args_and_run, test)
-                    for test in routines
-                ]
-                try:
-                    for future_result in concurrent.futures.as_completed(future_results):
-                        result = future_result.result()
-                        results.append(result)
-                        if stop_on_fail and result.status is Status.FAILED:
-                            raise exceptions.StopTestRunException(result.message)
-                except exceptions.StopTestRunException as stre:
-                    self.logger.critical(stre)
-                except:
-                    self.logger.error(traceback.format_exc())
-            loop.run_until_complete(as_completed(coroutines, results, stop_on_fail))
+        if self.concurrent_executor:
+            future_results = [
+                self.concurrent_executor.submit(intialize_args_and_run, test)
+                for test in routines
+            ]
+            try:
+                for future_result in concurrent.futures.as_completed(future_results):
+                    result = future_result.result()
+                    results.append(result)
+                    if self.stop_on_fail and result.status is Status.FAILED:
+                        raise exceptions.StopTestRunException(result.message)
+            except exceptions.StopTestRunException as stre:
+                raise
+            except:
+                self.log_manager.logger.error(traceback.format_exc())
+            loop.run_until_complete(as_completed(coroutines, results, self.stop_on_fail))
         else:
             try:
                 for test in routines:
                     results.append(intialize_args_and_run(test))
-                    if stop_on_fail and results[-1].status is Status.FAILED:
+                    if self.stop_on_fail and results[-1].status is Status.FAILED:
                         raise exceptions.StopTestRunException(results[-1].message)
                 for test in coroutines:
                     results.append(loop.run_until_complete(intialize_args_and_run_async(test)))
-                    if stop_on_fail and results[-1].status is Status.FAILED:
+                    if self.stop_on_fail and results[-1].status is Status.FAILED:
                         raise exceptions.StopTestRunException(results[-1].message)
             except exceptions.StopTestRunException as stre:
-                self.logger.critical(stre)
+                raise
             except:
-                self.logger.error(traceback.format_exc())
+                self.log_manager.logger.error(traceback.format_exc())
         return results
+
+    def teardown(self) -> Result:
+        teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
+        args, kwargs = self.test_parameters_func(teardown_logger)
+        result = run_test_func(teardown_logger, self.module.setup_func, *args, **kwargs)
+        self.log_manager.on_teardown_module_done(self.module.name, result)
+        return result
 
 
 def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:

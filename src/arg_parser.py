@@ -45,7 +45,7 @@ excluding - anything on the right side of a '\!' will be excluded:
                                help="list of regex expression to search for tests")
     parent_parser.add_argument('--max-workers', type=int, default=rc['settings'].getint('max-workers'),
                                help='Total number of workers allowed to run concurrently')
-    parent_parser.add_argument('--max-sub-folders', type=int, default=rc['settings'].getint('max-workers'),
+    parent_parser.add_argument('--max-log-folders', type=int, default=rc['settings'].getint('max-log-folders'),
                                help='Total number of max log folders')
     parent_parser.add_argument('--no-concurrency', action='store_true', default=rc['settings'].getboolean('no-concurrency'),
                                help='Make all tests run sequentially')

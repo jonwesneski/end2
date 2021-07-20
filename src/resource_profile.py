@@ -29,7 +29,7 @@ def get_rc() -> ConfigParser:
 _default_rc_dict = {
     'settings': {
         'max-workers': (int, 20),
-        'max-sub-folders': (int, 10),
+        'max-log-folders': (int, 10),
         'no-concurrency': (bool, False),
         'stop-on-fail': (bool, False)
     },
@@ -62,9 +62,13 @@ def _check_for_corruption(file_name: str) -> ConfigParser:
     for section, options in _default_rc_dict.items():
         if section == 'settings':
             for k, v in options.items():
-                if not isinstance(rc[section][k], v[0]):
+                if section in rc:
+                    if not isinstance(rc[section][k], v[0]):
+                        corrupted = True
+                        rc[section][k] = str(v[1])
+                else:
                     corrupted = True
-                    rc[section][k] = str(v[1])
+                    rc[section] = {k: str(v[1])}
         elif section not in rc:
             corrupted = True
             rc[section] = _default_rc_dict[section]
