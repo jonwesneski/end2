@@ -9,7 +9,7 @@ from src.arg_parser import default_parser
 
 
 if __name__ == '__main__':
-    # Run from inside exampes\simple
+    # Run from inside examples\simple
     ## --suite smoke\\!ignored_module.py;sample1.py::test_ignored_test,test_2
     ## --suite smoke/!ignored_module.py;sample1.py::test_ignored_test,test_2
     ## --suite non_existent.py

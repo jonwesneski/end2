@@ -24,7 +24,7 @@ def default_test_parameters(logger_):
     return (logger_,), {}
 
 
-def start_test_run(args, test_parameters_func=default_test_parameters) -> tuple:
+def start_test_run(args, test_parameters_func=default_test_parameters) -> TestSuiteResult:
     suite_run = SuiteRun(args)
     print(suite_run.run(args.suite.modules, test_parameters_func))
     return suite_run.results
@@ -69,7 +69,7 @@ class SuiteRun:
 
 
 class TestModuleRun:
-    def __init__(self, test_parameters_func, module, log_manager: SuiteLogManager, stop_on_fail: bool, concurrent_executor: concurrent.futures.ThreadPoolExecutor = None):
+    def __init__(self, test_parameters_func, module: TestModule, log_manager: SuiteLogManager, stop_on_fail: bool, concurrent_executor: concurrent.futures.ThreadPoolExecutor = None):
         self.test_parameters_func = test_parameters_func
         self.module = module
         self.log_manager = log_manager
@@ -105,14 +105,14 @@ class TestModuleRun:
         
         async def as_completed(coroutines_, results_, stop_on_first_fail_):
             for fs in coroutines_:
-                result = await fs
+                result = await intialize_args_and_run_async(fs)
                 results_.append(result)
                 if result.status is Status.FAILED and stop_on_first_fail_:
                     [f.cancel() for f in coroutines_]
         
         routines, coroutines = [], []
         for k, test in self.module.tests.items():
-            if inspect.iscoroutinefunction(test):
+            if inspect.iscoroutinefunction(test.func):
                 coroutines.append(test)
             else:
                 routines.append(test)
@@ -127,6 +127,8 @@ class TestModuleRun:
                 for future_result in concurrent.futures.as_completed(future_results):
                     result = future_result.result()
                     results.append(result)
+                    self.log_manager.on_test_done(self.module.name, result)
+                    self.log_manager.on_test_execution_done(self.module.name, result)
                     if self.stop_on_fail and result.status is Status.FAILED:
                         raise exceptions.StopTestRunException(result.message)
             except exceptions.StopTestRunException as stre:
@@ -138,10 +140,14 @@ class TestModuleRun:
             try:
                 for test in routines:
                     results.append(intialize_args_and_run(test))
+                    self.log_manager.on_test_done(self.module.name, results[-1])
+                    self.log_manager.on_test_execution_done(self.module.name, results[-1])
                     if self.stop_on_fail and results[-1].status is Status.FAILED:
                         raise exceptions.StopTestRunException(results[-1].message)
                 for test in coroutines:
                     results.append(loop.run_until_complete(intialize_args_and_run_async(test)))
+                    self.log_manager.on_test_done(self.module.name, results[-1])
+                    self.log_manager.on_test_execution_done(self.module.name, results[-1])
                     if self.stop_on_fail and results[-1].status is Status.FAILED:
                         raise exceptions.StopTestRunException(results[-1].message)
             except exceptions.StopTestRunException as stre:
@@ -157,27 +163,28 @@ class TestModuleRun:
         self.log_manager.on_teardown_module_done(self.module.name, result)
         return result
 
-
+from src.logger import empty_logger
 def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     """
+    >>> from src.logger import empty_logger
     >>> def test_1():
     ...     assert True
-    >>> result = run_test_func(_empty_logger, test_1)
+    >>> result = run_test_func(empty_logger, test_1)
     >>> result.status == Status.PASSED and result.message == "" and result.end_time is not None
     True
     >>> def test_2(a):
     ...     assert False
-    >>> result = run_test_func(_empty_logger, test_2, 1)
+    >>> result = run_test_func(empty_logger, test_2, 1)
     >>> result.status == Status.FAILED and result.message != "" and result.end_time is not None
     True
     >>> def test_3(a, b):
     ...     raise exceptions.SkipTestException("I skip")
-    >>> result = run_test_func(_empty_logger, test_3, a=1, b=2)
+    >>> result = run_test_func(empty_logger, test_3, a=1, b=2)
     >>> result.status == Status.SKIPPED and result.message == "I skip" and result.end_time is not None
     True
     >>> def test_4(a, b, c):
     ...     raise Exception("Error")
-    >>> result = run_test_func(_empty_logger, test_4, 1, 2, 3)
+    >>> result = run_test_func(empty_logger, test_4, 1, 2, 3)
     >>> result.status == Status.FAILED and "Encountered an exception" in result.message and result.end_time is not None
     True
     """
@@ -205,26 +212,27 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
 
 async def run_async_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     """
+    >>> from src.logger import empty_logger
     >>> import asyncio
     >>> loop = asyncio.get_event_loop()
     >>> async def test_1():
     ...     assert True
-    >>> result = loop.run_until_complete(run_async_test_func(_empty_logger, test_1))
+    >>> result = loop.run_until_complete(run_async_test_func(empty_logger, test_1))
     >>> result.status == Status.PASSED and result.message == "" and result.end_time is not None
     True
     >>> def test_2(a):
     ...     assert False
-    >>> result = loop.run_until_complete(run_async_test_func(_empty_logger, test_2, 1))
+    >>> result = loop.run_until_complete(run_async_test_func(empty_logger, test_2, 1))
     >>> result.status == Status.FAILED and result.message != "" and result.end_time is not None
     True
     >>> def test_3(a, b):
     ...     raise exceptions.SkipTestException("I skip")
-    >>> result = loop.run_until_complete(run_async_test_func(_empty_logger, test_3, a=1, b=2))
+    >>> result = loop.run_until_complete(run_async_test_func(empty_logger, test_3, a=1, b=2))
     >>> result.status == Status.SKIPPED and result.message == "I skip" and result.end_time is not None
     True
     >>> def test_4(a, b, c):
     ...     raise Exception("Error")
-    >>> result = loop.run_until_complete(run_async_test_func(_empty_logger, test_4, 1, 2, 3))
+    >>> result = loop.run_until_complete(run_async_test_func(empty_logger, test_4, 1, 2, 3))
     >>> result.status == Status.FAILED and "Encountered an exception" in result.message and result.end_time is not None
     True
     """
