@@ -68,6 +68,6 @@ if __name__ == '__main__':
     def test_parameters(logger):
         return (Client(logger), AsyncClient(logger)), {}
 
-    results = start_test_run(args, test_parameters)
+    results, _ = start_test_run(args, test_parameters)
 
     exit(results.exit_code)
