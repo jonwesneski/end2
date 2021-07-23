@@ -226,7 +226,6 @@ class SuiteLogManager(LogManager):
     def _add_flush_handler(self, logger: logging.Logger, filter_name: str):
         filter_ = InfixFilter(filter_name)
         test_run_memory_handler = ManualFlushHandler(
-            #self.test_run_file_handler
             create_file_handler(self.folder, self.logger_name, logging.INFO, filter_=filter_, mode='a+')
         )
         test_run_memory_handler.setFormatter(_FILTER_FORMATTER)

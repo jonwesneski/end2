@@ -5,13 +5,11 @@ import traceback
 import sys
 
 from src import exceptions
-from src.discovery import discover_suite, discover_module
+from src.discovery import discover_suite
 from src.enums import Status, RunMode
 from src.fixtures import metadata, teardown
 from src.logger import SuiteLogManager
 from src.popo import (
-    Result,
-    TestMethod,
     TestMethodResult,
     TestModule,
     TestModuleResult,
@@ -45,23 +43,25 @@ class SuiteRun:
         sequential_modules, parallel_modules, self.failed_imports = discover_suite(paths)
         self.log_manager.on_suite_start(self.name)
         self.results = TestSuiteResult(self.name)
-        concurrent_executor = None
-        sequential_modules_ = sequential_modules + parallel_modules
-        if self.allow_concurrency:
-            concurrent_executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.args.max_workers)
-            sequential_modules_ = sequential_modules
+        sequential_modules_, parallel_modules_ = sequential_modules, parallel_modules
+        if not self.allow_concurrency:
+            sequential_modules_ = sequential_modules + parallel_modules
+            parallel_modules_ = tuple()
         try:
             for test_module in sequential_modules_:
                 module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail)
                 self.results.append(module_run.run())
-            if concurrent_executor:
-                for test_module in parallel_modules:
-                    module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail, concurrent_executor)
-                    self.results.append(module_run.run())
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.max_workers) as executor:
+                futures = [
+                    executor.submit(
+                        TestModuleRun(test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail, executor).run)
+                    for test_module in parallel_modules_
+                ]
+                for future in futures:
+                    self.results.append(future.result())
         except exceptions.StopTestRunException as stre:
             self.logger.critical(stre)
-        if concurrent_executor:
-            concurrent_executor.shutdown(True)
         self.results.end()
         self.log_manager.on_suite_stop(self.results)
         create_last_run_rc(self.results)
@@ -85,7 +85,7 @@ class TestModuleRun:
         self.log_manager.on_module_done(result)
         return result
 
-    def setup(self) -> Result:
+    def setup(self) -> TestMethodResult:
         setup_logger = self.log_manager.get_setup_logger(self.module.name)
         args, kwargs = self.test_parameters_func(setup_logger)
         result = run_test_func(setup_logger, self.module.setup_func, *args, **kwargs)
@@ -109,6 +109,8 @@ class TestModuleRun:
                 results_.append(result)
                 if result.status is Status.FAILED and stop_on_first_fail_:
                     [f.cancel() for f in coroutines_]
+                self.log_manager.on_test_done(self.module.name, result)
+                self.log_manager.on_test_execution_done(self.module.name, result)
         
         routines, coroutines = [], []
         for k, test in self.module.tests.items():
@@ -117,7 +119,11 @@ class TestModuleRun:
             else:
                 routines.append(test)
         results = []
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
         if self.concurrent_executor:
             future_results = [
                 self.concurrent_executor.submit(intialize_args_and_run, test)
@@ -156,14 +162,14 @@ class TestModuleRun:
                 self.log_manager.logger.error(traceback.format_exc())
         return results
 
-    def teardown(self) -> Result:
+    def teardown(self) -> TestMethodResult:
         teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
         args, kwargs = self.test_parameters_func(teardown_logger)
         result = run_test_func(teardown_logger, self.module.setup_func, *args, **kwargs)
         self.log_manager.on_teardown_module_done(self.module.name, result)
         return result
 
-from src.logger import empty_logger
+
 def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     """
     >>> from src.logger import empty_logger

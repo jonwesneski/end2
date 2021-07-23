@@ -21,12 +21,16 @@ def my_teardown(client, async_client):
 
 async def test_11(client, async_client):
     client.logger.info('hi')
-    assert await async_client.put({}) is None
+    assert await async_client.put({'hi': 11}) is None
+    assert await async_client.put({'hi': 12}) is None
+    assert await async_client.put({'hi': 13}) is None
 
 
 def test_12(client, async_client):
     client.logger.info('hi12')
-    assert client.post({}) is None
+    assert client.post({'hi': 11}) is None
+    assert client.post({'hi': 12}) is None
+    assert client.post({'hi': 13}) is None
 
 
 def test_13(client, async_client):

@@ -23,9 +23,11 @@ class Client:
         return {}
 
     def post(self, payload):
+        self.logger.info(payload)
         self._sleep()
 
     def put(self, payload):
+        self.logger.info(payload)
         self._sleep()
     
     def delete(self):
@@ -45,9 +47,11 @@ class AsyncClient:
         return {}
 
     async def post(self, payload):
+        self.logger.info(payload)
         await self._sleep()
 
     async def put(self, payload):
+        self.logger.info(payload)
         await self._sleep()
     
     async def delete(self):
