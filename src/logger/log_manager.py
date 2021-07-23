@@ -10,10 +10,9 @@ import struct
 import subprocess
 import sys
 
-from pytz import timezone
 
-from test_framework.enums import Status
-from test_framework.popo import (
+from src.enums import Status
+from src.popo import (
     Result,
     TestMethodResult,
     TestModuleResult,
@@ -31,10 +30,6 @@ FOLDER = 'logs'
 _DATEFORMAT = '%Y-%m-%d %H:%M:%S CDT'
 _FORMATTER = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]   %(message)s', datefmt=_DATEFORMAT)
 _FILTER_FORMATTER = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] %(infix)s   %(message)s', datefmt=_DATEFORMAT)
-try:
-    _MAX_SUB_FOLDERS = int(os.getenv('AUTOMATION_LOGS_SUB_FOLDER_COUNT'))
-except:
-    _MAX_SUB_FOLDERS = 10
 
 
 def get_terminal_size():
@@ -117,15 +112,6 @@ def _get_terminal_size_linux():
 _COLUMN_SIZE = get_terminal_size()[0]
 
 
-def _cdt_time(*args):
-    cdt_time = datetime.fromtimestamp(args[1])
-    cdt_time_zone = timezone('America/Chicago')
-    converted = cdt_time.astimezone(cdt_time_zone)
-    return converted.timetuple()
-
-
-logging.Formatter.converter = _cdt_time
-
 
 def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG, filter_: logging.Filter = None, mode: str = 'w') -> logging.FileHandler:
     os.makedirs(folder, exist_ok=True)
@@ -172,19 +158,19 @@ def get_log_handler(logger: logging.Logger, handler_type: type) -> logging.Handl
 
 
 class LogManager:
-    def __init__(self, logger_name, base_folder: str = FOLDER, stream_level: int = logging.INFO, mode: str = 'w'):
+    def __init__(self, logger_name: str, base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO, mode: str = 'w'):
         self.logger_name = logger_name
         self._create_folder(base_folder)
-        self._rotate(base_folder)
+        self._rotate(base_folder, max_folders)
         self.logger = self.create_full_logger(self.logger_name, stream_level, mode)
 
     def _create_folder(self, base_folder: str):
         self.folder = os.path.join(base_folder, datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
         os.makedirs(self.folder, exist_ok=True)
 
-    def _rotate(self, base_folder: str):
+    def _rotate(self, base_folder: str, max_folders: int):
         sub_folders = sorted([x for x in Path(base_folder).iterdir() if x.is_dir()], key=os.path.getmtime)
-        count = len(sub_folders) - _MAX_SUB_FOLDERS
+        count = len(sub_folders) - max_folders
         if count > 0:
             for i in range(count):
                 shutil.rmtree(sub_folders[i])
@@ -216,8 +202,8 @@ class SuiteLogManager(LogManager):
     """
     Used to manage logs: How many log history folders to keep and how to organize the log folders/files inside.
     """
-    def __init__(self, run_logger_name: str = 'suite_run', base_folder: str = FOLDER, stream_level: int = logging.INFO):
-        super().__init__(run_logger_name, base_folder, stream_level, mode='a+')
+    def __init__(self, run_logger_name: str = 'suite_run', base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO):
+        super().__init__(run_logger_name, base_folder, max_folders, stream_level, mode='a+')
         self.test_run_file_handler = get_log_handler(self.logger, logging.FileHandler)
         self._test_terminator = '\n' + ('-' * _COLUMN_SIZE)
         self._module_terminator = '\n' + ('=' * _COLUMN_SIZE)
@@ -240,7 +226,6 @@ class SuiteLogManager(LogManager):
     def _add_flush_handler(self, logger: logging.Logger, filter_name: str):
         filter_ = InfixFilter(filter_name)
         test_run_memory_handler = ManualFlushHandler(
-            #self.test_run_file_handler
             create_file_handler(self.folder, self.logger_name, logging.INFO, filter_=filter_, mode='a+')
         )
         test_run_memory_handler.setFormatter(_FILTER_FORMATTER)
@@ -294,7 +279,7 @@ class SuiteLogManager(LogManager):
                 if isinstance(handler, logging.FileHandler):
                     handler.close()
                     file_handler = handler
-                    os.rename(handler.baseFilename, handler.baseFilename.replace(f'{test_name}', f'{Status.SKIPPED.upper()}_{test_name}'))
+                    os.rename(handler.baseFilename, handler.baseFilename.replace(f'{test_name}', f'{Status.SKIPPED.name}_{test_name}'))
             logger.removeHandler(file_handler)
             logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG))
 
@@ -313,12 +298,12 @@ class SuiteLogManager(LogManager):
             if isinstance(handler, logging.FileHandler):
                 handler.close()
                 base_name = os.path.basename(handler.baseFilename)
-                os.rename(handler.baseFilename, os.path.join(self.folder, f'{Status.FAILED.upper()}_{module_name}.{base_name}'))
+                os.rename(handler.baseFilename, os.path.join(self.folder, f'{Status.FAILED.name}_{module_name}.{base_name}'))
 
     def on_teardown_test_done(self, module_name: str, test_name: str, teardown_test_result: Result):
         logger, infix_name = self._get_logger(module_name, test_name, 'teardown_test')
         self._flush_and_close_log_memory_handler(logger, infix_name)
-        if teardown_test_result and teardown_test_result.status != Status.PASSED:
+        if teardown_test_result and teardown_test_result.status is not Status.PASSED:
             self.logger.critical(f'Teardown Test Failed for {test_name}')
 
     def on_test_execution_done(self, module_name: str, test_method_result: TestMethodResult):
@@ -341,7 +326,7 @@ class SuiteLogManager(LogManager):
                 self._close_file_handlers(self._get_logger(test_module_result.name, test_result.name)[0])
             os.rename(
                 os.path.join(self.folder, test_module_result.name),
-                os.path.join(self.folder, f'{test_module_result.status.upper()}_{test_module_result.name}'))
+                os.path.join(self.folder, f'{test_module_result.status.name}_{test_module_result.name}'))
         self.logger.info(f'{test_module_result}{self._module_terminator}')
 
     def on_suite_stop(self, suite_result: TestSuiteResult):

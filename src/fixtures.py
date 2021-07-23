@@ -1,6 +1,7 @@
 import functools
 
-from test_framework.enums import FUNCTION_TYPE
+from src.enums import FUNCTION_TYPE
+from src.exceptions import MoreThan1FixtureException
 
 
 def setup(func):
@@ -36,14 +37,6 @@ def teardown(func):
 
 
 def parameterize(parameters_list, first_arg_is_name: bool = False):
-    return _parameterize(parameters_list, is_parallel=False, first_arg_is_name=first_arg_is_name)
-
-
-def parallel_parameterize(parameters_list: list, first_arg_is_name: bool = False):
-    return _parameterize(parameters_list, is_parallel=True, first_arg_is_name=first_arg_is_name)
-
-
-def _parameterize(parameters_list: list, is_parallel: bool, first_arg_is_name: bool):
     def wrapper(func):
         if first_arg_is_name:
             func.names = [f'{func.__name__}[{i}] {args[0]}' for i, args in enumerate(parameters_list)]
@@ -51,14 +44,30 @@ def _parameterize(parameters_list: list, is_parallel: bool, first_arg_is_name: b
         else:
             func.names = [f'{func.__name__}[{i}]' for i in range(len(parameters_list))]
             func.parameterized_list = tuple(parameters_list)
-        func.is_parallel = is_parallel
-        func.range = range(len(parameters_list))
         return func
     return wrapper
 
 
+def metadata(func, **kwargs):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    wrapper.metadata = kwargs
+    return wrapper
+
+
+def empty_func(*args, **kwargs):
+    pass
+
+
 def get_fixture(module, name: str):
+    fixture = empty_func
+    found = False
     for key in dir(module):
         attribute = getattr(module, key)
-        if type(attribute) is FUNCTION_TYPE and  hasattr(attribute, name):
-            return attribute
+        if type(attribute) is FUNCTION_TYPE and hasattr(attribute, name):
+            if found:
+                raise MoreThan1FixtureException(name, module.__name__)
+            fixture = attribute
+            found = True
+    return fixture

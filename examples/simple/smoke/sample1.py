@@ -1,5 +1,5 @@
-from test_framework.enums import RunMode
-from test_framework.fixtures import (
+from src import (
+    RunMode,
     setup_test,
     teardown
 )
