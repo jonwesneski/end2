@@ -1,54 +1,6 @@
 from datetime import datetime
-import os
 
 from src.enums import Status
-from src.fixtures import get_fixture
-
-
-def build_full_name(module_name: str, test_name: str) -> str:
-    return f'{module_name}::{test_name}'
-
-
-class TestMethod:
-    def __init__(self, setup_func, func, teardown_func, parameterized_tuple: tuple = None):
-        self.setup_func = setup_func
-        self.func = func
-        self.parameterized_tuple = parameterized_tuple or tuple()
-        self.name = self.func.__name__
-        self.full_name = build_full_name(self.func.__module__, self.name)
-        self.teardown_func = teardown_func
-
-    def __eq__(self, rhs) -> bool:
-        return self.full_name == rhs.full_name
-
-    def __hash__(self) -> int:
-        return id(self.full_name)
-
-
-class TestModule:
-    def __init__(self, module, tests: dict, ignored_tests: set = None, package_globals: object = None):
-        self.module = module
-        self.name = module.__name__
-        self.file_name = os.path.relpath(module.__file__)
-        self.run_mode = module.__run_mode__
-        self.setup_func = get_fixture(self.module, 'setup')
-        self.tests = tests
-        self.teardown_func = get_fixture(self.module, 'teardown')
-        self.ignored_tests = ignored_tests if ignored_tests else set()
-        self.package_globals = package_globals
-
-    def __eq__(self, rhs) -> bool:
-        return self.name == rhs.name
-
-    def __hash__(self) -> int:
-        return id(self.module)
-
-    def update(self, same_module):
-        for ignored in same_module.ignored_tests:
-            self.tests.pop(ignored, None)
-        self.tests.update(same_module.tests)
-        self.ignored_tests.update(same_module.ignored_tests)
-
 
 
 class Result:
@@ -186,9 +138,8 @@ class TestMethodResult(Result):
         self.metadata = metadata or {}
         self.description = description
 
-
-class GlobalObject:
-    def copy(self, obj):
-        for attribute in dir(obj):
-            if not attribute.startswith('__'):
-                setattr(self, attribute, getattr(obj, attribute))
+    def to_base(self) -> Result:
+        result = Result(self.name, self.status, self.message)
+        result._start_time = self._start_time
+        result._end_time = self._end_time
+        return result

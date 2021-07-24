@@ -12,7 +12,7 @@ import sys
 
 
 from src.enums import Status
-from src.popo import (
+from src.models.result import (
     Result,
     TestMethodResult,
     TestModuleResult,
@@ -286,6 +286,10 @@ class SuiteLogManager(LogManager):
     def on_test_done(self, module_name: str, test_method_result: TestMethodResult):
         logger, infix_name = self._get_logger(module_name, test_method_result.name)
         self._flush_and_close_log_memory_handler(logger, infix_name)
+        if test_method_result.status is Status.FAILED:
+            self._move_failed_test(module_name, logger)
+        self._close_file_handlers(logger) 
+        self.logger.info(f'{module_name}::{test_method_result}{self._test_terminator}')
 
     def on_parameterized_test_done(self, module_name: str, parameter_result: TestMethodResult):
         self.on_test_done(module_name, parameter_result)
@@ -305,13 +309,6 @@ class SuiteLogManager(LogManager):
         self._flush_and_close_log_memory_handler(logger, infix_name)
         if teardown_test_result and teardown_test_result.status is not Status.PASSED:
             self.logger.critical(f'Teardown Test Failed for {test_name}')
-
-    def on_test_execution_done(self, module_name: str, test_method_result: TestMethodResult):
-        logger, _ = self._get_logger(module_name, test_method_result.name, test_method_result.name)
-        if test_method_result.status is Status.FAILED:
-            self._move_failed_test(module_name, logger)
-        self._close_file_handlers(logger) 
-        self.logger.info(f'{module_name}::{test_method_result}{self._test_terminator}')
 
     def on_teardown_module_done(self, module_name: str, result: Result):
         logger, infix_name = self._get_logger(module_name, 'teardown')

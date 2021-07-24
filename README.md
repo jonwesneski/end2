@@ -16,9 +16,9 @@ The focus of this framework is:
 
 ## Intent/Philosophy
 - Become better:
-    - end² framework is designed to be to also help test writers become better coders as well. Only test methods are allowed in this framework and all test cases are shuffled before they run to make sure no tests depend on each other. All below intents/philosophies tie back to this first one of become better at test writing/coding
-- Randomizing:
-    - By having tests run randomly, we are ensuring that tests don't need to run in a specific order. If test-1 fails, then test-2 will obviously fail, but test-2 is a false negaive. It might be better to consider test-1 and test-2 as test steps and just combine test-1 and test-2 in one test case instead. Another plus to randomizing is the test writer will be able to find out if there are any side effects on the test case side or the SUT and be able to fix what is necessary. This will make them have a better understanding of there own coding, others memberings coding, and the SUT as well if the side effect is on the SUT itself
+    - **end²** is designed to be to also help test writers become better coders as well. Only test methods are allowed in this framework and all test cases are shuffled before they run to make sure no tests depend on each other. All below intents/philosophies tie back to this first one of become better at test writing/coding
+- Shuffling:
+    - By having tests run in random order, we are ensuring that tests don't need to run in a specific order. If test-1 fails, then test-2 will obviously fail, but test-2 is a false negaive. It might be better to consider test-1 and test-2 as test steps and just combine test-1 and test-2 in one test case instead. Another plus to Shuffling is the test writer will be able to find out if there are any side effects on the test case side or the SUT and be able to fix what is necessary. This will make them have a better understanding of there own coding, others members coding, and the SUT as well if the side effect is on the SUT itself
 - Declaring:
     - Test case design is very important and the design should speak for itself in the file/module. Declaring the concurrency/run-mode in the file lets everyone know that that particular file can run in parallel. Passing that info in the command line can be confusing over time because not everyone will remember what can and can't run parallel
 - 1 set of parameters per suite:
@@ -108,10 +108,9 @@ if __name__ == '__main__':
     run_instance = create_test_run_instance(suite_paths=['tests'])  # This arg is a list of test packages, test modules, and tests methods; more on this in the next section
 
     def test_parameters(logger_) -> tuple:     # This is how parameters for tests are injected. When overriding this
-        return (create_client(), logger_), {}  # you must always return a tuple of tuple and dict. The logger_ arg
-                                               # here will be the logger specific to the test. If you do not create
-                                               # a test_parameters method then this is the method signature that
-                                               # will be used
+        return (create_client(logger_),), {}   # you must always return a tuple of tuple and dict. The logger_ arg
+                                               # here will be the logger specific to the test. This method will be called
+                                               # on every fixture and test
 
     run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, test_parameters_func=test_parameters)
     # ... Do something before the test run
@@ -173,7 +172,7 @@ def test_1(logger, var1, var2, rhs):  # Parameterized parameters will come in af
 ## Fixtures example of test package
 ``` python
 # test_package/__init__.py
-from src import (
+from end2 import (
     setup,
     teardown
 )
@@ -190,7 +189,7 @@ def my_setup(package_globals):
 ```
 ``` python
 # test_package/test_sub_package/__init__.py
-from src import (
+from end2 import (
     setup,
     teardown
 )
@@ -223,6 +222,7 @@ def test_1(logger, package_globals):
 ## TODO:
 - [x] change suites to be file path instead of dot notation
 - [] support async fixtures
+- [] move package setup/teardown to suiterun
 - [] make runner use suitelogmanager again
 - [x] .testingrc or maybe setting.conf (have this file as a profile with setting about how to configure runner)
     - [x] max threads

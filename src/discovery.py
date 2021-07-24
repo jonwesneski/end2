@@ -3,10 +3,21 @@ import inspect
 import os
 from random import shuffle
 
-from src.fixtures import get_fixture
+from src.fixtures import (
+    setup,
+    setup_test,
+    teardown,
+    teardown_test
+)
 from src.enums import RunMode
 from src.exceptions import MoreThan1FixtureException
-from src.popo import TestMethod, TestModule, GlobalObject
+from src.models.test_popo import (
+    empty_func,
+    GlobalPackageObject,
+    TestMethod,
+    TestModule,
+    TestPackageList
+)
 
 
 FUNCTION_TYPE = type(lambda: None)
@@ -31,7 +42,7 @@ def discover_suite(paths: dict) -> tuple:
                 parallel_modules |= pm
                 failed_imports |= fi
             else:
-                m, fi = discover_module(importable, test_pattern_matcher)
+                m, fi = discover_module(importable, test_pattern_matcher, TestPackageList())
                 if m:
                     if m.run_mode is RunMode.SEQUENTIAL:
                         sequential_modules.add(m)
@@ -44,7 +55,7 @@ def discover_suite(paths: dict) -> tuple:
     return tuple(sequential_modules), tuple(parallel_modules), tuple(failed_imports)
 
 
-def discover_package(importable: str, test_pattern_matcher, test_package_globals: GlobalObject = None) -> tuple:
+def discover_package(importable: str, test_pattern_matcher, test_package_list: TestPackageList = None) -> tuple:
     sequential_modules = set()
     parallel_modules = set()
     failed_imports = set()
@@ -52,17 +63,20 @@ def discover_package(importable: str, test_pattern_matcher, test_package_globals
         test_package = importlib.import_module(importable.replace(os.sep, '.'))
         items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
         shuffle(items)
-        test_package_globals_ = test_package_globals or GlobalObject()
-        getattr(test_package, 'setup', lambda x: None)(test_package_globals_)
+        test_package_list_ = test_package_list
+        if test_package_list_:
+            test_package_list_.append(test_package)
+        else:
+            test_package_list_ = TestPackageList(test_package)
         for item in items:
             full_path = os.path.join(importable, item)
             if os.path.isdir(full_path):
-                sm, pm, fi = discover_package(full_path, test_pattern_matcher, test_package_globals_)
+                sm, pm, fi = discover_package(full_path, test_pattern_matcher, test_package_list_)
                 sequential_modules |= sm
                 parallel_modules |= pm
                 failed_imports |= fi
             elif full_path.endswith('.py'):
-                m, fi = discover_module(full_path, test_pattern_matcher, test_package_globals_)
+                m, fi = discover_module(full_path, test_pattern_matcher, test_package_list_)
                 if m:
                     if m.run_mode is RunMode.SEQUENTIAL:
                         sequential_modules.add(m)
@@ -70,13 +84,12 @@ def discover_package(importable: str, test_pattern_matcher, test_package_globals
                         parallel_modules.add(m)
                 else:
                     failed_imports.add(fi)
-        getattr(test_package, 'teardown', lambda x: None)(test_package_globals_)
     except Exception as e:
         failed_imports.add(f'Failed to load {importable} - {e}')
     return sequential_modules, parallel_modules, failed_imports
 
 
-def discover_module(importable: str, test_pattern_matcher, test_package_globals: GlobalObject = None) -> tuple:
+def discover_module(importable: str, test_pattern_matcher, test_package_list: TestPackageList) -> tuple:
     """
     >>> from src.pattern_matchers import PatternMatcherBase
     >>> matcher = PatternMatcherBase([], '', True)
@@ -91,8 +104,9 @@ def discover_module(importable: str, test_pattern_matcher, test_package_globals:
         module = importlib.import_module(module_str)
         tests = discover_tests(module, test_pattern_matcher)
         if tests:
-            test_module = TestModule(module, tests, set(test_pattern_matcher.excluded_items), test_package_globals)
-            discover_fixtures(test_module)
+            test_module = TestModule(module, tests, set(test_pattern_matcher.excluded_items), test_package_list=test_package_list)
+            test_module.setup_func = _get_fixture(test_module.module, setup.__name__)
+            test_module.teardown_func = _get_fixture(test_module.module, teardown.__name__)
             if test_module.run_mode not in RunMode:
                 error = f'{test_module.run_mode} is not a valid RunMode'
                 test_module = None
@@ -122,8 +136,8 @@ def discover_tests(module, test_pattern_matcher) -> dict:
     """
     tests = {}
     if inspect.ismodule(module):
-        setup = get_fixture(module, 'setup_test')
-        teardown = get_fixture(module, 'teardown_test')
+        setup = _get_fixture(module, setup_test.__name__)
+        teardown = _get_fixture(module, teardown_test.__name__)
         for name in dir(module):
             attribute = getattr(module, name)
             if type(attribute) is FUNCTION_TYPE and name.startswith('test_'):
@@ -132,9 +146,9 @@ def discover_tests(module, test_pattern_matcher) -> dict:
                         range_ = discover_parameterized_test_range(name, attribute.parameterized_list)
                         for i in range_:
                             attribute.range = range_
-                            tests[f'{name}[{i}]'] = TestMethod(setup, attribute, teardown, attribute.parameterized_list[i])
+                            tests[f'{name}[{i}]'] = TestMethod(attribute, setup, teardown, attribute.parameterized_list[i])
                     else:
-                        tests[name] = TestMethod(setup, attribute, teardown)
+                        tests[name] = TestMethod(attribute, setup, teardown)
         tests = _shuffle_dict(tests)
     return tests
 
@@ -209,13 +223,11 @@ def discover_parameterized_test_range(test_name: str, parameterized_list: list) 
     return range_
 
 
-def discover_fixtures(test_module):
-    pass  #TODO: remove from fixtures.py and implement here
-# def get_fixture(module, name: str):
-#     fixture = empty_func
-#     for key in dir(module):
-#         attribute = getattr(module, key)
-#         if type(attribute) is FUNCTION_TYPE and  hasattr(attribute, name):
-#             fixture = attribute
-#             break
-#     return fixture
+def _get_fixture(module, name: str):
+        fixture = empty_func
+        for key in dir(module):
+            attribute = getattr(module, key)
+            if type(attribute) is FUNCTION_TYPE and  hasattr(attribute, name):
+                fixture = attribute
+                break
+        return fixture
