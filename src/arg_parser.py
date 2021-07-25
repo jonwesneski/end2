@@ -33,8 +33,8 @@ test-case:
 test-case-delimited:
 --suite path/to/file.py::test_1,test_2
 excluding - anything on the right side of a '\!' will be excluded:
---suite path/to/!file.py  # will run everything under path/to except path/to/file.py
---suite path/to/file.py::!test_1,test_2  # will run everything under path/to/file.py except test_1 and test_2""")
+--suite path/to/\!file.py  # will run everything under path/to except path/to/file.py
+--suite path/to/file.py::\!test_1,test_2  # will run everything under path/to/file.py except test_1 and test_2""")
     parent_parser.add_argument('--suite-glob', nargs='*', action=SuiteFactoryAction,
                                help="list of glob expression to search for tests")
     parent_parser.add_argument('--suite-regex', nargs='*', action=SuiteFactoryAction,
