@@ -1,7 +1,7 @@
 # end² Test Automation Framework
 The focus of this framework is:
 - A Minimal framework with easy learning curve
-- More for e2e type of testing
+- More for E2E type of testing
 - For testing that has heavy logging and needs to analyze failures in logs rather than test case code
 - For folks that like programatic ways instead of plugins with configuration files
 
@@ -11,8 +11,9 @@ The focus of this framework is:
 - [Getting Started](#getting-started)
 - [CLI](#cli)
 - [Resource Files](#resource-files)
-- [Suite Pattern Matcher](#suite-pattern-matcher)
-- [Suite Log Manager](#suite-log-manager)
+- [Suite Pattern Matchers](#suite-pattern-matchers)
+- [Log Manager](#log-manager)
+- [Packages Object](#packages-object)
 
 ## Intent/Philosophy
 - Become better:
@@ -52,33 +53,42 @@ The focus of this framework is:
 
 
 ## Getting Started
-### Understanding the Runner (psuedo code)
+### Understanding the end² Flow (Psuedo Code)
 ``` python
 def discover_suite(parent_path):
      paths = get_all_paths(parent_path)
      modules = []
     for path in paths:
         if is_dir(path):
-            package = discover(path)
-            package.setup()
-            modules += discover_modules(package)
-            package.teardown()
+            modules += discover_suite(path)
         else:
-            modules.append(get_module(path))
+            modules.append(discover_module(path))
     return shuffle(modules)
 
 
+def discover_module(path):
+    module = import_module(path)
+    for function in module:
+        if is_test(function):
+            module.add_test(function)
+    return shuffle(module.tests)
+
+
 def run_tests(discovered_modules):
-    for module in discovered_modules:
-        module.setup():
-        for test in shuffle(module.tests):
-            module.setup_test()
-            test()
-            module.teardown_test()
-        module.teardown()
+    for package in discovered_packages:
+        package.setup()
+        for module in package.discovered_modules:
+            module.setup():
+            for test in module.tests:
+                module.setup_test()
+                args, kwargs = test_parameters(logger, package_object)
+                test(*args, **kwargs)
+                module.teardown_test()
+            module.teardown()
+        package.teardown()
 ```
 
-### Simple example of a test module
+### Simple #xample of a Test Module
 In order for a method to become a discoverable test you must prefix your method name with `test_`. Each test method will have the same parameters
 ``` python
 from end2 import RunMode
@@ -99,7 +109,34 @@ async def test_2(client, logger):  # Both sync and async test methods can exist 
     logger.info('Hi async')
 ```
 
-### Simple example of a driver
+### Simple Example of Checking Test Case Readiness at Runtime
+``` python
+from end2 import (
+    IgnoreTestException,
+    RunMode,
+    SkipTestException
+)
+
+
+__run_mode__ = RunMode.SEQUENTIAL  # This is required for every test module
+
+
+def test_1(client, logger):
+    if client.something_not_ready():
+        raise IgnoreTestException()  # You may ignore tests are runtime if necessary. No test result will be made
+    assert client.get_stuff()
+    logger.info('Hi')
+
+
+async def test_2(client, logger):  # Both sync and async test methods can exist in the same file
+    if client.something_else_not_ready():
+        raise SkipTestException("thing not ready")  # You may skip tests are runtime if necessary as well.
+    actual = await client.get_stuff()               # A test result will be made with status of skipped and the
+    assert actual == "some expected data"           # message of what was supplied in the SkipTestException()
+    logger.info('Hi async')
+```
+
+### Simple Example of a Driver
 ``` python
 from end2.runner import create_test_suite_instance
 
@@ -120,7 +157,7 @@ if __name__ == '__main__':
     exit(test_suite_result.exit_code)
 ```
 
-## Fixture example of a test module
+## Fixture Example of a Test Module
 ``` python
 from end2 import (
     parameterize,
@@ -167,9 +204,19 @@ def my_teardown(logger):
 def test_1(logger, var1, var2, rhs):  # Parameterized parameters will come in after all runner.test_parameters
     assert var1 + var2 == rhs
     logger.info('Hi')
+
+
+@metadata(defect_id='SR-432', case_id='C-23451')  # Use metadata when you want to add extra info to your test
+def test_2(logger):                               # This data will also be available to you after the test run
+    assert True is True
+
+
+@metadata(tags=['yellow', 'potato'])  # tags is a special keyword used for Pattern Matching. As long as at
+def test_3(logger):                   # least 1 tag matches test will run
+    assert True is True
 ```
 
-## Fixtures example of test package
+## Fixtures Example of Test Package
 ``` python
 # test_package/__init__.py
 from end2 import (
@@ -199,7 +246,6 @@ from end2 import (
 def my_setup(package_globals):
     package_globals.stuff  # will be ['my_static_stuff']
     package_globals.sub_package_stuff = ['other stuff']
-
 
 
 @teardown
@@ -265,30 +311,40 @@ def test_1(logger, package_globals):
     - Disabled Suites: The is a list of disabled suites/tests; this way you don't have to remember which ones to disable. Also the list of suites/tests are centralized here; you won't have to hunt them down in each file
 - `logs/.lastrunrc`: defines a list of tests that failed in the last run
 
-## Suite Pattern Matcher
+## Suite Pattern Matchers
 #### Default
 A suite path is a string that contains the path to the module delimited by a period:
-- To run a single test package: `['path.to.package']`
-- To run a single test module: `['path.to.package.module']`
+- To run a single test package: `--suite path.to.package`
+- To run a single test module: `--suite path.to.package.module`
 - To run multiple test packages: ['path.to.package', 'path2.to.package']
 - To run multiple test packages and modules: ['path.to.package', 'path2.to.package', 'path3.to.package.module', 'path4.to.package.module']
 It can also contains filters:
-- `::` which is to run specific tests in a module: `['path.to.package.module::test_1']`
-- `;` which is delimiter for modules: `['path.to.package.module;module2']`
-- `,` which is a delimiter for tests: `['path.to.package.module::test_1,test_2;module2']`
+- `::` which is to run specific tests in a module: `--suite path.to.package.module::test_1`
+- `;` which is delimiter for modules: `--suite path.to.package.module;module2`
+- `,` which is a delimiter for tests: `--suite path.to.package.module::test_1,test_2;module2`
 - `!` which means run everything before the `!` but nothing after:
-    - `['path.to.package.!module;module2']`  runs everything in `path.to.package` except `module` and `module2`
-    - `['path.to.package.module::!test_1,test_2;module2']`  runs `module2` and everything in `module` except `test_1` and `test_2`
+    - `--suite path.to.package.!module;module2`  runs everything in `path.to.package` except `module` and `module2`
+    - `--suite path.to.package.module::!test_1,test_2;module2`  runs `module2` and everything in `module` except `test_1` and `test_2`
 - `[n]` which will run specific parameterized tests:
-    - `['path.to.package.module::test_name[1]']`  runs the 2nd test in the parameterized list
-    - `['path.to.module::test_name[2:6]']`  runs tests 2 through 6 in the parameterized list
-    - `['path.to.module::test_name[2:6:2]']`  runs the 2nd, 4th, 6th test in the parameterized list
+    - `--suite path.to.package.module::test_name[1]`  runs the 2nd test in the parameterized list
+    - `--suite  path.to.module::test_name[2:6]`  runs tests 2 through 6 in the parameterized list
+    - `--suite path.to.module::test_name[2:6:2]`  runs the 2nd, 4th, 6th test in the parameterized list
 
-#### Other
-There is also support for regex, glob, and tags pattern matching
+#### Tags
+Tags can be defined by using `@metadata` in you test as mentioned [above](#fixture-example-of-a-test-module). They works pretty similar to the **Default Pattern Matcher** but uses a tag instead of a test name:
+- `--suite-tag 'path.to.module::tag_name1,tag_name2'`
+
+#### regex and glob
+These 2 are pretty similar to each and I split module and test the same:
+- `--suite-regex <regex for module>::<regex for test>`
+- `--suite-glob <glob for module>::<glob for test>`
+
+#### Last Failed
+You can also run only the tests that failed in the last run
+- `--suite-last-failed`
 
 ## Log Manager
-A log manager is meant to help organize your logging into timestamped folders that rotate every n number of folders, you can create you own, or use the default own
+A log manager is meant to help organize your logging into timestamped folders that rotate every n number of folders, you can create you own, or use the default own. You can use this if you have other tools in you repo that have logging as well
 
 ##### Default Suite Log Manager
 - Rotates your suite run log folders
@@ -305,5 +361,7 @@ A log manager is meant to help organize your logging into timestamped folders th
 - Creates a log file for each test
 - Marks (Prefixes) file name as PASSED, FAILED, SKIPPED
 
-##### Default Log Manager
-There is also a simple log manager that just does the timestamped folder rotation, you can use this if you have other tools in you repo that have logging as well
+## Packages Object
+This is an object that you can build from within your packages. Since test parameters are always fresh objects you may want to pass data around and be able to access it in packages. This feature is kind of experimental but here are some ideas:
+- Build reports in the middle of runs
+- Building metrics

@@ -37,7 +37,7 @@ def discover_suite(paths: dict) -> tuple:
     for importable, test_pattern_matcher in importables.items():
         if os.path.exists(importable):
             if os.path.isdir(importable):
-                sm, pm, fi = discover_package(importable, test_pattern_matcher)
+                sm, pm, fi = discover_package(importable, test_pattern_matcher, TestPackageList())
                 sequential_modules |= sm
                 parallel_modules |= pm
                 failed_imports |= fi
@@ -55,7 +55,7 @@ def discover_suite(paths: dict) -> tuple:
     return tuple(sequential_modules), tuple(parallel_modules), tuple(failed_imports)
 
 
-def discover_package(importable: str, test_pattern_matcher, test_package_list: TestPackageList = None) -> tuple:
+def discover_package(importable: str, test_pattern_matcher, test_package_list: TestPackageList) -> tuple:
     sequential_modules = set()
     parallel_modules = set()
     failed_imports = set()
@@ -64,17 +64,16 @@ def discover_package(importable: str, test_pattern_matcher, test_package_list: T
         items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
         shuffle(items)
         test_package_list_ = test_package_list
-        if test_package_list_:
-            test_package_list_.append(test_package)
-        else:
-            test_package_list_ = TestPackageList(test_package)
+        test_package_list_.append(test_package)
         for item in items:
             full_path = os.path.join(importable, item)
             if os.path.isdir(full_path):
-                sm, pm, fi = discover_package(full_path, test_pattern_matcher, test_package_list_)
+                temp = None
+                sm, pm, fi = discover_package(full_path, test_pattern_matcher, temp or test_package_list_)
                 sequential_modules |= sm
                 parallel_modules |= pm
                 failed_imports |= fi
+                temp = TestPackageList.copy(test_package_list)
             elif full_path.endswith('.py'):
                 m, fi = discover_module(full_path, test_pattern_matcher, test_package_list_)
                 if m:

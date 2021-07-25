@@ -32,8 +32,7 @@ def create_test_run(args, test_parameters_func=default_test_parameters) -> tuple
 
 def start_test_run(args, test_parameters_func=default_test_parameters) -> Tuple[TestSuiteResult, tuple]:
     suite_run, failed_imports = create_test_run(args, test_parameters_func)
-    print(suite_run.run(args.suite.modules, test_parameters_func))
-    return suite_run.results, failed_imports
+    return suite_run.run(), failed_imports
 
 
 class SuiteRun:
@@ -52,18 +51,18 @@ class SuiteRun:
         self.log_manager = log_manager or SuiteLogManager(run_logger_name='suite_run', max_folders=self.args.max_log_folders)
         self.logger = self.log_manager.logger
 
-    def run(self, paths: list, test_parameters_func) -> tuple:
+    def run(self) -> tuple:
         self.log_manager.on_suite_start(self.name)
         self.results = TestSuiteResult(self.name)
         try:
             for test_module in self.sequential_modules:
-                module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail)
+                module_run = TestModuleRun(self.test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail)
                 self.results.append(module_run.run())
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.max_workers) as executor:
                 futures = [
                     executor.submit(
-                        TestModuleRun(test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail, executor).run)
+                        TestModuleRun(self.test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail, executor).run)
                     for test_module in self.parallel_modules
                 ]
                 for future in futures:
@@ -106,7 +105,6 @@ class TestModuleRun:
         def intialize_args_and_run(test_method):
             logger = self.log_manager.get_test_logger(self.module.name, test_method.name)
             args, kwargs = self.test_parameters_func(logger, self.module.test_package_list.package_object)
-            b = 2
             result = run_test_func(logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
             self.log_manager.on_test_done(self.module.name, result)
             return result
@@ -120,10 +118,13 @@ class TestModuleRun:
         
         async def as_completed(coroutines_, results_, stop_on_first_fail_):
             for fs in coroutines_:
-                result = await intialize_args_and_run_async(fs)
-                results_.append(result)
-                if result.status is Status.FAILED and stop_on_first_fail_:
-                    [f.cancel() for f in coroutines_]
+                try:
+                    result = await intialize_args_and_run_async(fs)
+                    results_.append(result)
+                    if result.status is Status.FAILED and stop_on_first_fail_:
+                        [f.cancel() for f in coroutines_]
+                except exceptions.IgnoreTestException:
+                    pass
         
         routines, coroutines = [], []
         for k, test in self.module.tests.items():
@@ -144,10 +145,13 @@ class TestModuleRun:
             ]
             try:
                 for future_result in concurrent.futures.as_completed(future_results):
-                    result = future_result.result()
-                    results.append(result)
-                    if self.stop_on_fail and result.status is Status.FAILED:
-                        raise exceptions.StopTestRunException(result.message)
+                    try:
+                        result = future_result.result()
+                        results.append(result)
+                        if self.stop_on_fail and result.status is Status.FAILED:
+                            raise exceptions.StopTestRunException(result.message)
+                    except exceptions.IgnoreTestException:
+                        pass
             except exceptions.StopTestRunException as stre:
                 raise
             except:
@@ -156,17 +160,24 @@ class TestModuleRun:
         else:
             try:
                 for test in routines:
-                    results.append(intialize_args_and_run(test))
-                    if self.stop_on_fail and results[-1].status is Status.FAILED:
-                        raise exceptions.StopTestRunException(results[-1].message)
+                    try:
+                        results.append(intialize_args_and_run(test))
+                        if self.stop_on_fail and results[-1].status is Status.FAILED:
+                            raise exceptions.StopTestRunException(results[-1].message)
+                    except exceptions.IgnoreTestException:
+                        pass
                 for test in coroutines:
-                    results.append(loop.run_until_complete(intialize_args_and_run_async(test)))
-                    if self.stop_on_fail and results[-1].status is Status.FAILED:
-                        raise exceptions.StopTestRunException(results[-1].message)
+                    try:
+                        results.append(loop.run_until_complete(intialize_args_and_run_async(test)))
+                        if self.stop_on_fail and results[-1].status is Status.FAILED:
+                            raise exceptions.StopTestRunException(results[-1].message)
+                    except exceptions.IgnoreTestException:
+                        pass
             except exceptions.StopTestRunException as stre:
                 raise
             except:
                 self.log_manager.logger.error(traceback.format_exc())
+        loop.close()
         return results
 
     def teardown(self) -> Result:
@@ -215,6 +226,8 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
         logger.info(ste.message)
         result.message = ste.message
         result.status = Status.SKIPPED
+    except exceptions.IgnoreTestException as ite:
+        raise
     except Exception as e:
         logger.debug(traceback.format_exc())
         result.message = f'Encountered an exception: {e}'
@@ -263,6 +276,8 @@ async def run_async_test_func(logger, func, result_class: Result, *args, **kwarg
         logger.info(ste.message)
         result.message = ste.message
         result.status = Status.SKIPPED
+    except exceptions.IgnoreTestException as ite:
+        raise
     except asyncio.CancelledError:
         result.message = 'I got cancelled'
         result.status = Status.SKIPPED

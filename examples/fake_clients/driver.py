@@ -65,7 +65,7 @@ if __name__ == '__main__':
     ## --suite regression/sample4.py::test_11[4]
     args = default_parser().parse_args()
 
-    def test_parameters(logger, pacakge_object):
+    def test_parameters(logger, package_object):
         return (Client(logger), AsyncClient(logger)), {}
 
     results, _ = start_test_run(args, test_parameters)

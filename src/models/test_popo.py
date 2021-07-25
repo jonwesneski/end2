@@ -36,7 +36,7 @@ class TestModule:
         self.setup_func = setup_func
         self.tests = tests
         self.teardown_func = teardown_func
-        self.ignored_tests = ignored_tests if ignored_tests else set()
+        self.ignored_tests = ignored_tests or set()
         self.test_package_list = test_package_list
 
     def __eq__(self, rhs) -> bool:
@@ -71,12 +71,20 @@ class TestPackageList:
 
     def append(self, package):
         if self.package is None:
-            self.pacakge = TestPackageNode(package)
+            self.package = TestPackageNode(package)
         else:
-            child = self.package.child
-            while child:
+            child = self.package
+            while child.child:
                 child = child.child
             child.child = TestPackageNode(package)
+
+    @staticmethod
+    def copy(package_list):
+        copy_ = TestPackageList()
+        copy_.package = package_list.package
+        copy_.package.child = None
+        copy_.package_object = package_list.package_object
+        return copy_
 
     def setup(self):
         if self.setup_done is False:

@@ -1,3 +1,4 @@
+from invalid.module
 from src import RunMode
 
 

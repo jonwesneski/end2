@@ -4,6 +4,38 @@ from src.enums import FUNCTION_TYPE
 from src.exceptions import MoreThan1FixtureException
 
 
+def setup_module(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    wrapper.setup_module = None
+    return wrapper
+
+
+def teardown_module(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    wrapper.teardown_module = None
+    return wrapper
+
+
+def on_failure_in_module(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    wrapper.on_failure_in_module = None
+    return wrapper
+
+
+def on_test_failure(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    wrapper.on_test_failure = None
+    return wrapper
+
+
 def setup(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -36,6 +68,22 @@ def teardown(func):
     return wrapper
 
 
+def test_parameters(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    wrapper.test_parameters = None
+    return wrapper
+
+
+def metadata(func, **kwargs):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    wrapper.metadata = kwargs
+    return wrapper
+
+
 def parameterize(parameters_list, first_arg_is_name: bool = False):
     def wrapper(func):
         if first_arg_is_name:
@@ -48,16 +96,8 @@ def parameterize(parameters_list, first_arg_is_name: bool = False):
     return wrapper
 
 
-def metadata(func, **kwargs):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.metadata = kwargs
-    return wrapper
-
-
 def empty_func(*args, **kwargs):
-    pass
+    return
 
 
 def get_fixture(module, name: str):
