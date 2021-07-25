@@ -1,5 +1,9 @@
 # Only stuff commonly used in test modules.
 from .enums import RunMode
+from .exceptions import (
+    IgnoreTestException,
+    SkipTestException
+)
 from .fixtures import (
     metadata,
     parameterize,
@@ -9,4 +13,7 @@ from .fixtures import (
     teardown_test
 )
 
-__all__ = ['metadata', 'parameterize', 'RunMode', 'setup', 'setup_test', 'teardown', 'teardown_test']
+__all__ = [
+    'IgnoreTestException', 'metadata', 'parameterize', 'RunMode',
+    'setup', 'setup_test', 'SkipTestException', 'teardown', 'teardown_test'
+]

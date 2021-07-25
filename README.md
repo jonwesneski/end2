@@ -59,23 +59,32 @@ def discover_suite(parent_path):
      modules = []
     for path in paths:
         if is_dir(path):
-            package = discover(path)
-            package.setup()
-            modules += discover_modules(package)
-            package.teardown()
+            modules += discover_suite(path)
         else:
-            modules.append(get_module(path))
+            modules.append(discover_module(path))
     return shuffle(modules)
 
 
+def discover_module(path):
+    module = import_module(path)
+    for function in module:
+        if is_test(function):
+            module.add_test(function)
+    return shuffle(module.tests)
+
+
 def run_tests(discovered_modules):
-    for module in discovered_modules:
-        module.setup():
-        for test in shuffle(module.tests):
-            module.setup_test()
-            test()
-            module.teardown_test()
-        module.teardown()
+    for package in discovered_packages:
+        package.setup()
+        for module in package.discovered_modules:
+            module.setup():
+            for test in module.tests:
+                module.setup_test()
+                args, kwargs = test_parameters(logger, package_object)
+                test(*args, **kwargs)
+                module.teardown_test()
+            module.teardown()
+        package.teardown()
 ```
 
 ### Simple example of a test module
