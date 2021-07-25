@@ -1,14 +1,11 @@
-from src.pattern_matchers.default import (
-    DefaultModulePatternMatcher,
-    DefaultTestCasePatternMatcher
-)
+from src.pattern_matchers.default import DefaultModulePatternMatcher
 
 
 class TagModulePatternMatcher(DefaultModulePatternMatcher):
     pass
 
 
-class TagTestCasePatternMatcher(TagModulePatternMatcher):
+class TagTestCasePatternMatcher(DefaultModulePatternMatcher):
     delimiter = ','
 
     @classmethod
@@ -16,8 +13,12 @@ class TagTestCasePatternMatcher(TagModulePatternMatcher):
         return super(TagTestCasePatternMatcher, cls).parse_str(pattern, include)
 
     def included(self, func) -> bool:
+        result = False
         try:
-            result = super().included(func.metadata['tag'])
-        except:
-            result = False
+            for tag in func.metadata['tags']:
+                result = super().included(tag)
+                if result:
+                    break
+        except (KeyError, AttributeError):
+            pass
         return result
