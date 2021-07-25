@@ -53,7 +53,7 @@ The focus of this framework is:
 
 
 ## Getting Started
-### Understanding the Runner (psuedo code)
+### Understanding the end² Flow (Psuedo Code)
 ``` python
 def discover_suite(parent_path):
      paths = get_all_paths(parent_path)
@@ -88,7 +88,7 @@ def run_tests(discovered_modules):
         package.teardown()
 ```
 
-### Simple example of a test module
+### Simple #xample of a Test Module
 In order for a method to become a discoverable test you must prefix your method name with `test_`. Each test method will have the same parameters
 ``` python
 from end2 import RunMode
@@ -109,7 +109,34 @@ async def test_2(client, logger):  # Both sync and async test methods can exist 
     logger.info('Hi async')
 ```
 
-### Simple example of a driver
+### Simple Example of Checking Test Case Readiness at Runtime
+``` python
+from end2 import (
+    IgnoreTestException,
+    RunMode,
+    SkipTestException
+)
+
+
+__run_mode__ = RunMode.SEQUENTIAL  # This is required for every test module
+
+
+def test_1(client, logger):
+    if client.something_not_ready():
+        raise IgnoreTestException()  # You may ignore tests are runtime if necessary. No test result will be made
+    assert client.get_stuff()
+    logger.info('Hi')
+
+
+async def test_2(client, logger):  # Both sync and async test methods can exist in the same file
+    if client.something_else_not_ready():
+        raise SkipTestException("thing not ready")  # You may skip tests are runtime if necessary as well.
+    actual = await client.get_stuff()               # A test result will be made with status of skipped and the
+    assert actual == "some expected data"           # message of what was supplied in the SkipTestException()
+    logger.info('Hi async')
+```
+
+### Simple Example of a Driver
 ``` python
 from end2.runner import create_test_suite_instance
 
@@ -130,7 +157,7 @@ if __name__ == '__main__':
     exit(test_suite_result.exit_code)
 ```
 
-## Fixture example of a test module
+## Fixture Example of a Test Module
 ``` python
 from end2 import (
     parameterize,
@@ -189,7 +216,7 @@ def test_3(logger):                   # least 1 tag matches test will run
     assert True is True
 ```
 
-## Fixtures example of test package
+## Fixtures Example of Test Package
 ``` python
 # test_package/__init__.py
 from end2 import (

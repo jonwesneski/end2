@@ -1,8 +1,7 @@
 
 
 class IgnoreTestException(Exception):
-    def __init__(self, *args):
-        self.message = args[0]
+    pass
 
 
 class MoreThan1FixtureException(Exception):

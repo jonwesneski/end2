@@ -1,4 +1,4 @@
-# Only stuff commonly used in test modules.
+# Only exporting stuff commonly used in test modules.
 from .enums import RunMode
 from .exceptions import (
     IgnoreTestException,
