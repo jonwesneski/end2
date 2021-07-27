@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
     def test_parameters(logger, package_object) -> tuple:  # This is how parameters for tests are injected. When
         return (create_client(logger),), {}                # overriding this you must always return a tuple of tuple
-                                                           # and dict. The logger_ arg here will be the logger
+                                                           # and dict. The logger arg here will be the logger
                                                            # specific to the test. This method will be called
                                                            # on every fixture and test
 
@@ -362,7 +362,7 @@ A **Log Manager** is meant to help organize your logging into timestamped folder
 - Creates a log subfolder for each module
 - Creates a file for both setup and teardown of a module
 - Creates a log file for each test
-- Marks (Prefixes) file name as PASSED, FAILED, SKIPPED
+- Marks (Prefixes) file name as PASSED, FAILED, SKIPPED when test is finished
 
 ## Packages Object
 This is an object that you can build from within your packages. Since test parameters are always fresh objects you may want to pass data around and be able to access it in packages. This feature is kind of experimental but here are some ideas:
