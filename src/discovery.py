@@ -13,10 +13,9 @@ from src.enums import RunMode
 from src.exceptions import MoreThan1FixtureException
 from src.models.test_popo import (
     empty_func,
-    GlobalPackageObject,
     TestMethod,
     TestModule,
-    TestPackageList
+    TestPackages
 )
 
 
@@ -37,12 +36,12 @@ def discover_suite(paths: dict) -> tuple:
     for importable, test_pattern_matcher in importables.items():
         if os.path.exists(importable):
             if os.path.isdir(importable):
-                sm, pm, fi = discover_package(importable, test_pattern_matcher, TestPackageList())
+                sm, pm, fi = discover_package(importable, test_pattern_matcher)
                 sequential_modules |= sm
                 parallel_modules |= pm
                 failed_imports |= fi
             else:
-                m, fi = discover_module(importable, test_pattern_matcher, TestPackageList())
+                m, fi = discover_module(importable, test_pattern_matcher, TestPackages())
                 if m:
                     if m.run_mode is RunMode.SEQUENTIAL:
                         sequential_modules.add(m)
@@ -55,7 +54,7 @@ def discover_suite(paths: dict) -> tuple:
     return tuple(sequential_modules), tuple(parallel_modules), tuple(failed_imports)
 
 
-def discover_package(importable: str, test_pattern_matcher, test_package_list: TestPackageList) -> tuple:
+def discover_package(importable: str, test_pattern_matcher, test_package_list: TestPackages = None) -> tuple:
     sequential_modules = set()
     parallel_modules = set()
     failed_imports = set()
@@ -63,17 +62,17 @@ def discover_package(importable: str, test_pattern_matcher, test_package_list: T
         test_package = importlib.import_module(importable.replace(os.sep, '.'))
         items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
         shuffle(items)
-        test_package_list_ = test_package_list
+        test_package_list_ = test_package_list or TestPackages(test_package)
         test_package_list_.append(test_package)
         for item in items:
             full_path = os.path.join(importable, item)
             if os.path.isdir(full_path):
-                temp = None
-                sm, pm, fi = discover_package(full_path, test_pattern_matcher, temp or test_package_list_)
+                test_package_list__ = test_package_list_.slice()
+                sm, pm, fi = discover_package(full_path, test_pattern_matcher, test_package_list__)
                 sequential_modules |= sm
                 parallel_modules |= pm
                 failed_imports |= fi
-                temp = TestPackageList.copy(test_package_list)
+                #test_package_list_.append(test_package)
             elif full_path.endswith('.py'):
                 m, fi = discover_module(full_path, test_pattern_matcher, test_package_list_)
                 if m:
@@ -84,17 +83,19 @@ def discover_package(importable: str, test_pattern_matcher, test_package_list: T
                 else:
                     failed_imports.add(fi)
     except Exception as e:
+        raise e
         failed_imports.add(f'Failed to load {importable} - {e}')
     return sequential_modules, parallel_modules, failed_imports
 
 
-def discover_module(importable: str, test_pattern_matcher, test_package_list: TestPackageList) -> tuple:
+def discover_module(importable: str, test_pattern_matcher, test_package_list: TestPackages) -> tuple:
     """
     >>> from src.pattern_matchers import PatternMatcherBase
+    >>> from src.models.test_popo import TestPackages
     >>> matcher = PatternMatcherBase([], '', True)
-    >>> module, error_str = discover_module(os.path.join('examples', 'simple', 'smoke', 'sample1'), matcher)
+    >>> module, error_str = discover_module(os.path.join('examples', 'simple', 'smoke', 'sample1'), matcher, TestPackages())
     >>> assert module and error_str == ''
-    >>> module, error_str = discover_module('examples.dont_exist', matcher)
+    >>> module, error_str = discover_module('examples.dont_exist', matcher, TestPackages())
     >>> assert module is None and error_str
     """
     test_module, error_str = None, ''

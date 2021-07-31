@@ -8,4 +8,4 @@ def test_1(logger, package_objects):
     assert hasattr(package_objects, 'package1')
     assert not hasattr(package_objects, 'package2a')
     assert hasattr(package_objects, 'package2b')
-    assert hasattr(package_objects, 'package3')
+    assert not hasattr(package_objects, 'package3')

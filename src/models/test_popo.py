@@ -1,3 +1,4 @@
+from inspect import getmro
 import os
 
 from src.fixtures import get_fixture
@@ -52,61 +53,84 @@ class TestModule:
         self.ignored_tests.update(same_module.ignored_tests)
 
 
+class DynamicMroMixin:
+    @classmethod
+    def _get_mros(cls):
+        return getmro(cls)[::-1]
+
+    @classmethod
+    def __getattrcls__(cls, name):
+        for a in cls._get_mros():
+            if hasattr(a, name):
+                return getattr(a, name)
+        raise AttributeError(f"No atrribute named {name}")
+    
+    @classmethod
+    def __setattrcls__(cls, name, value):
+        for a in cls._get_mros():
+            if hasattr(a, name):
+                setattr(a, name, value)
+                return
+        setattr(cls, name, value)
+
+    def __getattr__(self, name):
+        return self.__getattrcls__(name)
+    
+    def __setattr__(self, name, value):
+        return self.__setattrcls__(name, value)
+
+
+def add_mixin(name, current_mixin: DynamicMroMixin):
+    return type(
+        f"{name.replace('.', 'Dot')}Dot{DynamicMroMixin.__name__}"
+        (current_mixin.__class__,),
+        {}
+    )()
+
+
 class TestPackageNode:
-    def __init__(self, package):
+    def __init__(self, package, package_object: DynamicMroMixin = None):
         self.name = package.__name__
         self.package = package
-        self.child = None
+        self.package_object = package_object or DynamicMroMixin()
+        self.setup_done = False
+        self.teardown_done = False
         self.setup_func = get_fixture(self.package, 'setup')
         self.teardown_func = get_fixture(self.package, 'teardown')
 
-
-class TestPackageList:
-    def __init__(self, package=None):
-        self.package = None if package is None else TestPackageNode(package)
-        self.package_object = GlobalPackageObject()
-        self.setup_done = False
-        self.teardown_done = False
-        self._reversed_children = []
-
-    def append(self, package):
-        if self.package is None:
-            self.package = TestPackageNode(package)
-        else:
-            child = self.package
-            while child.child:
-                child = child.child
-            child.child = TestPackageNode(package)
-
-    @staticmethod
-    def copy(package_list):
-        copy_ = TestPackageList()
-        copy_.package = package_list.package
-        copy_.package.child = None
-        copy_.package_object = package_list.package_object
-        return copy_
-
     def setup(self):
-        if self.setup_done is False:
-            self.package.setup_func(self.package_object)
-            child = self.package.child
-            while child:
-                self._reversed_children.append(child)
-                child.setup_func(self.package_object)
-                child = child.child
+        if not self.setup_done:
+            self.setup_func(self.package_object)
             self.setup_done = True
-            self._reversed_children.reverse()
 
     def teardown(self):
-        if self.teardown_done is False:
-            while self._reversed_children:
-                child = self._reversed_children.pop()
-                child.teardown_func(self.package_object)
+        if not self.teardown_done:
+            self.teardown_func(self.package_object)
             self.teardown_done = True
 
 
-class GlobalPackageObject:
-    def copy(self, obj):
-        for attribute in dir(obj):
-            if not attribute.startswith('__'):
-                setattr(self, attribute, getattr(obj, attribute))
+class TestPackages:
+    def __init__(self, package):
+        self.packages = [TestPackageNode(package)]
+
+    def append(self, package):
+        self.packages.append(
+            TestPackageNode(package, add_mixin(package.__name__, self.package_object))
+        )
+
+    def slice(self):
+        packages = TestPackages(self.packages[0].package)
+        packages.packages = self.packages[:]
+        return packages
+
+    @property
+    def package_object(self):
+        return self.packages[-1].package_object
+
+    def setup(self):
+        for p in self.packages:
+            p.setup()
+
+    def teardown(self):
+        for p in reversed(self.packages):
+            p.teardown()

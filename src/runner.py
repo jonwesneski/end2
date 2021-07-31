@@ -236,7 +236,7 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     return result
 
 
-async def run_async_test_func(logger, func, result_class: Result, *args, **kwargs) -> Result:
+async def run_async_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     """
     >>> from src.logger import empty_logger
     >>> import asyncio
@@ -262,7 +262,7 @@ async def run_async_test_func(logger, func, result_class: Result, *args, **kwarg
     >>> result.status == Status.FAILED and "Encountered an exception" in result.message and result.end_time is not None
     True
     """
-    result = result_class(func.__name__, status=Status.FAILED, metadata=getattr(func, 'metadata', None))
+    result = TestMethodResult(func.__name__, status=Status.FAILED, metadata=getattr(func, 'metadata', None))
     try:
         await func(*args, **kwargs)
         result.status = Status.PASSED
