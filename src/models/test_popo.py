@@ -13,13 +13,15 @@ def empty_func(*args, **kwargs):
 
 
 class TestMethod:
-    def __init__(self, func, setup_func=empty_func, teardown_func=empty_func, parameterized_tuple: tuple = None):
+    def __init__(self, func, setup_func=empty_func, teardown_func=empty_func
+                 , parameterized_tuple: tuple = None) -> None:
         self.name = func.__name__
         self.full_name = build_full_name(func.__module__, self.name)
         self.func = func
         self.setup_func = setup_func
         self.teardown_func = teardown_func
         self.parameterized_tuple = parameterized_tuple or tuple()
+        self.metadata = getattr(func, 'metadata', {})
 
     def __eq__(self, rhs) -> bool:
         return self.full_name == rhs.full_name
@@ -29,7 +31,8 @@ class TestMethod:
 
 
 class TestModule:
-    def __init__(self, module, tests: dict, setup_func=empty_func, teardown_func=empty_func, ignored_tests: set = None, test_package_list = None):
+    def __init__(self, module, tests: dict, setup_func=empty_func, teardown_func=empty_func
+                 , ignored_tests: set = None, test_package_list = None) -> None:
         self.module = module
         self.name = module.__name__
         self.file_name = os.path.relpath(module.__file__)
@@ -89,48 +92,49 @@ def add_mixin(name, current_mixin: DynamicMroMixin):
 
 
 class TestPackageNode:
-    def __init__(self, package, package_object: DynamicMroMixin = None):
+    def __init__(self, package, package_object: DynamicMroMixin = None) -> None:
         self.name = package.__name__
         self.package = package
+        self.description = package.__doc__
         self.package_object = package_object or DynamicMroMixin()
         self.setup_done = False
         self.teardown_done = False
         self.setup_func = get_fixture(self.package, 'setup')
         self.teardown_func = get_fixture(self.package, 'teardown')
 
-    def setup(self):
+    def setup(self) -> None:
         if not self.setup_done:
             self.setup_func(self.package_object)
             self.setup_done = True
 
-    def teardown(self):
+    def teardown(self) -> None:
         if not self.teardown_done:
             self.teardown_func(self.package_object)
             self.teardown_done = True
 
 
 class TestPackages:
-    def __init__(self, package):
+    def __init__(self, package) -> None:
         self.packages = [TestPackageNode(package)]
 
-    def append(self, package):
+    def append(self, package) -> None:
         self.packages.append(
             TestPackageNode(package, add_mixin(package.__name__, self.package_object))
         )
 
-    def slice(self):
+    def slice(self) -> None:
         packages = TestPackages(self.packages[0].package)
         packages.packages = self.packages[:]
         return packages
 
     @property
-    def package_object(self):
+    def package_object(self) -> DynamicMroMixin:
         return self.packages[-1].package_object
 
-    def setup(self):
+    def setup(self) -> None:
         for p in self.packages:
             p.setup()
 
-    def teardown(self):
+    def teardown(self) -> None:
         for p in reversed(self.packages):
             p.teardown()

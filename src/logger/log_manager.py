@@ -120,6 +120,9 @@ def _get_log_handler(logger: logging.Logger, handler_type: type) -> logging.Hand
 
 
 class LogManager:
+    """
+    Used to manage logs: How many log history folders to keep and how to organize the log folders/files inside.
+    """
     formatter = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]   %(message)s', datefmt=_DATEFORMAT)
 
     def __init__(self, logger_name: str, base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO, mode: str = 'w'):
@@ -178,7 +181,7 @@ class LogManager:
 
 class SuiteLogManager(LogManager):
     """
-    Used to manage logs: How many log history folders to keep and how to organize the log folders/files inside.
+    Used to organize log files in sub folders and mark log files on completion
     """
     formatter = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] %(infix)s   %(message)s', datefmt=_DATEFORMAT)
 

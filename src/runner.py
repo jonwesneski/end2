@@ -7,8 +7,7 @@ from typing import Tuple
 
 from src import exceptions
 from src.discovery import discover_suite
-from src.enums import Status, RunMode
-from src.fixtures import metadata, teardown
+from src.enums import Status
 from src.logger import SuiteLogManager
 from src.models.result import (
     Result,
@@ -16,27 +15,30 @@ from src.models.result import (
     TestModuleResult,
     TestSuiteResult,
 )
-from src.models.test_popo import TestModule
+from src.models.test_popo import TestMethod, TestModule
 from src.resource_profile import create_last_run_rc
 
 
-def default_test_parameters(logger, package_object):
+def default_test_parameters(logger, package_object) -> Tuple[tuple, dict]:
     return (logger,), {}
 
 
-def create_test_run(args, test_parameters_func=default_test_parameters) -> tuple:
+def create_test_run(args, test_parameters_func=default_test_parameters
+                    , log_manager: SuiteLogManager = None) -> Tuple[TestSuiteResult, Tuple[str]]:
     sequential_modules, parallel_modules, failed_imports = discover_suite(args.suite.modules)
-    suite_run = SuiteRun(args, test_parameters_func, sequential_modules, parallel_modules)
+    suite_run = SuiteRun(args, test_parameters_func, sequential_modules, parallel_modules, log_manager)
     return suite_run, failed_imports
 
 
-def start_test_run(args, test_parameters_func=default_test_parameters) -> Tuple[TestSuiteResult, tuple]:
-    suite_run, failed_imports = create_test_run(args, test_parameters_func)
+def start_test_run(args, test_parameters_func=default_test_parameters
+                   , log_manager: SuiteLogManager = None) -> Tuple[TestSuiteResult, Tuple[str]]:
+    suite_run, failed_imports = create_test_run(args, test_parameters_func, log_manager)
     return suite_run.run(), failed_imports
 
 
 class SuiteRun:
-    def __init__(self, args, test_parameters_func, sequential_modules: tuple, parallel_modules: tuple, log_manager: SuiteLogManager = None):
+    def __init__(self, args, test_parameters_func, sequential_modules: Tuple[TestModule]
+                 , parallel_modules: Tuple[TestModule], log_manager: SuiteLogManager = None) -> None:
         self.args = args
         self.test_parameters_func = test_parameters_func
         if self.args.no_concurrency:
@@ -76,7 +78,8 @@ class SuiteRun:
 
 
 class TestModuleRun:
-    def __init__(self, test_parameters_func, module: TestModule, log_manager: SuiteLogManager, stop_on_fail: bool, concurrent_executor: concurrent.futures.ThreadPoolExecutor = None):
+    def __init__(self, test_parameters_func, module: TestModule, log_manager: SuiteLogManager
+                 , stop_on_fail: bool, concurrent_executor: concurrent.futures.ThreadPoolExecutor = None) -> None:
         self.test_parameters_func = test_parameters_func
         self.module = module
         self.log_manager = log_manager
@@ -102,17 +105,19 @@ class TestModuleRun:
         return result
 
     def run_tests(self) -> list:
-        def intialize_args_and_run(test_method):
+        def intialize_args_and_run(test_method: TestMethod) -> TestMethodResult:
             logger = self.log_manager.get_test_logger(self.module.name, test_method.name)
             args, kwargs = self.test_parameters_func(logger, self.module.test_package_list.package_object)
             result = run_test_func(logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
+            result.metadata = test_method.metadata
             self.log_manager.on_test_done(self.module.name, result)
             return result
 
-        async def intialize_args_and_run_async(test_method):
+        async def intialize_args_and_run_async(test_method: TestMethod) -> TestMethodResult:
             logger = self.log_manager.get_test_logger(self.module.name, test_method.name)
             args, kwargs = self.test_parameters_func(logger, self.module.test_package_list.package_object)
             result = await run_async_test_func(logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
+            result.metadata = test_method.metadata
             self.log_manager.on_test_done(self.module.name, result)
             return result
         
@@ -212,7 +217,7 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     >>> result.status == Status.FAILED and "Encountered an exception" in result.message and result.end_time is not None
     True
     """
-    result = TestMethodResult(func.__name__, status=Status.FAILED, metadata=getattr(func, 'metadata', None))
+    result = TestMethodResult(func.__name__, status=Status.FAILED)
     try:
         func(*args, **kwargs)
         result.status = Status.PASSED
@@ -262,7 +267,7 @@ async def run_async_test_func(logger, func, *args, **kwargs) -> TestMethodResult
     >>> result.status == Status.FAILED and "Encountered an exception" in result.message and result.end_time is not None
     True
     """
-    result = TestMethodResult(func.__name__, status=Status.FAILED, metadata=getattr(func, 'metadata', None))
+    result = TestMethodResult(func.__name__, status=Status.FAILED)
     try:
         await func(*args, **kwargs)
         result.status = Status.PASSED
