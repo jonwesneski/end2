@@ -2,14 +2,14 @@ from inspect import getmro
 import os
 from typing import Dict
 
-from src.fixtures import get_fixture, teardown_test
+from src.fixtures import get_fixture
 
 
 def build_full_name(module_name: str, test_name: str) -> str:
     return f'{module_name}::{test_name}'
 
 
-def empty_func(*args, **kwargs):
+def empty_func(*args, **kwargs) -> None:
     pass
 
 
@@ -33,7 +33,8 @@ class TestMethod:
 
 
 class TestGroups:
-    def __init__(self, tests: Dict[str, TestMethod], setup_func=empty_func, teardown_func=empty_func) -> None:
+    def __init__(self, tests: Dict[str, TestMethod], setup_func=empty_func
+                 , teardown_func=empty_func) -> None:
         self.setup_func = setup_func
         self.tests = tests
         self.teardown_func = teardown_func
@@ -128,18 +129,8 @@ class TestPackages:
 
 
 class TestModule:
-    # def __init__(self, module, tests: dict, setup_func=empty_func, teardown_func=empty_func
-    #              , ignored_tests: set = None, test_package_list = None) -> None:
-    #     self.module = module
-    #     self.name = module.__name__
-    #     self.file_name = os.path.relpath(module.__file__)
-    #     self.run_mode = module.__run_mode__
-    #     self.setup_func = setup_func
-    #     self.tests = tests
-    #     self.teardown_func = teardown_func
-    #     self.ignored_tests = ignored_tests or set()
-    #     self.test_package_list = test_package_list
-    def __init__(self, module, groups: TestGroups, ignored_tests: set = None, test_package_list: TestPackages = None) -> None:
+    def __init__(self, module, groups: TestGroups, ignored_tests: set = None
+                 , test_package_list: TestPackages = None) -> None:
         self.module = module
         self.name = module.__name__
         self.file_name = os.path.relpath(module.__file__)
@@ -154,9 +145,3 @@ class TestModule:
 
     def __hash__(self) -> int:
         return id(self.module)
-
-    # def update(self, same_module):
-    #     for ignored in same_module.ignored_tests:
-    #         self.tests.pop(ignored, None)
-    #     self.tests.update(same_module.tests)
-    #     self.ignored_tests.update(same_module.ignored_tests)

@@ -273,6 +273,7 @@ def test_1(logger, package_globals):
 - [x] support setup_test and teardown test again
 - [x] test groups
 - [ ] move package setup/teardown to suiterun
+- [ ] be able to overwrite test_parameters_func in `packages/__init__.py`
 - [x] make runner use suitelogmanager again
 - [x] .testingrc or maybe setting.conf (have this file as a profile with setting about how to configure runner)
     - [x] max threads
