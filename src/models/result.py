@@ -1,10 +1,15 @@
 from datetime import datetime
+from typing import (
+    Any,
+    Generator,
+    List
+)
 
 from src.enums import Status
 
 
 class Result:
-    def __init__(self, name: str, status: Status = None, message: str = ""):
+    def __init__(self, name: str, status: Status = None, message: str = "") -> None:
         self.name = name
         self._end_time = None
         self.duration = None
@@ -35,7 +40,7 @@ class Result:
     def _now(self) -> datetime:
         return datetime.now()
 
-    def start(self):
+    def start(self) -> None:
         if self._end_time is None:
             self._start_time = self._now()
 
@@ -46,56 +51,39 @@ class Result:
         return self
 
 
-class TestSuiteResult(Result):
-    def __init__(self, name: str, test_modules: list = None, status: Status = None, message: str = ""):
+class TestMethodResult(Result):
+    def __init__(self, name: str, setup: Result = None, teardown: Result = None
+                 , status: Status = None, message: str = "", description: str = ""
+                 , metadata: dict = None) -> None:
         super().__init__(name, status, message)
-        self.test_modules = test_modules if test_modules else []
-        self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
+        self.setup_result = setup
+        self.teardown_result = teardown
+        self.metadata = metadata or {}
+        self.description = description
 
-    def __str__(self) -> str:
-        return f'{self.name} Results: {{Total: {self.total_count} | Passed: {self.passed_count} | Failed: {self.failed_count} | Skipped: {self.skipped_count} | Duration: {self.duration}}}'
-
-    def __iter__(self):
-        for result in self.test_modules:
-            yield result
-
-    @property
-    def exit_code(self) -> int:
-        return 0 if self.status is Status.PASSED else 1
-
-    @property
-    def total_count(self) -> int:
-        return self.passed_count + self.failed_count + self.skipped_count
-
-    def append(self, test_module_result):
-        self.test_modules.append(test_module_result)
-
-    def end(self, status: Status = None):
-        super().end(status)
-        self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
-        for result in self.test_modules:
-            self.passed_count += result.passed_count
-            self.failed_count += result.failed_count
-            self.skipped_count += result.skipped_count
-        self.status = Status.PASSED if self.passed_count > 0 and self.failed_count == 0 and self.skipped_count == 0 else Status.FAILED
-        return self
+    def to_base(self) -> Result:
+        result = Result(self.name, self.status, self.message)
+        result._start_time = self._start_time
+        result._end_time = self._end_time
+        return result
 
 
 class TestModuleResult(Result):
-    def __init__(self, module, setup: Result = None, teardown: Result = None,
-                 test_results: list = None, status: Status = None, message: str = "", description: str = ""):
+    def __init__(self, module, setups: List[Result] = None, teardowns: List[Result] = None
+                 , test_results: List[TestMethodResult] = None, status: Status = None
+                 , message: str = "") -> None:
         super().__init__(module.name, status, message)
         self.file_name = module.file_name
-        self.setup = setup
-        self.teardown = teardown
-        self.description = description
+        self.setups = setups or []
+        self.teardowns = teardowns or []
+        self.description = module.description
         self.test_results = test_results if test_results else []
         self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
 
     def __str__(self) -> str:
         return f'{self.name} Results: {{Total: {self.total_count} | Passed: {self.passed_count} | Failed: {self.failed_count} | Skipped: {self.skipped_count} | Duration: {self.duration}}}'
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[TestMethodResult, Any, None]:
         for result in self.test_results:
             yield result
 
@@ -103,11 +91,11 @@ class TestModuleResult(Result):
     def total_count(self) -> int:
         return self.passed_count + self.failed_count + self.skipped_count
 
-    def append(self, test_result):
+    def append(self, test_result) -> None:
         if test_result:
             self.test_results.append(test_result)
 
-    def extend(self, test_results: list):
+    def extend(self, test_results: list) -> None:
         self.test_results.extend(test_results)
 
     def end(self, status: Status = None):
@@ -129,17 +117,36 @@ class TestModuleResult(Result):
         return self
 
 
-class TestMethodResult(Result):
-    def __init__(self, name: str, setup: Result = None, teardown: Result = None,
-                 status: Status = None, message: str = "", description: str = "", metadata: dict = None):
+class TestSuiteResult(Result):
+    def __init__(self, name: str, test_modules: list = None, status: Status = None, message: str = "") -> None:
         super().__init__(name, status, message)
-        self.setup_result = setup
-        self.teardown_result = teardown
-        self.metadata = metadata or {}
-        self.description = description
+        self.test_modules = test_modules if test_modules else []
+        self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
 
-    def to_base(self) -> Result:
-        result = Result(self.name, self.status, self.message)
-        result._start_time = self._start_time
-        result._end_time = self._end_time
-        return result
+    def __str__(self) -> str:
+        return f'{self.name} Results: {{Total: {self.total_count} | Passed: {self.passed_count} | Failed: {self.failed_count} | Skipped: {self.skipped_count} | Duration: {self.duration}}}'
+
+    def __iter__(self) -> Generator[TestModuleResult, Any, None]:
+        for result in self.test_modules:
+            yield result
+
+    @property
+    def exit_code(self) -> int:
+        return 0 if self.status is Status.PASSED else 1
+
+    @property
+    def total_count(self) -> int:
+        return self.passed_count + self.failed_count + self.skipped_count
+
+    def append(self, test_module_result) -> None:
+        self.test_modules.append(test_module_result)
+
+    def end(self, status: Status = None):
+        super().end(status)
+        self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
+        for result in self.test_modules:
+            self.passed_count += result.passed_count
+            self.failed_count += result.failed_count
+            self.skipped_count += result.skipped_count
+        self.status = Status.PASSED if self.passed_count > 0 and self.failed_count == 0 and self.skipped_count == 0 else Status.FAILED
+        return self

@@ -11,15 +11,14 @@ The focus of this framework is:
 - [Getting Started](#getting-started)
 - [CLI](#cli)
 - [Resource Files](#resource-files)
-- [Suite Pattern Matchers](#suite-pattern-matchers)
 - [Log Manager](#log-manager)
 - [Packages Object](#packages-object)
 
 ## Intent/Philosophy
-- Become better:
-    - **end²** is designed to be to also help test writers become better coders as well. Only test methods are allowed in this framework and all test cases are shuffled before they run to make sure no tests depend on each other. All below intents/philosophies tie back to this first one of become better at test writing/coding
 - Shuffling:
-    - By having tests run in random order, we are ensuring that tests don't need to run in a specific order. If test-1 fails, then test-2 will obviously fail, but test-2 is a false negaive. It might be better to consider test-1 and test-2 as test steps and just combine test-1 and test-2 in one test case instead. Another plus to Shuffling is the test writer will be able to find out if there are any side effects on the test case side or the SUT and be able to fix what is necessary. This will make them have a better understanding of there own coding, others members coding, and the SUT as well if the side effect is on the SUT itself
+    - By having tests run in random order, we are ensuring that tests don't need to run in a specific order. If test-1 fails, then test-2 will obviously fail, but test-2 is a false negative. It might be better to consider test-1 and test-2 as test steps and just combine test-1 and test-2 in one test case instead. Another plus to Shuffling is the test writer will be able to find out if there are any side effects on the test case side or the SUT and be able to fix what is necessary. This will make them have a better understanding of there own coding, others members coding, and the SUT as well if the side effect is on the SUT itself
+- Create you own **Driver**:
+    - This is the entrypoint for your testing. It is your own python module that you will write that defines what the test parameters are and uses `default_parser()` to add any additional args before you start your testing. You can name it whatever you want but in below examples I refer to it as `driver.py` 
 - Declaring:
     - Test case design is very important and the design should speak for itself in the file/module. Declaring the concurrency/run-mode in the file lets everyone know that that particular file can run in parallel. Passing that info in the command line can be confusing over time because not everyone will remember what can and can't run parallel
 - 1 set of parameters per suite:
@@ -50,7 +49,6 @@ The focus of this framework is:
     - Each test module will be in its own folder
     - Each test will be in it's own file
     - Failed tests will be renamed to `FAILED_<test_name>.log`
-
 
 ## Getting Started
 ### Understanding the end² Flow (Psuedo Code)
@@ -88,7 +86,28 @@ def run_tests(discovered_modules):
         package.teardown()
 ```
 
-### Simple #xample of a Test Module
+### Simple Example of a Driver
+``` python
+#!/usr/bin/env python3
+from end2.runner import start_test_run
+from end2.arg_parser import default_parser
+
+
+if __name__ == '__main__':
+    args = default_parser().parse_args()  # You can add your own arguments to default_parser if you want before you
+                                          # call parse_args()
+
+    def test_parameters(logger, package_object) -> tuple:  # This is how parameters for tests are injected. When
+        return (create_client(logger),), {}                # overriding this you must always return a tuple of tuple
+                                                           # and dict. The logger arg here will be the logger
+                                                           # specific to the test. This method will be called
+                                                           # on every fixture and test
+
+    test_suite_result, failed_imports = start_test_run(args, test_parameters)
+    exit(test_suite_result.exit_code)
+```
+
+### Simple Example of a Test Module
 In order for a method to become a discoverable test you must prefix your method name with `test_`. Each test method will have the same parameters
 ``` python
 from end2 import RunMode
@@ -107,6 +126,10 @@ async def test_2(client, logger):  # Both sync and async test methods can exist 
     actual = await client.get_stuff()
     assert actual == "some expected data"
     logger.info('Hi async')
+
+
+def helper():  # Not a test method
+    return {'a': 1}
 ```
 
 ### Simple Example of Checking Test Case Readiness at Runtime
@@ -134,27 +157,6 @@ async def test_2(client, logger):  # Both sync and async test methods can exist 
     actual = await client.get_stuff()               # A test result will be made with status of skipped and the
     assert actual == "some expected data"           # message of what was supplied in the SkipTestException()
     logger.info('Hi async')
-```
-
-### Simple Example of a Driver
-``` python
-from end2.runner import create_test_suite_instance
-
-
-if __name__ == '__main__':
-    run_instance = create_test_run_instance(suite_paths=['tests'])  # This arg is a list of test packages, test modules, and tests methods; more on this in the next section
-
-    def test_parameters(logger_) -> tuple:     # This is how parameters for tests are injected. When overriding this
-        return (create_client(logger_),), {}   # you must always return a tuple of tuple and dict. The logger_ arg
-                                               # here will be the logger specific to the test. This method will be called
-                                               # on every fixture and test
-
-    run_instance, ignored_modules, failed_imports = create_test_suite_instance(args.suites, test_parameters_func=test_parameters)
-    # ... Do something before the test run
-    test_suite_result = run_instance.execute(parallel=True)  # This kicks off the test run
-    # ... Do something after the test run
-
-    exit(test_suite_result.exit_code)
 ```
 
 ## Fixture Example of a Test Module
@@ -267,9 +269,12 @@ def test_1(logger, package_globals):
 
 ## TODO:
 - [x] change suites to be file path instead of dot notation
-- [] support async fixtures
-- [] move package setup/teardown to suiterun
-- [] make runner use suitelogmanager again
+- [x] support async fixtures
+- [x] support setup_test and teardown test again
+- [x] test groups
+- [ ] move package setup/teardown to suiterun
+- [ ] be able to overwrite test_parameters_func in `packages/__init__.py`
+- [x] make runner use suitelogmanager again
 - [x] .testingrc or maybe setting.conf (have this file as a profile with setting about how to configure runner)
     - [x] max threads
     - [x] max sub folder logs
@@ -301,23 +306,18 @@ def test_1(logger, package_globals):
         - [x] write a test
         - [x] write a test with parameters
     - [x] .testingrc or maybe setting.conf
-    - [] cli
+    - [x] cli
 
 ## CLI
+It is best to run the `--help` arg on your **Driver** to get the latest information. Since **Pattern Matchers** are a little more complicated below is a more desciptive overview
 
-## Resource Files
-- `.end2rc`: defines a default value for cli as well as:
-    - Aliases: a short name given to a suite that is long. Aliases can also mention other aliases
-    - Disabled Suites: The is a list of disabled suites/tests; this way you don't have to remember which ones to disable. Also the list of suites/tests are centralized here; you won't have to hunt them down in each file
-- `logs/.lastrunrc`: defines a list of tests that failed in the last run
-
-## Suite Pattern Matchers
+### Suite Pattern Matchers
 #### Default
 A suite path is a string that contains the path to the module delimited by a period:
 - To run a single test package: `--suite path.to.package`
 - To run a single test module: `--suite path.to.package.module`
-- To run multiple test packages: ['path.to.package', 'path2.to.package']
-- To run multiple test packages and modules: ['path.to.package', 'path2.to.package', 'path3.to.package.module', 'path4.to.package.module']
+- To run multiple test packages: `--suite path.to.package path2.to.package`
+- To run multiple test packages and modules: `--suite path.to.package path2.to.package path3.to.package.module path4.to.package.module`
 It can also contains filters:
 - `::` which is to run specific tests in a module: `--suite path.to.package.module::test_1`
 - `;` which is delimiter for modules: `--suite path.to.package.module;module2`
@@ -332,7 +332,7 @@ It can also contains filters:
 
 #### Tags
 Tags can be defined by using `@metadata` in you test as mentioned [above](#fixture-example-of-a-test-module). They works pretty similar to the **Default Pattern Matcher** but uses a tag instead of a test name:
-- `--suite-tag 'path.to.module::tag_name1,tag_name2'`
+- `--suite-tag path.to.module::tag_name1,tag_name2`
 
 #### regex and glob
 These 2 are pretty similar to each and I split module and test the same:
@@ -343,10 +343,17 @@ These 2 are pretty similar to each and I split module and test the same:
 You can also run only the tests that failed in the last run
 - `--suite-last-failed`
 
+## Resource Files
+- `.end2rc`: defines a default value for cli as well as:
+    - Aliases: a short name given to a suite that is long. Aliases can also mention other aliases
+    - Disabled Suites: The is a list of disabled suites/tests; this way you don't have to remember which ones to disable. Also the list of suites/tests are centralized here; you won't have to hunt them down in each file
+- `logs/.lastrunrc`: defines a list of tests that failed in the last run
+
 ## Log Manager
-A log manager is meant to help organize your logging into timestamped folders that rotate every n number of folders, you can create you own, or use the default own. You can use this if you have other tools in you repo that have logging as well
+A **Log Manager** is meant to help organize your logging into timestamped folders that rotate every n number of folders. You can subclass **LogManager** if you want, or use the default own. You can use this if you have other tools in you repo that have logging as well
 
 ##### Default Suite Log Manager
+For Suite runs you will use a **Suite Log Manager**. The default does what is described below and you can also subclass **SuiteLogManager** if you want:
 - Rotates your suite run log folders
 - Logs INFO to stdin
 - Logs INFO to a standalone file as well and it is not interlaced
@@ -359,7 +366,7 @@ A log manager is meant to help organize your logging into timestamped folders th
 - Creates a log subfolder for each module
 - Creates a file for both setup and teardown of a module
 - Creates a log file for each test
-- Marks (Prefixes) file name as PASSED, FAILED, SKIPPED
+- Marks (Prefixes) file name as PASSED, FAILED, SKIPPED when test is finished
 
 ## Packages Object
 This is an object that you can build from within your packages. Since test parameters are always fresh objects you may want to pass data around and be able to access it in packages. This feature is kind of experimental but here are some ideas:

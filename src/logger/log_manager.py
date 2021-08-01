@@ -20,16 +20,8 @@ from src.models.result import (
 )
 
 
-CRITICAL = logging.CRITICAL
-ERROR = logging.ERROR
-WARNING = logging.WARNING
-INFO = logging.INFO
-DEBUG = logging.DEBUG
-NOTSET = logging.NOTSET
 FOLDER = 'logs'
 _DATEFORMAT = '%Y-%m-%d %H:%M:%S CDT'
-_FORMATTER = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]   %(message)s', datefmt=_DATEFORMAT)
-_FILTER_FORMATTER = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] %(infix)s   %(message)s', datefmt=_DATEFORMAT)
 
 
 def get_terminal_size():
@@ -113,29 +105,6 @@ _COLUMN_SIZE = get_terminal_size()[0]
 
 
 
-def create_file_handler(folder: str, name: str, file_level: int = logging.DEBUG, filter_: logging.Filter = None, mode: str = 'w') -> logging.FileHandler:
-    os.makedirs(folder, exist_ok=True)
-    file_handler = logging.FileHandler(os.path.join(folder, f'{name}.log'), mode=mode)
-    file_handler.setLevel(file_level)
-    if filter_:
-        file_handler.addFilter(filter_)
-        file_handler.setFormatter(_FILTER_FORMATTER)
-    else:
-        file_handler.setFormatter(_FORMATTER)
-    return file_handler
-
-
-def create_stream_handler(stream_level: int = logging.INFO, filter_: logging.Filter = None) -> logging.StreamHandler:
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setLevel(stream_level)
-    if filter_:
-        stream_handler.addFilter(filter_)
-        stream_handler.setFormatter(_FILTER_FORMATTER)
-    else:
-        stream_handler.setFormatter(_FORMATTER)
-    return stream_handler
-
-
 def create_full_logger(name: str, base_folder: str = FOLDER, stream_level: int = logging.INFO) -> logging.Logger:
     return LogManager(name, base_folder, stream_level).logger
 
@@ -144,20 +113,18 @@ def create_file_logger(name: str, base_folder: str = FOLDER) -> logging.Logger:
     return LogManager(name, base_folder).create_file_logger(name)
 
 
-def create_stream_logger(name: str) -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(create_stream_handler(logging.DEBUG))
-    return logger
-
-
-def get_log_handler(logger: logging.Logger, handler_type: type) -> logging.Handler:
+def _get_log_handler(logger: logging.Logger, handler_type: type) -> logging.Handler:
     for handler in logger.handlers:
         if type(handler) == handler_type:
             return handler
 
 
 class LogManager:
+    """
+    Used to manage logs: How many log history folders to keep and how to organize the log folders/files inside.
+    """
+    formatter = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]   %(message)s', datefmt=_DATEFORMAT)
+
     def __init__(self, logger_name: str, base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO, mode: str = 'w'):
         self.logger_name = logger_name
         self._create_folder(base_folder)
@@ -175,16 +142,30 @@ class LogManager:
             for i in range(count):
                 shutil.rmtree(sub_folders[i])
 
+    @classmethod
+    def create_file_handler(cls, folder: str, name: str, file_level: int = logging.DEBUG, mode: str = 'w') -> logging.FileHandler:
+        os.makedirs(folder, exist_ok=True)
+        file_handler = logging.FileHandler(os.path.join(folder, f'{name}.log'), mode=mode)
+        file_handler.setLevel(file_level)
+        file_handler.setFormatter(cls.formatter)
+        return file_handler
+
+    @classmethod
+    def create_stream_handler(cls, stream_level: int = logging.INFO) -> logging.StreamHandler:
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setLevel(stream_level)
+        stream_handler.setFormatter(cls.formatter)
+        return stream_handler
+
     def get_logger(self, name: str) -> logging.Logger:
         return logging.getLogger(f'{self.folder}.{name}')
 
     def create_full_logger(self, name: str, stream_level: int = logging.INFO, mode='w') -> logging.Logger:
         logger = self.get_logger(name)
         if not logger.hasHandlers():
-            filter_ = InfixFilter(name)
             logger.setLevel(logging.DEBUG)
-            logger.addHandler(create_file_handler(self.folder, name, logging.DEBUG, filter_=filter_, mode=mode))
-            logger.addHandler(create_stream_handler(stream_level, filter_))
+            logger.addHandler(self.create_file_handler(self.folder, name, logging.DEBUG, mode=mode))
+            logger.addHandler(self.create_stream_handler(stream_level))
             logger.propagate = False
         return logger
 
@@ -193,18 +174,20 @@ class LogManager:
         if not logger.hasHandlers():
             filter_ = InfixFilter(name)
             logger.setLevel(logging.DEBUG)
-            logger.addHandler(create_file_handler(self.folder, name, logging.DEBUG, filter_=filter_))
+            logger.addHandler(self.create_file_handler(self.folder, name, logging.DEBUG))
             logger.propagate = False
         return logger
 
 
 class SuiteLogManager(LogManager):
     """
-    Used to manage logs: How many log history folders to keep and how to organize the log folders/files inside.
+    Used to organize log files in sub folders and mark log files on completion
     """
+    formatter = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] %(infix)s   %(message)s', datefmt=_DATEFORMAT)
+
     def __init__(self, run_logger_name: str = 'suite_run', base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO):
         super().__init__(run_logger_name, base_folder, max_folders, stream_level, mode='a+')
-        self.test_run_file_handler = get_log_handler(self.logger, logging.FileHandler)
+        self.test_run_file_handler = _get_log_handler(self.logger, logging.FileHandler)
         self._test_terminator = '\n' + ('-' * _COLUMN_SIZE)
         self._module_terminator = '\n' + ('=' * _COLUMN_SIZE)
 
@@ -226,9 +209,9 @@ class SuiteLogManager(LogManager):
     def _add_flush_handler(self, logger: logging.Logger, filter_name: str):
         filter_ = InfixFilter(filter_name)
         test_run_memory_handler = ManualFlushHandler(
-            create_file_handler(self.folder, self.logger_name, logging.INFO, filter_=filter_, mode='a+')
+            self.create_file_handler(self.folder, self.logger_name, logging.INFO, filter_=filter_, mode='a+')
         )
-        test_run_memory_handler.setFormatter(_FILTER_FORMATTER)
+        test_run_memory_handler.setFormatter(self.formatter)
         test_run_memory_handler.addFilter(filter_)
         logger.addHandler(test_run_memory_handler)
 
@@ -249,12 +232,35 @@ class SuiteLogManager(LogManager):
         if not logger.hasHandlers():
             filter_ = InfixFilter(infix_name)
             logger.setLevel(logging.DEBUG)
-            logger.addHandler(create_file_handler(
+            logger.addHandler(self.create_file_handler(
                 os.path.join(self.folder, module_name), test_name.replace(' ', '_'),
                 logging.DEBUG,
                 filter_=filter_))
-            logger.addHandler(create_stream_handler(filter_=filter_))
+            logger.addHandler(self.create_stream_handler(filter_=filter_))
         return logger, infix_name
+
+    @classmethod
+    def create_file_handler(cls, folder: str, name: str, file_level: int = logging.DEBUG, mode: str = 'w', filter_: logging.Filter = None) -> logging.FileHandler:
+        os.makedirs(folder, exist_ok=True)
+        file_handler = logging.FileHandler(os.path.join(folder, f'{name}.log'), mode=mode)
+        file_handler.setLevel(file_level)
+        if filter_:
+            file_handler.addFilter(filter_)
+            file_handler.setFormatter(cls.formatter)
+        else:
+            file_handler.setFormatter(super().formatter)
+        return file_handler
+
+    @classmethod
+    def create_stream_handler(cls, stream_level: int = logging.INFO, filter_: logging.Filter = None) -> logging.StreamHandler:
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setLevel(stream_level)
+        if filter_:
+            stream_handler.addFilter(filter_)
+            stream_handler.setFormatter(cls.formatter)
+        else:
+            stream_handler.setFormatter(super().formatter)
+        return stream_handler
 
     def on_suite_start(self, suite_name: str):
         pass
@@ -281,7 +287,7 @@ class SuiteLogManager(LogManager):
                     file_handler = handler
                     os.rename(handler.baseFilename, handler.baseFilename.replace(f'{test_name}', f'{Status.SKIPPED.name}_{test_name}'))
             logger.removeHandler(file_handler)
-            logger.addHandler(create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG))
+            logger.addHandler(self.create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG))
 
     def on_test_done(self, module_name: str, test_method_result: TestMethodResult):
         logger, infix_name = self._get_logger(module_name, test_method_result.name)

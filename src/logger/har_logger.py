@@ -56,20 +56,20 @@ class HarLogger:
         self.entry_delimiter = ""
 
     def info(self, request, response):
+        self.debug(request, response)
+
+    def debug(self, request, response):
         entry = self._make_entry(request, response)
         self.logger.info(entry)
 
-    def debug(self, response):
-        pass
+    def warning(self, request, response):
+        self.debug(request, response)
 
-    def warning(self, response):
-        pass
+    def critical(self, request, response):
+        self.debug(request, response)
 
-    def critical(self, response):
-        pass
-
-    def error(self, response):
-        pass
+    def error(self, request, response):
+        self.debug(request, response)
 
     def _make_entry(self, request, response):
         entry = self.entry_delimiter + f'''{{
@@ -84,9 +84,9 @@ class HarLogger:
         "pageref": "page_1",
         "request": {{
           "method": "{response._method}",
-          "url": "https://github.com/python/cpython/security/overall-count",
+          "url": "{request.full_url}",
           "httpVersion": "http/2.0",
-          "headers": [],
+          "headers": {self._make_headers(request.header_items())},
           "queryString": [],
           "cookies": [],
           "headersSize": -1,
@@ -101,7 +101,7 @@ class HarLogger:
           "content": {{
             "size": 0,
             "mimeType": "{response.headers._default_type}",
-            "text": ""
+            "text": {json.dumps(response.read().decode(response.headers.get_content_charset()))}
           }},
           "redirectURL": "",
           "headersSize": -1,
@@ -110,7 +110,7 @@ class HarLogger:
           "_error": null
         }},
         "serverIPAddress": "140.82.113.4",
-        "startedDateTime": "2021-07-09T01:35:50.068Z",
+        "startedDateTime": "{datetime.now().strftime("%Y-%m-%dT%H:%M:%S.123Z")}",
         "time": 4.252000013366342,
         "timings": {{
           "blocked": 1.195999818906188,
@@ -127,13 +127,24 @@ class HarLogger:
         return entry
 
     def _make_headers(self, r_headers, indent=2*6):
-      list_dict = [{"name": header[0], "values": header[1]} for header in r_headers]
+      list_dict = [{"name": header[0], "value": header[1]} for header in r_headers]
       return json.dumps(list_dict, indent=indent)
 
 
-# a = HarLogger()
-# from urllib import request
-# with request.urlopen('https://google.com', timeout=3) as response:
-#     print(response)
-#     a.info(None, response)
-#     b =1
+if __name__ == '__main__':
+    a = HarLogger()
+    from urllib import request
+    headers = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:66.0) Gecko/20100101 Firefox/66.0", "Accept":"application/json,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Content-Type": "application/json", "DNT":"1","Connection":"close", "Upgrade-Insecure-Requests":"1"}
+    req = request.Request('https://google.com', headers=headers)
+    with request.urlopen(req, timeout=3) as response:
+        print(dir(req))
+        print(dir(response))
+        a.info(req, response)
+        b =1
+
+    headers = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:66.0) Gecko/20100101 Firefox/66.0", "Accept":"application/json,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Content-Type": "application/json", "DNT":"1","Connection":"close", "Upgrade-Insecure-Requests":"1"}
+    req = request.Request('https://reqres.in/api/users?page=2', headers=headers)
+    with request.urlopen(req, timeout=6) as response:
+        print(req.full_url)
+        a.info(req, response)
+        b =1
