@@ -1,7 +1,8 @@
 from inspect import getmro
 import os
+from typing import Dict
 
-from src.fixtures import get_fixture
+from src.fixtures import get_fixture, teardown_test
 
 
 def build_full_name(module_name: str, test_name: str) -> str:
@@ -18,6 +19,7 @@ class TestMethod:
         self.name = func.__name__
         self.full_name = build_full_name(func.__module__, self.name)
         self.func = func
+        self.description = func.__doc__
         self.setup_func = setup_func
         self.teardown_func = teardown_func
         self.parameterized_tuple = parameterized_tuple or tuple()
@@ -30,30 +32,15 @@ class TestMethod:
         return id(self.full_name)
 
 
-class TestModule:
-    def __init__(self, module, tests: dict, setup_func=empty_func, teardown_func=empty_func
-                 , ignored_tests: set = None, test_package_list = None) -> None:
-        self.module = module
-        self.name = module.__name__
-        self.file_name = os.path.relpath(module.__file__)
-        self.run_mode = module.__run_mode__
+class TestGroups:
+    def __init__(self, tests: Dict[str, TestMethod], setup_func=empty_func, teardown_func=empty_func) -> None:
         self.setup_func = setup_func
         self.tests = tests
         self.teardown_func = teardown_func
-        self.ignored_tests = ignored_tests or set()
-        self.test_package_list = test_package_list
+        self.children = []
 
-    def __eq__(self, rhs) -> bool:
-        return self.name == rhs.name
-
-    def __hash__(self) -> int:
-        return id(self.module)
-
-    def update(self, same_module):
-        for ignored in same_module.ignored_tests:
-            self.tests.pop(ignored, None)
-        self.tests.update(same_module.tests)
-        self.ignored_tests.update(same_module.ignored_tests)
+    def append(self, group) -> None:
+        self.children.append(group)
 
 
 class DynamicMroMixin:
@@ -85,7 +72,7 @@ class DynamicMroMixin:
 
 def add_mixin(name, current_mixin: DynamicMroMixin):
     return type(
-        f"{name.replace('.', 'Dot')}Dot{DynamicMroMixin.__name__}"
+        f"{name.replace('.', 'Dot')}Dot{DynamicMroMixin.__name__}",
         (current_mixin.__class__,),
         {}
     )()
@@ -138,3 +125,38 @@ class TestPackages:
     def teardown(self) -> None:
         for p in reversed(self.packages):
             p.teardown()
+
+
+class TestModule:
+    # def __init__(self, module, tests: dict, setup_func=empty_func, teardown_func=empty_func
+    #              , ignored_tests: set = None, test_package_list = None) -> None:
+    #     self.module = module
+    #     self.name = module.__name__
+    #     self.file_name = os.path.relpath(module.__file__)
+    #     self.run_mode = module.__run_mode__
+    #     self.setup_func = setup_func
+    #     self.tests = tests
+    #     self.teardown_func = teardown_func
+    #     self.ignored_tests = ignored_tests or set()
+    #     self.test_package_list = test_package_list
+    def __init__(self, module, groups: TestGroups, ignored_tests: set = None, test_package_list: TestPackages = None) -> None:
+        self.module = module
+        self.name = module.__name__
+        self.file_name = os.path.relpath(module.__file__)
+        self.run_mode = module.__run_mode__
+        self.description = module.__doc__
+        self.groups = groups
+        self.ignored_tests = ignored_tests or set()
+        self.test_package_list = test_package_list
+
+    def __eq__(self, rhs) -> bool:
+        return self.name == rhs.name
+
+    def __hash__(self) -> int:
+        return id(self.module)
+
+    # def update(self, same_module):
+    #     for ignored in same_module.ignored_tests:
+    #         self.tests.pop(ignored, None)
+    #     self.tests.update(same_module.tests)
+    #     self.ignored_tests.update(same_module.ignored_tests)

@@ -3,7 +3,10 @@ import concurrent.futures
 import inspect
 import traceback
 import sys
-from typing import Tuple
+from typing import (
+    List,
+    Tuple
+)
 
 from src import exceptions
 from src.discovery import discover_suite
@@ -15,7 +18,11 @@ from src.models.result import (
     TestModuleResult,
     TestSuiteResult,
 )
-from src.models.test_popo import TestMethod, TestModule
+from src.models.test_popo import (
+    TestGroups,
+    TestMethod,
+    TestModule
+)
 from src.resource_profile import create_last_run_rc
 
 
@@ -53,7 +60,7 @@ class SuiteRun:
         self.log_manager = log_manager or SuiteLogManager(run_logger_name='suite_run', max_folders=self.args.max_log_folders)
         self.logger = self.log_manager.logger
 
-    def run(self) -> tuple:
+    def run(self) -> TestSuiteResult:
         self.log_manager.on_suite_start(self.name)
         self.results = TestSuiteResult(self.name)
         try:
@@ -88,43 +95,52 @@ class TestModuleRun:
 
     def run(self) -> TestModuleResult:
         self.module.test_package_list.setup()
-        setup_result = self.setup()
-        result = TestModuleResult(self.module, setup_result)
-        result.test_results = self.run_tests()
-        result.teardown = self.teardown()
+        result = TestModuleResult(self.module)
+        setup_results, test_results, teardown_results = self.run_group(self.module.groups)
+        result.setups = setup_results
+        result.test_results = test_results
+        result.teardowns = teardown_results
         result.end()
         self.log_manager.on_module_done(result)
         self.module.test_package_list.teardown()
         return result
 
-    def setup(self) -> Result:
+    def run_group(self, group: TestGroups) -> Tuple[List[Result], List[TestMethodResult], List[Result]]:
+        setup_results = [self.setup(group.setup_func)]
+        teardown_results = []
+        if setup_results[0].status is Status.FAILED:
+            test_results = self.create_skipped_results(group, setup_results[0].message)
+        else:
+            test_results = self.run_tests(group)
+            for group_ in group.children:
+                sr, tr, trr = self.run_group(group_)
+                setup_results.extend(sr)
+                test_results.extend(tr)
+                teardown_results.extend(trr)
+            teardown_results.append(self.teardown(group.teardown_func))
+        return setup_results, test_results, teardown_results
+
+    def create_skipped_results(self, group: TestGroups, message: str) -> List[TestMethodResult]:
+        test_results = [
+            TestMethodResult(v.name, status=Status.SKIPPED, message=message, description=v.__doc__, metadata=v.metadata)
+            for _, v in group.tests.items()
+        ]
+        for g in group.children:
+            test_results.extend(self.create_skipped_results(g, message))
+        return test_results
+
+    def setup(self, setup_func) -> Result:
         setup_logger = self.log_manager.get_setup_logger(self.module.name)
         args, kwargs = self.test_parameters_func(setup_logger, self.module.test_package_list.package_object)
-        result = run_test_func(setup_logger, self.module.setup_func, *args, **kwargs)
+        result = run_test_func(setup_logger, setup_func, *args, **kwargs)
         self.log_manager.on_setup_module_done(self.module.name, result.to_base())
         return result
 
-    def run_tests(self) -> list:
-        def intialize_args_and_run(test_method: TestMethod) -> TestMethodResult:
-            logger = self.log_manager.get_test_logger(self.module.name, test_method.name)
-            args, kwargs = self.test_parameters_func(logger, self.module.test_package_list.package_object)
-            result = run_test_func(logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
-            result.metadata = test_method.metadata
-            self.log_manager.on_test_done(self.module.name, result)
-            return result
-
-        async def intialize_args_and_run_async(test_method: TestMethod) -> TestMethodResult:
-            logger = self.log_manager.get_test_logger(self.module.name, test_method.name)
-            args, kwargs = self.test_parameters_func(logger, self.module.test_package_list.package_object)
-            result = await run_async_test_func(logger, test_method.func, *(args + test_method.parameterized_tuple), **kwargs)
-            result.metadata = test_method.metadata
-            self.log_manager.on_test_done(self.module.name, result)
-            return result
-        
+    def run_tests(self, group: TestGroups) -> List[TestMethodResult]:        
         async def as_completed(coroutines_, results_, stop_on_first_fail_):
             for fs in coroutines_:
                 try:
-                    result = await intialize_args_and_run_async(fs)
+                    result = await fs.run_async()
                     results_.append(result)
                     if result.status is Status.FAILED and stop_on_first_fail_:
                         [f.cancel() for f in coroutines_]
@@ -132,64 +148,166 @@ class TestModuleRun:
                     pass
         
         routines, coroutines = [], []
-        for k, test in self.module.tests.items():
+        for k, test in group.tests.items():
+            test_run = TestMethodRun(test, self.test_parameters_func, self.log_manager, self.module.name, self.module.test_package_list.package_object)
             if inspect.iscoroutinefunction(test.func):
-                coroutines.append(test)
+                coroutines.append(test_run)
             else:
-                routines.append(test)
+                routines.append(test_run)
         results = []
+        loop = None
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        if self.concurrent_executor:
-            future_results = [
-                self.concurrent_executor.submit(intialize_args_and_run, test)
-                for test in routines
-            ]
-            try:
-                for future_result in concurrent.futures.as_completed(future_results):
-                    try:
-                        result = future_result.result()
-                        results.append(result)
-                        if self.stop_on_fail and result.status is Status.FAILED:
-                            raise exceptions.StopTestRunException(result.message)
-                    except exceptions.IgnoreTestException:
-                        pass
-            except exceptions.StopTestRunException as stre:
-                raise
-            except:
-                self.log_manager.logger.error(traceback.format_exc())
-            loop.run_until_complete(as_completed(coroutines, results, self.stop_on_fail))
-        else:
-            try:
-                for test in routines:
-                    try:
-                        results.append(intialize_args_and_run(test))
-                        if self.stop_on_fail and results[-1].status is Status.FAILED:
-                            raise exceptions.StopTestRunException(results[-1].message)
-                    except exceptions.IgnoreTestException:
-                        pass
-                for test in coroutines:
-                    try:
-                        results.append(loop.run_until_complete(intialize_args_and_run_async(test)))
-                        if self.stop_on_fail and results[-1].status is Status.FAILED:
-                            raise exceptions.StopTestRunException(results[-1].message)
-                    except exceptions.IgnoreTestException:
-                        pass
-            except exceptions.StopTestRunException as stre:
-                raise
-            except:
-                self.log_manager.logger.error(traceback.format_exc())
-        loop.close()
-        return results
+            if self.concurrent_executor:
+                future_results = [
+                    self.concurrent_executor.submit(test.run)
+                    for test in routines
+                ]
+                try:
+                    for future_result in concurrent.futures.as_completed(future_results):
+                        try:
+                            result = future_result.result()
+                            results.append(result)
+                            if self.stop_on_fail and result.status is Status.FAILED:
+                                raise exceptions.StopTestRunException(result.message)
+                        except exceptions.IgnoreTestException:
+                            pass
+                except exceptions.StopTestRunException as stre:
+                    raise
+                except:
+                    self.log_manager.logger.error(traceback.format_exc())
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(as_completed(coroutines, results, self.stop_on_fail))
+                loop.close()
+            else:
+                try:
+                    for test in routines:
+                        try:
+                            results.append(test.run())
+                            if self.stop_on_fail and results[-1].status is Status.FAILED:
+                                raise exceptions.StopTestRunException(results[-1].message)
+                        except exceptions.IgnoreTestException:
+                            pass
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    for test in coroutines:
+                        try:
+                            results.append(loop.run_until_complete(test.run_async()))
+                            if self.stop_on_fail and results[-1].status is Status.FAILED:
+                                raise exceptions.StopTestRunException(results[-1].message)
+                        except exceptions.IgnoreTestException:
+                            pass
+                    loop.close()
+                except exceptions.StopTestRunException as stre:
+                    raise
+                except:
+                    self.log_manager.logger.error(traceback.format_exc())
+            return results
+        finally:
+            if loop is not None and loop.is_running():
+                loop.close()
 
-    def teardown(self) -> Result:
+    def teardown(self, teardown_func) -> Result:
         teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
         args, kwargs = self.test_parameters_func(teardown_logger, self.module.test_package_list.package_object)
-        result = run_test_func(teardown_logger, self.module.teardown_func, *args, **kwargs)
+        result = run_test_func(teardown_logger, teardown_func, *args, **kwargs)
         self.log_manager.on_teardown_module_done(self.module.name, result.to_base())
+        return result
+
+
+class TestMethodRun:
+    def __init__(self, test_method: TestMethod, test_parameters_func
+                 , log_manager: SuiteLogManager,  module_name: str, package_object) -> None:
+        self.test_method = test_method
+        self.test_parameters_func = test_parameters_func
+        self.log_manager = log_manager
+        self.module_name = module_name
+        self.package_object = package_object
+
+    def run(self) -> TestMethodResult:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        if inspect.iscoroutinefunction(self.test_method.setup_func):
+            setup_result = loop.run_until_complete(
+                self._intialize_args_and_setup_async()
+            )
+        else:
+            setup_result = self._intialize_args_and_setup()
+
+        result = self._intialize_args_and_run()
+
+        if inspect.iscoroutinefunction(self.test_method.teardown_func):
+            teardown_result = loop.run_until_complete(
+                self._intialize_args_and_teardown_async()
+            )
+        else:
+            teardown_result = self._intialize_args_and_teardown()
+        result.setup_result = setup_result
+        result.teardown_result = teardown_result
+        loop.close()
+        return result
+
+    async def run_async(self) -> TestMethodResult:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        if inspect.iscoroutinefunction(self.test_method.setup_func):
+            setup_result = await self._intialize_args_and_setup_async()
+        else:
+            setup_result = self._intialize_args_and_setup()
+
+        result = await self._intialize_args_and_run_async()
+
+        if inspect.iscoroutinefunction(self.test_method.teardown_func):
+            teardown_result = await self._intialize_args_and_teardown_async()
+        else:
+            teardown_result = self._intialize_args_and_teardown()
+        result.setup_result = setup_result
+        result.teardown_result = teardown_result
+        loop.close()
+        return result
+
+    def _intialize_args_and_setup(self) -> Result:
+        logger = self.log_manager.get_setup_test_logger(self.module_name, self.test_method.name)
+        args, kwargs = self.test_parameters_func(logger, self.package_object)
+        result = run_test_func(logger, self.test_method.setup_func, *args, **kwargs)
+        self.log_manager.on_setup_test_done(self.module_name, self.test_method.name, result.to_base())
+        return result
+
+    async def _intialize_args_and_setup_async(self) -> Result:
+        logger = self.log_manager.get_setup_test_logger(self.module_name, self.test_method.name)
+        args, kwargs = self.test_parameters_func(logger, self.package_object)
+        result = await run_async_test_func(logger, self.test_method.setup_func, *args, **kwargs)
+        self.log_manager.on_setup_test_done(self.module_name, self.test_method.name, result.to_base())
+        return result
+
+    def _intialize_args_and_teardown(self) -> Result:
+        logger = self.log_manager.get_teardown_test_logger(self.module_name, self.test_method.name)
+        args, kwargs = self.test_parameters_func(logger, self.package_object)
+        result = run_test_func(logger, self.test_method.teardown_func, *args, **kwargs)
+        self.log_manager.on_teardown_test_done(self.module_name, self.test_method.name, result.to_base())
+        return result
+
+    async def _intialize_args_and_teardown_async(self) -> Result:
+        logger = self.log_manager.get_teardown_test_logger(self.module_name, self.test_method.name)
+        args, kwargs = self.test_parameters_func(logger, self.package_object)
+        result = await run_async_test_func(logger, self.test_method.teardown_func, *args, **kwargs)
+        self.log_manager.on_teardown_test_done(self.module_name, self.test_method.name, result.to_base())
+        return result
+
+    def _intialize_args_and_run(self) -> TestMethodResult:
+        logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
+        args, kwargs = self.test_parameters_func(logger, self.package_object)
+        result = run_test_func(logger, self.test_method.func, *(args + self.test_method.parameterized_tuple), **kwargs)
+        result.metadata = self.test_method.metadata
+        self.log_manager.on_test_done(self.module_name, result)
+        return result
+
+    async def _intialize_args_and_run_async(self) -> TestMethodResult:
+        logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
+        args, kwargs = self.test_parameters_func(logger, self.package_object)
+        result = await run_async_test_func(logger, self.test_method.func, *(args + self.test_method.parameterized_tuple), **kwargs)
+        result.metadata = self.test_method.metadata
+        self.log_manager.on_test_done(self.module_name, result)
         return result
 
 
@@ -237,8 +355,7 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
         logger.debug(traceback.format_exc())
         result.message = f'Encountered an exception: {e}'
         logger.error(result.message)
-    result.end()
-    return result
+    return result.end()
 
 
 async def run_async_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
@@ -291,5 +408,4 @@ async def run_async_test_func(logger, func, *args, **kwargs) -> TestMethodResult
         logger.debug(traceback.format_exc())
         result.message = f'Encountered an exception: {e}'
         logger.error(result.message)
-    result.end()
-    return result
+    return result.end()
