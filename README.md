@@ -269,11 +269,11 @@ def test_1(logger, package_globals):
 
 ## TODO:
 - [x] change suites to be file path instead of dot notation
-- [ ] support async fixtures
-- [ ] support setup_test and teardown test again
-- [ ] test groups
+- [x] support async fixtures
+- [x] support setup_test and teardown test again
+- [x] test groups
 - [ ] move package setup/teardown to suiterun
-- [ ] make runner use suitelogmanager again
+- [x] make runner use suitelogmanager again
 - [x] .testingrc or maybe setting.conf (have this file as a profile with setting about how to configure runner)
     - [x] max threads
     - [x] max sub folder logs
