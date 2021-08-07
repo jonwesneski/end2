@@ -56,8 +56,8 @@ excluding - anything on the right side of a '\!' will be excluded:
 
 class SuiteFactoryAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
-        arg_to_name = f"_parse_{option_string[2:].replace('-', '_')}"
         if values or option_string == '--suite-last-failed':
+            arg_to_name = f"_parse_{option_string[2:].replace('-', '_')}"
             setattr(namespace, 'suite', getattr(self, arg_to_name)(values))
 
     def _parse_suite(self, suite: list):

@@ -23,12 +23,157 @@ from src.models.test_popo import (
 
 FUNCTION_TYPE = type(lambda: None)
 
-
+def a():
+    raise
 def _shuffle_dict(dict_: dict) -> dict:
     list_ = list(dict_.items())
     shuffle(list_)
     return dict(list_)
 
+def discover_suite2():
+    class TestPackageTree:
+        def __init__(self, package = None, modules = None):
+            self.packages = [TestPackage(package, modules)] if package else []
+
+        def find(self, rhs):
+            for package in self.packages:
+                if package == rhs:
+                    return package
+                elif package.sub_packages:
+                    for sub_package in package.sub_packages:
+                        if sub_package == rhs:
+                            return sub_package
+
+        def find_by_str(self, rhs: str):
+            for package in self.packages:
+                if package.name == rhs:
+                    return package
+                elif package.sub_packages:
+                    for sub_package in package.sub_packages:
+                        if sub_package.name == rhs:
+                            return sub_package
+
+        def append(self, package):
+            found_package = self.find(package)
+            if found_package:
+                self.merge(found_package, package)
+            else:
+                found_parent = self.find_by_str(".".join(package.name.split('.'))[:-1])
+                if found_parent:
+                    found_parent.sub_packages.append(package)
+                else:
+                    self.packages.append(package)
+            print('found', found_package.name if found_package else None)
+
+        def merge(self, lhs, rhs):
+            for rm in rhs.modules:
+                updated = False
+                for lm in lhs.modules:
+                    updated = False
+                    if lm == rm:
+                        updated = True
+                        lm.update(rm)
+                        break
+                if not updated:
+                    lhs.modules.append(rm)
+            for i, lhs_sp in enumerate(lhs.sub_packages):
+                self.merge(lhs_sp, rhs.sub_packages[i])
+
+    class TestPackage:
+        def __init__(self, package, modules = None):
+            self.package = package
+            self.name = self.package.__name__
+            self.description = self.package.__doc__
+            self.suite_object = None
+            self.modules = modules or []
+            self.sub_packages = []
+
+        def __eq__(self, o) -> bool:
+            return self.name == o.name
+
+        def append(self, package):
+            self.sub_packages.append(TestPackage(package))
+
+        def tail(self, package, index: int = -1):
+            self._tail(TestPackage(package), index)
+
+        def _tail(self, package, index: int = -1):
+            sub_packages = self.sub_packages
+            if sub_packages:
+                sub_package = sub_packages[index]
+                sub_package._tail(package, -1)
+            else:
+                self.sub_packages.append(package)
+
+        def last(self, index: int = -1):
+            if not self.sub_packages:
+                return self
+            sub_package = self.sub_packages[index]
+            while sub_package.sub_packages:
+                sub_package = sub_package.sub_packages[-1]
+            return sub_package
+
+        def find(self, rhs: str, index: int = -1):
+            if self.name == rhs:
+                return self
+            elif self.sub_packages:
+                return self.sub_packages[index].find(rhs)
+
+    def discover_packages2(importable, test_pattern_matcher, test_package: TestPackage = None):
+        names = importable.replace(os.sep, '.').split('.')
+        package_names = []
+        if test_package:
+            package_names = [f'{test_package.name}.{names[-1]}']
+            # new_package = importlib.import_module(package_names[0])
+            # test_package.tail(new_package)
+        else:
+            for i in range(len(names)):
+                package_names.append(".".join(names[:i+1]))
+        new_package = importlib.import_module(package_names[0])
+        package_ = test_package or TestPackage(new_package)
+        for package_name in package_names[1:]:
+            new_package = importlib.import_module(package_name)
+            package_.tail(new_package)
+        print(package_names)
+        items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
+        shuffle(items)
+        end_package = package_.find(package_names[-1])
+        for item in items:
+            full_path = os.path.join(importable, item)
+            if os.path.isdir(full_path):
+                discover_packages2(full_path, test_pattern_matcher, end_package)
+            else:
+                pass#end_package.modules.append(discover_module(full_path, test_pattern_matcher))
+        return package_
+    
+    # importables = _shuffle_dict(paths)
+    # sequential_modules = set()
+    # parallel_modules = set()
+    # failed_imports = set()
+    # for importable, test_pattern_matcher in importables.items():
+    package_tree = TestPackageTree()
+    for importable in ['examples\\package_objects\\package1\\package2a', 'examples\\package_objects\\package1']:
+        package_name = importable.replace(os.sep, '.')
+        package = package_tree.find_by_str()
+        if os.path.isdir(importable):
+            package_tree.append(discover_packages2(importable, package))
+        else:
+            package_names = []
+            if not package:
+                names = package.split('.')
+                for i in range(len(names)):
+                    package_names.append(".".join(names[:i+1]))
+                new_package = importlib.import_module(package_names[0])
+                package = TestPackage(new_package)
+                for package_name in package_names[1:]:
+                    new_package = importlib.import_module(package_name)
+                    package.tail(new_package)
+            package.modules.append(discover_module(importable, test_pattern_matcher))
+            package_tree.append(package)
+    return package_tree
+p = discover_suite2()
+print(p.packages[0].sub_package.sub_package.name)
+#exit()
 
 def discover_suite(paths: dict) -> tuple:
     importables = _shuffle_dict(paths)
