@@ -33,8 +33,9 @@ class TestMethod:
 
 
 class TestGroups:
-    def __init__(self, tests: Dict[str, TestMethod], setup_func=empty_func
-                 , teardown_func=empty_func) -> None:
+    def __init__(self, name: str, tests: Dict[str, TestMethod]
+                 , setup_func=empty_func, teardown_func=empty_func) -> None:
+        self.name = name
         self.setup_func = setup_func
         self.tests = tests
         self.teardown_func = teardown_func
@@ -42,6 +43,12 @@ class TestGroups:
 
     def append(self, group) -> None:
         self.children.append(group)
+
+    def update(self, same_group):
+        for ignored in same_group.ignored_tests:
+            self.tests.pop(ignored, None)
+        self.tests.update(same_group.tests)
+        self.ignored_tests.update(same_group.ignored_tests)
 
 
 class DynamicMroMixin:
@@ -145,3 +152,106 @@ class TestModule:
 
     def __hash__(self) -> int:
         return id(self.module)
+
+    def update(self, same_module):
+        for ignored in same_module.ignored_tests:
+            for group in self.groups:
+                for child in group.children:
+                    child.tests.pop(ignored, None)
+        for group in same_module.groups:
+            for child in group.children:
+                for self_group in self.groups:
+                    for self_child in self_group:
+                        if child.name == self_child.name:
+                            self.tests.update(same_module.tests)
+        self.ignored_tests.update(same_module.ignored_tests)
+
+
+class TestPackageTree:
+        def __init__(self, package = None, modules = None):
+            self.packages = [TestPackage(package, modules)] if package else []
+
+        def find(self, rhs):
+            for package in self.packages:
+                if package == rhs:
+                    return package
+                elif package.sub_packages:
+                    for sub_package in package.sub_packages:
+                        if sub_package == rhs:
+                            return sub_package
+
+        def find_by_str(self, rhs: str):
+            for package in self.packages:
+                if package.name == rhs:
+                    return package
+                elif package.sub_packages:
+                    for sub_package in package.sub_packages:
+                        if sub_package.name == rhs:
+                            return sub_package
+
+        def append(self, package):
+            found_package = self.find(package)
+            if found_package:
+                self.merge(found_package, package)
+            else:
+                found_parent = self.find_by_str(".".join(package.name.split('.'))[:-1])
+                if found_parent:
+                    found_parent.sub_packages.append(package)
+                else:
+                    self.packages.append(package)
+
+        def merge(self, lhs, rhs):
+            for rm in rhs.modules:
+                updated = False
+                for lm in lhs.modules:
+                    updated = False
+                    if lm == rm:
+                        updated = True
+                        lm.update(rm)
+                        break
+                if not updated:
+                    lhs.modules.append(rm)
+            for i, lhs_sp in enumerate(lhs.sub_packages):
+                if len(rhs.sub_packages) - 1 > i:
+                    self.merge(lhs_sp, rhs.sub_packages[i])
+
+
+class TestPackage:
+    def __init__(self, package, modules = None):
+        self.package = package
+        self.name = self.package.__name__
+        self.description = self.package.__doc__
+        self.suite_object = None
+        self.modules = modules or []
+        self.sub_packages = []
+
+    def __eq__(self, o) -> bool:
+        return self.name == o.name
+
+    def append(self, package):
+        self.sub_packages.append(TestPackage(package))
+
+    def tail(self, package, index: int = -1):
+        self._tail(TestPackage(package), index)
+
+    def _tail(self, package, index: int = -1):
+        sub_packages = self.sub_packages
+        if sub_packages:
+            sub_package = sub_packages[index]
+            sub_package._tail(package, -1)
+        else:
+            self.sub_packages.append(package)
+
+    def last(self, index: int = -1):
+        if not self.sub_packages:
+            return self
+        sub_package = self.sub_packages[index]
+        while sub_package.sub_packages:
+            sub_package = sub_package.sub_packages[-1]
+        return sub_package
+
+    def find(self, rhs: str, index: int = -1):
+        if self.name == rhs:
+            return self
+        elif self.sub_packages:
+            return self.sub_packages[index].find(rhs)

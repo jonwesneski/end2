@@ -9,7 +9,7 @@ from typing import (
 )
 
 from src import exceptions
-from src.discovery import discover_suite
+from src.discovery import discover_suite2
 from src.enums import Status
 from src.logger import SuiteLogManager
 from src.models.result import (
@@ -21,7 +21,8 @@ from src.models.result import (
 from src.models.test_popo import (
     TestGroups,
     TestMethod,
-    TestModule
+    TestModule,
+    TestPackageTree
 )
 from src.resource_profile import create_last_run_rc
 
@@ -32,8 +33,8 @@ def default_test_parameters(logger, package_object) -> Tuple[tuple, dict]:
 
 def create_test_run(args, test_parameters_func=default_test_parameters
                     , log_manager: SuiteLogManager = None) -> Tuple[TestSuiteResult, Tuple[str]]:
-    sequential_modules, parallel_modules, failed_imports = discover_suite(args.suite.modules)
-    suite_run = SuiteRun(args, test_parameters_func, sequential_modules, parallel_modules, log_manager)
+    test_packages, failed_imports = discover_suite2(args.suite.modules)
+    suite_run = SuiteRun(args, test_parameters_func, test_packages, log_manager)
     return suite_run, failed_imports
 
 
@@ -44,8 +45,7 @@ def start_test_run(args, test_parameters_func=default_test_parameters
 
 
 class SuiteRun:
-    def __init__(self, args, test_parameters_func, sequential_modules: Tuple[TestModule]
-                 , parallel_modules: Tuple[TestModule], log_manager: SuiteLogManager = None) -> None:
+    def __init__(self, args, test_parameters_func, test_packages: Tuple[TestPackageTree], log_manager: SuiteLogManager = None) -> None:
         self.args = args
         self.test_parameters_func = test_parameters_func
         if self.args.no_concurrency:
