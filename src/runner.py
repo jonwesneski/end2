@@ -48,12 +48,13 @@ class SuiteRun:
     def __init__(self, args, test_parameters_func, test_packages: Tuple[TestPackageTree], log_manager: SuiteLogManager = None) -> None:
         self.args = args
         self.test_parameters_func = test_parameters_func
-        if self.args.no_concurrency:
-            self.sequential_modules = sequential_modules + parallel_modules
-            self.parallel_modules = tuple()
-        else:
-            self.sequential_modules = sequential_modules
-            self.parallel_modules = parallel_modules
+        # if self.args.no_concurrency:
+        #     self.sequential_modules = sequential_modules + parallel_modules
+        #     self.parallel_modules = tuple()
+        # else:
+        #     self.sequential_modules = sequential_modules
+        #     self.parallel_modules = parallel_modules
+        self.test_packages = test_packages
         self.allow_concurrency = not self.args.no_concurrency
         self.name = 'suite_run'
         self.results = None
@@ -64,18 +65,25 @@ class SuiteRun:
         self.log_manager.on_suite_start(self.name)
         self.results = TestSuiteResult(self.name)
         try:
-            for test_module in self.sequential_modules:
-                module_run = TestModuleRun(self.test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail)
-                self.results.append(module_run.run())
+            for package in self.test_packages:
+                if self.allow_concurrency:
+                    sequential_modules = package.sequential_modules
+                    parallel_modules = package.parallel_modules
+                else:
+                    sequential_modules = sequential_modules + parallel_modules
+                    parallel_modules = tuple()
+                for test_module in sequential_modules:
+                    module_run = TestModuleRun(self.test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail)
+                    self.results.append(module_run.run())
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.max_workers) as executor:
-                futures = [
-                    executor.submit(
-                        TestModuleRun(self.test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail, executor).run)
-                    for test_module in self.parallel_modules
-                ]
-                for future in futures:
-                    self.results.append(future.result())
+                with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.max_workers) as executor:
+                    futures = [
+                        executor.submit(
+                            TestModuleRun(self.test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail, executor).run)
+                        for test_module in parallel_modules
+                    ]
+                    for future in futures:
+                        self.results.append(future.result())
         except exceptions.StopTestRunException as stre:
             self.logger.critical(stre)
         self.results.end()

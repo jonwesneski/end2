@@ -2,6 +2,7 @@ from inspect import getmro
 import os
 from typing import Dict
 
+from src.enums import RunMode
 from src.fixtures import get_fixture
 
 
@@ -77,75 +78,74 @@ class DynamicMroMixin:
     def __setattr__(self, name, value):
         return self.__setattrcls__(name, value)
 
-
-def add_mixin(name, current_mixin: DynamicMroMixin):
-    return type(
-        f"{name.replace('.', 'Dot')}Dot{DynamicMroMixin.__name__}",
-        (current_mixin.__class__,),
-        {}
-    )()
-
-
-class TestPackageNode:
-    def __init__(self, package, package_object: DynamicMroMixin = None) -> None:
-        self.name = package.__name__
-        self.package = package
-        self.description = package.__doc__
-        self.package_object = package_object or DynamicMroMixin()
-        self.setup_done = False
-        self.teardown_done = False
-        self.setup_func = get_fixture(self.package, 'setup')
-        self.teardown_func = get_fixture(self.package, 'teardown')
-
-    def setup(self) -> None:
-        if not self.setup_done:
-            self.setup_func(self.package_object)
-            self.setup_done = True
-
-    def teardown(self) -> None:
-        if not self.teardown_done:
-            self.teardown_func(self.package_object)
-            self.teardown_done = True
+    @staticmethod
+    def add_mixin(name, current_mixin):
+        return type(
+            f"{name.replace('.', 'Dot')}Dot{DynamicMroMixin.__name__}",
+            (current_mixin.__class__,),
+            {}
+        )()
 
 
-class TestPackages:
-    def __init__(self, package) -> None:
-        self.packages = [TestPackageNode(package)]
+# class TestPackageNode:
+#     def __init__(self, package, package_object: DynamicMroMixin = None) -> None:
+#         self.name = package.__name__
+#         self.package = package
+#         self.description = package.__doc__
+#         self.package_object = package_object or DynamicMroMixin()
+#         self.setup_done = False
+#         self.teardown_done = False
+#         self.setup_func = get_fixture(self.package, 'setup')
+#         self.teardown_func = get_fixture(self.package, 'teardown')
 
-    def append(self, package) -> None:
-        self.packages.append(
-            TestPackageNode(package, add_mixin(package.__name__, self.package_object))
-        )
+#     def setup(self) -> None:
+#         if not self.setup_done:
+#             self.setup_func(self.package_object)
+#             self.setup_done = True
 
-    def slice(self) -> None:
-        packages = TestPackages(self.packages[0].package)
-        packages.packages = self.packages[:]
-        return packages
+#     def teardown(self) -> None:
+#         if not self.teardown_done:
+#             self.teardown_func(self.package_object)
+#             self.teardown_done = True
 
-    @property
-    def package_object(self) -> DynamicMroMixin:
-        return self.packages[-1].package_object
 
-    def setup(self) -> None:
-        for p in self.packages:
-            p.setup()
+# class TestPackages:
+#     def __init__(self, package) -> None:
+#         self.packages = [TestPackageNode(package)]
 
-    def teardown(self) -> None:
-        for p in reversed(self.packages):
-            p.teardown()
+#     def append(self, package) -> None:
+#         self.packages.append(
+#             TestPackageNode(package, DynamicMroMixin.add_mixin(package.__name__, self.package_object))
+#         )
+
+#     def slice(self) -> None:
+#         packages = TestPackages(self.packages[0].package)
+#         packages.packages = self.packages[:]
+#         return packages
+
+#     @property
+#     def package_object(self) -> DynamicMroMixin:
+#         return self.packages[-1].package_object
+
+#     def setup(self) -> None:
+#         for p in self.packages:
+#             p.setup()
+
+#     def teardown(self) -> None:
+#         for p in reversed(self.packages):
+#             p.teardown()
 
 
 class TestModule:
-    def __init__(self, module, groups: TestGroups, ignored_tests: set = None
-                 , test_package_list: TestPackages = None) -> None:
+    def __init__(self, module, groups: TestGroups, ignored_tests: set = None) -> None:
         self.module = module
         self.name = module.__name__
         self.file_name = os.path.relpath(module.__file__)
         self.run_mode = module.__run_mode__
+        self.is_parallel = self.run_mode is RunMode.PARALLEL
         self.description = module.__doc__
         self.groups = groups
         self.ignored_tests = ignored_tests or set()
-        self.test_package_list = test_package_list
 
     def __eq__(self, rhs) -> bool:
         return self.name == rhs.name
@@ -170,6 +170,12 @@ class TestModule:
 class TestPackageTree:
         def __init__(self, package = None, modules = None):
             self.packages = [TestPackage(package, modules)] if package else []
+
+        def __iter__(self):
+            for package in self.packages:
+                yield package
+                for sub_package in package.sub_packages:
+                    yield sub_package
 
         def find(self, rhs):
             for package in self.packages:
@@ -217,22 +223,32 @@ class TestPackageTree:
 
 
 class TestPackage:
-    def __init__(self, package, modules = None):
+    def __init__(self, package, sequential_modules: list = None, parallel_modules: list = None
+                 , suite_object: DynamicMroMixin = None):
         self.package = package
         self.name = self.package.__name__
         self.description = self.package.__doc__
-        self.suite_object = None
-        self.modules = modules or []
+        self.suite_object = suite_object or DynamicMroMixin()
+        self.sequential_modules = sequential_modules or []
+        self.parallel_modules = parallel_modules or []
         self.sub_packages = []
 
     def __eq__(self, o) -> bool:
         return self.name == o.name
 
     def append(self, package):
-        self.sub_packages.append(TestPackage(package))
+        suite_object = DynamicMroMixin.add_mixin(package.__name__, self.suite_object)
+        self.sub_packages.append(TestPackage(package, suite_object=suite_object))
+
+    def append_module(self, module: TestModule):
+        if module.is_parallel:
+            self.parallel_modules.append(module)
+        else:
+            self.sequential_modules.append(module)
 
     def tail(self, package, index: int = -1):
-        self._tail(TestPackage(package), index)
+        suite_object = DynamicMroMixin.add_mixin(package.__name__, self.suite_object)
+        self._tail(TestPackage(package, suite_object=suite_object), index)
 
     def _tail(self, package, index: int = -1):
         sub_packages = self.sub_packages

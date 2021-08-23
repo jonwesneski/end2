@@ -24,12 +24,12 @@ from src.models.test_popo import (
 
 FUNCTION_TYPE = type(lambda: None)
 
-def a():
-    raise
+
 def _shuffle_dict(dict_: dict) -> dict:
     list_ = list(dict_.items())
     shuffle(list_)
     return dict(list_)
+
 
 def discover_suite2(paths):    
     importables = _shuffle_dict(paths)
@@ -41,8 +41,9 @@ def discover_suite2(paths):
         package_name = importable.replace(os.sep, '.')
         package = package_tree.find_by_str(package_name)
         if os.path.isdir(importable):
-            p, f = discover_packages2(importable, package)
-            package_tree.append(p)
+            p, f = discover_packages2(importable, test_pattern_matcher, package)
+            if p:
+                package_tree.append(p)
             failed_imports |= f
         else:
             package_names = []
@@ -57,45 +58,46 @@ def discover_suite2(paths):
                     package.tail(new_package)
             m, f = discover_module(importable, test_pattern_matcher)
             if m:
-                package.modules.append(m)
+                package.append_module(m)
             else:
                 failed_imports.add(f)
             package_tree.append(package)
     return package_tree, failed_imports
-p = discover_suite2()
-print(p.packages[0].sub_packages[0].sub_packages[0].name)
+# p = discover_suite2()
+# print(p.packages[0].sub_packages[0].sub_packages[0].name)
 #exit()
 
-def discover_suite(paths: dict) -> tuple:
-    importables = _shuffle_dict(paths)
-    sequential_modules = set()
-    parallel_modules = set()
-    failed_imports = set()
-    for importable, test_pattern_matcher in importables.items():
-        if os.path.exists(importable):
-            if os.path.isdir(importable):
-                sm, pm, fi = discover_package(importable, test_pattern_matcher)
-                sequential_modules |= sm
-                parallel_modules |= pm
-                failed_imports |= fi
-            else:
-                test_package = importlib.import_module(os.path.dirname(importable))
-                m, fi = discover_module(importable, test_pattern_matcher, TestPackages(test_package))
-                if m:
-                    if m.run_mode is RunMode.SEQUENTIAL:
-                        sequential_modules.add(m)
-                    else:
-                        parallel_modules.add(m)
-                else:
-                    failed_imports.add(fi)
-        else:
-            failed_imports.add(f"Path: {importable} does not exist")
-    return tuple(sequential_modules), tuple(parallel_modules), tuple(failed_imports)
+# def discover_suite(paths: dict) -> tuple:
+#     importables = _shuffle_dict(paths)
+#     sequential_modules = set()
+#     parallel_modules = set()
+#     failed_imports = set()
+#     for importable, test_pattern_matcher in importables.items():
+#         if os.path.exists(importable):
+#             if os.path.isdir(importable):
+#                 sm, pm, fi = discover_package(importable, test_pattern_matcher)
+#                 sequential_modules |= sm
+#                 parallel_modules |= pm
+#                 failed_imports |= fi
+#             else:
+#                 test_package = importlib.import_module(os.path.dirname(importable))
+#                 m, fi = discover_module(importable, test_pattern_matcher, TestPackages(test_package))
+#                 if m:
+#                     if m.run_mode is RunMode.SEQUENTIAL:
+#                         sequential_modules.add(m)
+#                     else:
+#                         parallel_modules.add(m)
+#                 else:
+#                     failed_imports.add(fi)
+#         else:
+#             failed_imports.add(f"Path: {importable} does not exist")
+#     return tuple(sequential_modules), tuple(parallel_modules), tuple(failed_imports)
 
 
-def discover_packages2(importable, test_pattern_matcher, test_package: TestPackage = None):
+def discover_packages2(importable: str, test_pattern_matcher, test_package: TestPackage = None) -> tuple:
     names = importable.replace(os.sep, '.').split('.')
     package_names = []
+    package_ = None
     failed_imports = set()
     if test_package:
         package_names = [f'{test_package.name}.{names[-1]}']
@@ -103,7 +105,11 @@ def discover_packages2(importable, test_pattern_matcher, test_package: TestPacka
         for i in range(len(names)):
             package_names.append(".".join(names[:i+1]))
     new_package = importlib.import_module(package_names[0])
-    package_ = test_package or TestPackage(new_package)
+    if test_package:
+        package_ = test_package
+        package_.tail(new_package)
+    else:
+        package_ = TestPackage(new_package)
     for package_name in package_names[1:]:
         new_package = importlib.import_module(package_name)
         package_.tail(new_package)
@@ -113,49 +119,50 @@ def discover_packages2(importable, test_pattern_matcher, test_package: TestPacka
     for item in items:
         full_path = os.path.join(importable, item)
         if os.path.isdir(full_path):
-            failed_imports |= discover_packages2(full_path, test_pattern_matcher, end_package)
+            _, f = discover_packages2(full_path, test_pattern_matcher, end_package)
+            failed_imports |= f
         else:
             m, f = discover_module(full_path, test_pattern_matcher)
             if m:
-                end_package.modules.append(m)
+                end_package.append_module(m)
             else:
                 failed_imports.add(f)
-    return test_package, failed_imports
+    return package_, failed_imports
 
 
-def discover_package(importable: str, test_pattern_matcher, test_package_list: TestPackages = None) -> tuple:
-    sequential_modules = set()
-    parallel_modules = set()
-    failed_imports = set()
-    try:
-        test_package = importlib.import_module(importable.replace(os.sep, '.'))
-        items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
-        shuffle(items)
-        test_package_list_ = test_package_list or TestPackages(test_package)
-        test_package_list_.append(test_package)
-        for item in items:
-            full_path = os.path.join(importable, item)
-            if os.path.isdir(full_path):
-                test_package_list__ = test_package_list_.slice()
-                sm, pm, fi = discover_package(full_path, test_pattern_matcher, test_package_list__)
-                sequential_modules |= sm
-                parallel_modules |= pm
-                failed_imports |= fi
-            elif full_path.endswith('.py'):
-                m, fi = discover_module(full_path, test_pattern_matcher, test_package_list_)
-                if m:
-                    if m.run_mode is RunMode.SEQUENTIAL:
-                        sequential_modules.add(m)
-                    else:
-                        parallel_modules.add(m)
-                else:
-                    failed_imports.add(fi)
-    except Exception as e:
-        failed_imports.add(f'Failed to load {importable} - {e}')
-    return sequential_modules, parallel_modules, failed_imports
+# def discover_package(importable: str, test_pattern_matcher, test_package_list: TestPackages = None) -> tuple:
+#     sequential_modules = set()
+#     parallel_modules = set()
+#     failed_imports = set()
+#     try:
+#         test_package = importlib.import_module(importable.replace(os.sep, '.'))
+#         items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
+#         shuffle(items)
+#         test_package_list_ = test_package_list or TestPackages(test_package)
+#         test_package_list_.append(test_package)
+#         for item in items:
+#             full_path = os.path.join(importable, item)
+#             if os.path.isdir(full_path):
+#                 test_package_list__ = test_package_list_.slice()
+#                 sm, pm, fi = discover_package(full_path, test_pattern_matcher, test_package_list__)
+#                 sequential_modules |= sm
+#                 parallel_modules |= pm
+#                 failed_imports |= fi
+#             elif full_path.endswith('.py'):
+#                 m, fi = discover_module(full_path, test_pattern_matcher, test_package_list_)
+#                 if m:
+#                     if m.run_mode is RunMode.SEQUENTIAL:
+#                         sequential_modules.add(m)
+#                     else:
+#                         parallel_modules.add(m)
+#                 else:
+#                     failed_imports.add(fi)
+#     except Exception as e:
+#         failed_imports.add(f'Failed to load {importable} - {e}')
+#     return sequential_modules, parallel_modules, failed_imports
 
 
-def discover_module(importable: str, test_pattern_matcher, test_package_list: TestPackages) -> Tuple[TestModule, str]:
+def discover_module(importable: str, test_pattern_matcher) -> Tuple[TestModule, str]:
     """
     >>> from src.pattern_matchers import PatternMatcherBase
     >>> from src.models.test_popo import TestPackages
@@ -170,7 +177,7 @@ def discover_module(importable: str, test_pattern_matcher, test_package_list: Te
     try:
         module = importlib.import_module(module_str)
         groups = discover_groups(module, test_pattern_matcher)
-        test_module = TestModule(module, groups, ignored_tests=set(test_pattern_matcher.excluded_items), test_package_list=test_package_list)
+        test_module = TestModule(module, groups, ignored_tests=set(test_pattern_matcher.excluded_items))
         if test_module.run_mode not in RunMode:
             error = f'{test_module.run_mode} is not a valid RunMode'
             raise Exception(error)
@@ -223,7 +230,6 @@ def discover_groups(test_module, test_pattern_matcher) -> TestGroups:
         if inspect.isclass(attribute) and name.startswith('Group'):
             group.append(name, discover_groups(attribute, test_pattern_matcher))
     return group
-
 
 
 def discover_parameterized_test_range(test_name: str, parameterized_list: list) -> range:
