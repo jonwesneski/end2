@@ -104,18 +104,24 @@ def discover_packages2(importable: str, test_pattern_matcher, test_package: Test
     else:
         for i in range(len(names)):
             package_names.append(".".join(names[:i+1]))
-    new_package = importlib.import_module(package_names[0])
-    if test_package:
-        package_ = test_package
-        package_.tail(new_package)
+    if test_package and test_package.name == importable:
+        # Handling same package conflict
+        new_package = None
+        end_package = test_package
     else:
-        package_ = TestPackage(new_package)
-    for package_name in package_names[1:]:
-        new_package = importlib.import_module(package_name)
-        package_.tail(new_package)
+        new_package = importlib.import_module(package_names[0])
+    if new_package:
+        if test_package:
+            package_ = test_package
+            package_.tail(new_package)
+        else:
+            package_ = TestPackage(new_package)
+        for package_name in package_names[1:]:
+            new_package = importlib.import_module(package_name)
+            package_.tail(new_package)
+        end_package = package_.find(package_names[-1])
     items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
     shuffle(items)
-    end_package = package_.find(package_names[-1])
     for item in items:
         full_path = os.path.join(importable, item)
         if os.path.isdir(full_path):

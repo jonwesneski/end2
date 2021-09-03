@@ -195,7 +195,7 @@ class TestPackageTree:
                         if sub_package.name == rhs:
                             return sub_package
 
-        def append(self, package):
+        def append(self, package) -> None:
             found_package = self.find(package)
             if found_package:
                 self.merge(found_package, package)
@@ -206,17 +206,31 @@ class TestPackageTree:
                 else:
                     self.packages.append(package)
 
-        def merge(self, lhs, rhs):
-            for rm in rhs.modules:
+        def merge(self, lhs, rhs) -> None:
+            for rm in rhs.sequential_modules:
                 updated = False
-                for lm in lhs.modules:
+                for lm in lhs.sequential_modules:
                     updated = False
                     if lm == rm:
                         updated = True
                         lm.update(rm)
                         break
                 if not updated:
-                    lhs.modules.append(rm)
+                    lhs.sequential_modules.append(rm)
+            for i, lhs_sp in enumerate(lhs.sub_packages):
+                if len(rhs.sub_packages) - 1 > i:
+                    self.merge(lhs_sp, rhs.sub_packages[i])
+
+            for rm in rhs.parallel_modules:
+                updated = False
+                for lm in lhs.parallel_modules:
+                    updated = False
+                    if lm == rm:
+                        updated = True
+                        lm.update(rm)
+                        break
+                if not updated:
+                    lhs.parallel_modules.append(rm)
             for i, lhs_sp in enumerate(lhs.sub_packages):
                 if len(rhs.sub_packages) - 1 > i:
                     self.merge(lhs_sp, rhs.sub_packages[i])
