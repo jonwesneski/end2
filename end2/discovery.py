@@ -129,16 +129,6 @@ def discover_module(importable: str, test_pattern_matcher: PatternMatcherBase) -
 
 
 def discover_tests(module, test_pattern_matcher: PatternMatcherBase) -> dict:
-    """
-    >>> from end2.pattern_matchers import DefaultTestCasePatternMatcher
-    >>> matcher = DefaultTestCasePatternMatcher([], '', True)
-    >>> from examples.simple.smoke import sample1
-    >>> tests = discover_tests(sample1, matcher)
-    >>> assert tests
-    >>> matcher = DefaultTestCasePatternMatcher(['test_1', 'test_2'], '', True)
-    >>> tests = discover_tests(sample1, matcher)
-    >>> assert len(tests) == 2
-    """
     tests = {}
     setup_test_ = get_fixture(module, setup_test.__name__)
     teardown_test_ = get_fixture(module, teardown_test.__name__)
