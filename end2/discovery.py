@@ -16,7 +16,7 @@ from end2.enums import (
     RunMode
 )
 from end2.exceptions import MoreThan1FixtureException
-from end2.models.test_popo import (
+from end2.models.testing_container import (
     TestGroups,
     TestMethod,
     TestModule,
@@ -109,7 +109,7 @@ def discover_packages(importable: str, test_pattern_matcher: PatternMatcherBase,
 def discover_module(importable: str, test_pattern_matcher: PatternMatcherBase) -> Tuple[TestModule, str]:
     """
     >>> from src.pattern_matchers import PatternMatcherBase
-    >>> from src.models.test_popo import TestPackage
+    >>> from src.models.testing_container import TestPackage
     >>> matcher = PatternMatcherBase([], '', True)
     >>> module, error_str = discover_module(os.path.join('examples', 'simple', 'smoke', 'sample1'), matcher, TestPackage())
     >>> assert module and error_str == ''
