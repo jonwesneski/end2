@@ -34,8 +34,6 @@ def _shuffle_dict(dict_: dict) -> dict:
 
 def discover_suite(paths):    
     importables = _shuffle_dict(paths)
-    # sequential_modules = set()
-    # parallel_modules = set()
     failed_imports = set()
     package_tree = TestPackageTree()
     for importable, test_pattern_matcher in importables.items():
