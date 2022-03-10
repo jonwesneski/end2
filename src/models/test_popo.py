@@ -49,7 +49,7 @@ class TestGroups:
     def append(self, group) -> None:
         self.children.append(group)
 
-    def update(self, same_group):
+    def update(self, same_group) -> None:
         for ignored in same_group.ignored_tests:
             self.tests.pop(ignored, None)
         self.tests.update(same_group.tests)
@@ -108,7 +108,7 @@ class TestModule:
     def __hash__(self) -> int:
         return id(self.module)
 
-    def update(self, same_module):
+    def update(self, same_module) -> None:
         for ignored in same_module.ignored_tests:
             for group in self.groups:
                 for child in group.children:
@@ -138,27 +138,27 @@ class TestPackage:
     def __eq__(self, o) -> bool:
         return self.name == o.name
 
-    def setup(self):
+    def setup(self) -> None:
         self.setup_func(self.package_object)
 
-    def teardown(self):
+    def teardown(self) -> None:
         self.teardown_func(self.package_object)
 
-    def append(self, package):
+    def append(self, package) -> None:
         package_object = DynamicMroMixin.add_mixin(package.__name__, self.package_object)
         self.sub_packages.append(TestPackage(package, package_object=package_object))
 
-    def append_module(self, module: TestModule):
+    def append_module(self, module: TestModule) -> None:
         if module.is_parallel:
             self.parallel_modules.add(module)
         else:
             self.sequential_modules.add(module)
 
-    def tail(self, package, index: int = -1):
+    def tail(self, package, index: int = -1) -> None:
         package_object = DynamicMroMixin.add_mixin(package.__name__, self.package_object)
         self._tail(TestPackage(package, package_object=package_object), index)
 
-    def _tail(self, package, index: int = -1):
+    def _tail(self, package, index: int = -1) -> None:
         sub_packages = self.sub_packages
         if sub_packages:
             sub_package = sub_packages[index]
