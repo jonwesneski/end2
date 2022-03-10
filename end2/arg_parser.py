@@ -99,24 +99,6 @@ class SuiteArg:
 
     @staticmethod
     def _resolve_paths(paths: set, suite_aliases: dict, disabled_suites: list) -> set:
-        '''
-        >>> SuiteArg._resolve_paths({'a'}, {'a': 'b'}, [])
-        {'b'}
-        >>> SuiteArg._resolve_paths({'a', 'b'}, {'a': 'b'}, [])
-        {'b'}
-        >>> SuiteArg._resolve_paths({'a', 'b'}, {'a': 'c'}, []) ^ {'b', 'c'}
-        set()
-        >>> SuiteArg._resolve_paths({'a', 'b', 'c'}, {}, []) ^ {'a', 'b', 'c'}
-        set()
-        >>> SuiteArg._resolve_paths({'a'}, {'a': 'b c', 'b': 'd', 'c': 'e'}, []) ^ {'d', 'e'}
-        set()
-        >>> SuiteArg._resolve_paths({'a'}, {'a': 'b'}, ['b'])
-        set()
-        >>> SuiteArg._resolve_paths({'a', 'b'}, {'a': 'b'}, ['a'])
-        {'b'}
-        >>> SuiteArg._resolve_paths({'a'}, {'a': 'c'}, ['b']) ^ {'c'}
-        set()
-        '''
         paths_ = set()
         for path in paths:
             if path not in disabled_suites:
@@ -136,8 +118,3 @@ class SuiteArg:
             temp_["included_modules"][k] = str(v)
         temp_["excluded_modules"] = self.excluded_modules
         return str(temp_)
-
-
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()
