@@ -107,15 +107,6 @@ def discover_packages(importable: str, test_pattern_matcher: PatternMatcherBase,
 
 
 def discover_module(importable: str, test_pattern_matcher: PatternMatcherBase) -> Tuple[TestModule, str]:
-    """
-    >>> from end2.pattern_matchers import PatternMatcherBase
-    >>> from end2.models.testing_container import TestPackage
-    >>> matcher = PatternMatcherBase([], '', True)
-    >>> module, error_str = discover_module(os.path.join('examples', 'simple', 'smoke', 'sample1'), matcher, TestPackage())
-    >>> assert module and error_str == ''
-    >>> module, error_str = discover_module('examples.dont_exist', matcher, TestPackage())
-    >>> assert module is None and error_str
-    """
     test_module, error_str = None, ''
     module_str = importable.replace('.py', '').replace(os.sep, '.')
     try:
