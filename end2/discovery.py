@@ -108,8 +108,8 @@ def discover_packages(importable: str, test_pattern_matcher: PatternMatcherBase,
 
 def discover_module(importable: str, test_pattern_matcher: PatternMatcherBase) -> Tuple[TestModule, str]:
     """
-    >>> from src.pattern_matchers import PatternMatcherBase
-    >>> from src.models.testing_container import TestPackage
+    >>> from end2.pattern_matchers import PatternMatcherBase
+    >>> from end2.models.testing_container import TestPackage
     >>> matcher = PatternMatcherBase([], '', True)
     >>> module, error_str = discover_module(os.path.join('examples', 'simple', 'smoke', 'sample1'), matcher, TestPackage())
     >>> assert module and error_str == ''
@@ -139,7 +139,7 @@ def discover_module(importable: str, test_pattern_matcher: PatternMatcherBase) -
 
 def discover_tests(module, test_pattern_matcher: PatternMatcherBase) -> dict:
     """
-    >>> from src.pattern_matchers import DefaultTestCasePatternMatcher
+    >>> from end2.pattern_matchers import DefaultTestCasePatternMatcher
     >>> matcher = DefaultTestCasePatternMatcher([], '', True)
     >>> from examples.simple.smoke import sample1
     >>> tests = discover_tests(sample1, matcher)

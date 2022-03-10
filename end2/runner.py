@@ -318,7 +318,7 @@ class TestMethodRun:
 
 def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     """
-    >>> from src.logger import empty_logger
+    >>> from end2.logger import empty_logger
     >>> def test_1():
     ...     assert True
     >>> result = run_test_func(empty_logger, test_1)
@@ -365,7 +365,7 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
 
 async def run_async_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     """
-    >>> from src.logger import empty_logger
+    >>> from end2.logger import empty_logger
     >>> import asyncio
     >>> loop = asyncio.get_event_loop()
     >>> async def test_1():
