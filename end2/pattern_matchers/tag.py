@@ -1,4 +1,4 @@
-from src.pattern_matchers.default import DefaultModulePatternMatcher
+from end2.pattern_matchers.default import DefaultModulePatternMatcher
 
 
 class TagModulePatternMatcher(DefaultModulePatternMatcher):

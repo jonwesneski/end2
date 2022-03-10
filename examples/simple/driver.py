@@ -3,8 +3,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join('..', '..'))
-from src.runner import start_test_run
-from src.arg_parser import default_parser
+from end2.runner import start_test_run
+from end2.arg_parser import default_parser
 
 
 

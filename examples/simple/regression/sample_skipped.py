@@ -1,4 +1,4 @@
-from src import (
+from end2 import (
     RunMode,
     setup
 )

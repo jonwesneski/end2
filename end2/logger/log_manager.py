@@ -11,8 +11,8 @@ import subprocess
 import sys
 
 
-from src.enums import Status
-from src.models.result import (
+from end2.enums import Status
+from end2.models.result import (
     Result,
     TestMethodResult,
     TestModuleResult,

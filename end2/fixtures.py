@@ -1,7 +1,7 @@
 import functools
 
-from src.enums import FUNCTION_TYPE
-from src.exceptions import MoreThan1FixtureException
+from end2.enums import FUNCTION_TYPE
+from end2.exceptions import MoreThan1FixtureException
 
 
 def setup_module(func):

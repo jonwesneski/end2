@@ -1,5 +1,5 @@
-from src.fixtures import setup
-from src import (
+from end2.fixtures import setup
+from end2 import (
     RunMode,
     setup,
     setup_test,

@@ -8,24 +8,24 @@ from typing import (
     Tuple
 )
 
-from src import exceptions
-from src.discovery import discover_suite
-from src.enums import Status
-from src.logger import SuiteLogManager
-from src.models.result import (
+from end2 import exceptions
+from end2.discovery import discover_suite
+from end2.enums import Status
+from end2.logger import SuiteLogManager
+from end2.models.result import (
     Result,
     TestMethodResult,
     TestModuleResult,
     TestSuiteResult,
 )
-from src.models.test_popo import (
+from end2.models.test_popo import (
     DynamicMroMixin,
     TestGroups,
     TestMethod,
     TestModule,
     TestPackageTree
 )
-from src.resource_profile import create_last_run_rc
+from end2.resource_profile import create_last_run_rc
 
 
 def default_test_parameters(logger, package_object) -> Tuple[tuple, dict]:

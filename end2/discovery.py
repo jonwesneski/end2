@@ -4,26 +4,26 @@ import os
 from random import shuffle
 from typing import Tuple
 
-from src.fixtures import (
+from end2.fixtures import (
     get_fixture,
     setup,
     setup_test,
     teardown,
     teardown_test
 )
-from src.enums import (
+from end2.enums import (
     FUNCTION_TYPE,
     RunMode
 )
-from src.exceptions import MoreThan1FixtureException
-from src.models.test_popo import (
+from end2.exceptions import MoreThan1FixtureException
+from end2.models.test_popo import (
     TestGroups,
     TestMethod,
     TestModule,
     TestPackage,
     TestPackageTree
 )
-from src.pattern_matchers import PatternMatcherBase
+from end2.pattern_matchers import PatternMatcherBase
 
 
 def _shuffle_dict(dict_: dict) -> dict:

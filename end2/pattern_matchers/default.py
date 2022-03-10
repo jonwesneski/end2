@@ -1,4 +1,4 @@
-from src.pattern_matchers.base import PatternMatcherBase
+from end2.pattern_matchers.base import PatternMatcherBase
 
 
 class DefaultModulePatternMatcher(PatternMatcherBase):

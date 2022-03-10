@@ -1,5 +1,5 @@
-from src.enums import RunMode
-from src import (
+from end2.enums import RunMode
+from end2 import (
     parameterize,
     RunMode,
     setup,
