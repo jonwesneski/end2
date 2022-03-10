@@ -1,5 +1,5 @@
 
-from src import setup, teardown
+from end2 import setup, teardown
 
 
 @setup

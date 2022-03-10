@@ -1,7 +1,7 @@
 import os
 import traceback
 
-from src import (
+from end2 import (
     arg_parser,
     discovery,
     logger,

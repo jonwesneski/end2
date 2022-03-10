@@ -8,24 +8,24 @@ from typing import (
     Tuple
 )
 
-from src import exceptions
-from src.discovery import discover_suite
-from src.enums import Status
-from src.logger import SuiteLogManager
-from src.models.result import (
+from end2 import exceptions
+from end2.discovery import discover_suite
+from end2.enums import Status
+from end2.logger import SuiteLogManager
+from end2.models.result import (
     Result,
     TestMethodResult,
     TestModuleResult,
     TestSuiteResult,
 )
-from src.models.test_popo import (
+from end2.models.testing_container import (
     DynamicMroMixin,
     TestGroups,
     TestMethod,
     TestModule,
     TestPackageTree
 )
-from src.resource_profile import create_last_run_rc
+from end2.resource_profile import create_last_run_rc
 
 
 def default_test_parameters(logger, package_object) -> Tuple[tuple, dict]:
@@ -318,7 +318,7 @@ class TestMethodRun:
 
 def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     """
-    >>> from src.logger import empty_logger
+    >>> from end2.logger import empty_logger
     >>> def test_1():
     ...     assert True
     >>> result = run_test_func(empty_logger, test_1)
@@ -365,7 +365,7 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
 
 async def run_async_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     """
-    >>> from src.logger import empty_logger
+    >>> from end2.logger import empty_logger
     >>> import asyncio
     >>> loop = asyncio.get_event_loop()
     >>> async def test_1():

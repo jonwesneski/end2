@@ -3,7 +3,7 @@ from distutils.core import setup
 
 setup(
     name = 'end2',
-    packages = ['src'],
+    packages = ['end2'],
     version = '1.0',
     license='MIT',        # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     description = 'A Minimal E2E Test Automation Framework',

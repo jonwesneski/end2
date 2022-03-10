@@ -1,5 +1,5 @@
 from invalid.module
-from src import RunMode
+from end2 import RunMode
 
 
 __run_mode__ = RunMode.PARALLEL

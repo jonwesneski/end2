@@ -1,7 +1,7 @@
 from configparser import ConfigParser
 import os
 
-from src.enums import Status
+from end2.enums import Status
 
 
 _PRODUCT_NAME = 'end2'

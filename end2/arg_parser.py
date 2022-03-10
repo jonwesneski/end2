@@ -1,10 +1,10 @@
 import argparse
 
-from src.resource_profile import (
+from end2.resource_profile import (
     get_last_run_rc,
     get_rc
 )
-from src.pattern_matchers import (
+from end2.pattern_matchers import (
     PatternMatcherBase,
     DefaultModulePatternMatcher,
     DefaultTestCasePatternMatcher,
