@@ -1,7 +1,7 @@
 # end² Test Automation Framework
 The focus of this framework is:
 - A Minimal framework with easy learning curve
-- More for E2E type of testing
+- More for E2E and/or Functional type of testing
 - For testing that has heavy logging and needs to analyze failures in logs rather than test case code
 - For folks that like programatic ways instead of plugins with configuration files
 
@@ -145,14 +145,14 @@ __run_mode__ = RunMode.SEQUENTIAL  # This is required for every test module
 
 
 def test_1(client, logger):
-    if client.something_not_ready():
+    if not client.something_ready():
         raise IgnoreTestException()  # You may ignore tests are runtime if necessary. No test result will be made
     assert client.get_stuff()
     logger.info('Hi')
 
 
 async def test_2(client, logger):  # Both sync and async test methods can exist in the same file
-    if client.something_else_not_ready():
+    if not client.something_else_ready():
         raise SkipTestException("thing not ready")  # You may skip tests are runtime if necessary as well.
     actual = await client.get_stuff()               # A test result will be made with status of skipped and the
     assert actual == "some expected data"           # message of what was supplied in the SkipTestException()
@@ -272,7 +272,7 @@ def test_1(logger, package_globals):
 - [x] support async fixtures
 - [x] support setup_test and teardown test again
 - [x] test groups
-- [ ] move package setup/teardown to suiterun
+- [x] move package setup/teardown to suiterun
 - [ ] be able to overwrite test_parameters_func in `packages/__init__.py`
 - [x] make runner use suitelogmanager again
 - [x] .testingrc or maybe setting.conf (have this file as a profile with setting about how to configure runner)

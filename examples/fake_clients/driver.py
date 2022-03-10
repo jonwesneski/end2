@@ -57,6 +57,7 @@ class AsyncClient:
     async def delete(self):
         await self._sleep()
 
+
 if __name__ == '__main__':
     # Run from inside examples\fake_client
     ## --suite regression\\sample4.py::test_11

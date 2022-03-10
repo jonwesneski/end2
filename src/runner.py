@@ -9,7 +9,7 @@ from typing import (
 )
 
 from src import exceptions
-from src.discovery import discover_suite2
+from src.discovery import discover_suite
 from src.enums import Status
 from src.logger import SuiteLogManager
 from src.models.result import (
@@ -19,6 +19,7 @@ from src.models.result import (
     TestSuiteResult,
 )
 from src.models.test_popo import (
+    DynamicMroMixin,
     TestGroups,
     TestMethod,
     TestModule,
@@ -33,7 +34,7 @@ def default_test_parameters(logger, package_object) -> Tuple[tuple, dict]:
 
 def create_test_run(args, test_parameters_func=default_test_parameters
                     , log_manager: SuiteLogManager = None) -> Tuple[TestSuiteResult, Tuple[str]]:
-    test_packages, failed_imports = discover_suite2(args.suite.modules)
+    test_packages, failed_imports = discover_suite(args.suite.modules)
     suite_run = SuiteRun(args, test_parameters_func, test_packages, log_manager)
     return suite_run, failed_imports
 
@@ -48,12 +49,6 @@ class SuiteRun:
     def __init__(self, args, test_parameters_func, test_packages: Tuple[TestPackageTree], log_manager: SuiteLogManager = None) -> None:
         self.args = args
         self.test_parameters_func = test_parameters_func
-        # if self.args.no_concurrency:
-        #     self.sequential_modules = sequential_modules + parallel_modules
-        #     self.parallel_modules = tuple()
-        # else:
-        #     self.sequential_modules = sequential_modules
-        #     self.parallel_modules = parallel_modules
         self.test_packages = test_packages
         self.allow_concurrency = not self.args.no_concurrency
         self.name = 'suite_run'
@@ -66,6 +61,7 @@ class SuiteRun:
         self.results = TestSuiteResult(self.name)
         try:
             for package in self.test_packages:
+                package.setup()
                 if self.allow_concurrency:
                     sequential_modules = package.sequential_modules
                     parallel_modules = package.parallel_modules
@@ -73,17 +69,18 @@ class SuiteRun:
                     sequential_modules = sequential_modules + parallel_modules
                     parallel_modules = tuple()
                 for test_module in sequential_modules:
-                    module_run = TestModuleRun(self.test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail)
+                    module_run = TestModuleRun(self.test_parameters_func, test_module, self.log_manager, package.package_object, self.args.stop_on_fail)
                     self.results.append(module_run.run())
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.max_workers) as executor:
                     futures = [
                         executor.submit(
-                            TestModuleRun(self.test_parameters_func, test_module, self.log_manager, self.args.stop_on_fail, executor).run)
+                            TestModuleRun(self.test_parameters_func, test_module, self.log_manager, package.package_object, self.args.stop_on_fail, executor).run)
                         for test_module in parallel_modules
                     ]
                     for future in futures:
                         self.results.append(future.result())
+                package.teardown()
         except exceptions.StopTestRunException as stre:
             self.logger.critical(stre)
         self.results.end()
@@ -94,15 +91,16 @@ class SuiteRun:
 
 class TestModuleRun:
     def __init__(self, test_parameters_func, module: TestModule, log_manager: SuiteLogManager
-                 , stop_on_fail: bool, concurrent_executor: concurrent.futures.ThreadPoolExecutor = None) -> None:
+                 , package_object: DynamicMroMixin, stop_on_fail: bool
+                 , concurrent_executor: concurrent.futures.ThreadPoolExecutor = None) -> None:
         self.test_parameters_func = test_parameters_func
         self.module = module
         self.log_manager = log_manager
+        self.package_object = package_object
         self.stop_on_fail = stop_on_fail
         self.concurrent_executor = concurrent_executor
 
     def run(self) -> TestModuleResult:
-        self.module.test_package_list.setup()
         result = TestModuleResult(self.module)
         setup_results, test_results, teardown_results = self.run_group(self.module.groups)
         result.setups = setup_results
@@ -110,7 +108,6 @@ class TestModuleRun:
         result.teardowns = teardown_results
         result.end()
         self.log_manager.on_module_done(result)
-        self.module.test_package_list.teardown()
         return result
 
     def run_group(self, group: TestGroups) -> Tuple[List[Result], List[TestMethodResult], List[Result]]:
@@ -139,7 +136,7 @@ class TestModuleRun:
 
     def setup(self, setup_func) -> Result:
         setup_logger = self.log_manager.get_setup_logger(self.module.name)
-        args, kwargs = self.test_parameters_func(setup_logger, self.module.test_package_list.package_object)
+        args, kwargs = self.test_parameters_func(setup_logger, self.package_object)
         result = run_test_func(setup_logger, setup_func, *args, **kwargs)
         self.log_manager.on_setup_module_done(self.module.name, result.to_base())
         return result
@@ -157,7 +154,7 @@ class TestModuleRun:
         
         routines, coroutines = [], []
         for k, test in group.tests.items():
-            test_run = TestMethodRun(test, self.test_parameters_func, self.log_manager, self.module.name, self.module.test_package_list.package_object)
+            test_run = TestMethodRun(test, self.test_parameters_func, self.log_manager, self.module.name, self.package_object)
             if inspect.iscoroutinefunction(test.func):
                 coroutines.append(test_run)
             else:
@@ -217,7 +214,7 @@ class TestModuleRun:
 
     def teardown(self, teardown_func) -> Result:
         teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
-        args, kwargs = self.test_parameters_func(teardown_logger, self.module.test_package_list.package_object)
+        args, kwargs = self.test_parameters_func(teardown_logger, self.package_object)
         result = run_test_func(teardown_logger, teardown_func, *args, **kwargs)
         self.log_manager.on_teardown_module_done(self.module.name, result.to_base())
         return result
@@ -225,7 +222,7 @@ class TestModuleRun:
 
 class TestMethodRun:
     def __init__(self, test_method: TestMethod, test_parameters_func
-                 , log_manager: SuiteLogManager,  module_name: str, package_object) -> None:
+                 , log_manager: SuiteLogManager,  module_name: str, package_object: DynamicMroMixin) -> None:
         self.test_method = test_method
         self.test_parameters_func = test_parameters_func
         self.log_manager = log_manager
