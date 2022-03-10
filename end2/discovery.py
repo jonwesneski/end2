@@ -107,15 +107,6 @@ def discover_packages(importable: str, test_pattern_matcher: PatternMatcherBase,
 
 
 def discover_module(importable: str, test_pattern_matcher: PatternMatcherBase) -> Tuple[TestModule, str]:
-    """
-    >>> from end2.pattern_matchers import PatternMatcherBase
-    >>> from end2.models.testing_container import TestPackage
-    >>> matcher = PatternMatcherBase([], '', True)
-    >>> module, error_str = discover_module(os.path.join('examples', 'simple', 'smoke', 'sample1'), matcher, TestPackage())
-    >>> assert module and error_str == ''
-    >>> module, error_str = discover_module('examples.dont_exist', matcher, TestPackage())
-    >>> assert module is None and error_str
-    """
     test_module, error_str = None, ''
     module_str = importable.replace('.py', '').replace(os.sep, '.')
     try:
@@ -138,16 +129,6 @@ def discover_module(importable: str, test_pattern_matcher: PatternMatcherBase) -
 
 
 def discover_tests(module, test_pattern_matcher: PatternMatcherBase) -> dict:
-    """
-    >>> from end2.pattern_matchers import DefaultTestCasePatternMatcher
-    >>> matcher = DefaultTestCasePatternMatcher([], '', True)
-    >>> from examples.simple.smoke import sample1
-    >>> tests = discover_tests(sample1, matcher)
-    >>> assert tests
-    >>> matcher = DefaultTestCasePatternMatcher(['test_1', 'test_2'], '', True)
-    >>> tests = discover_tests(sample1, matcher)
-    >>> assert len(tests) == 2
-    """
     tests = {}
     setup_test_ = get_fixture(module, setup_test.__name__)
     teardown_test_ = get_fixture(module, teardown_test.__name__)
@@ -177,26 +158,6 @@ def discover_groups(test_module, test_pattern_matcher: PatternMatcherBase) -> Te
 
 
 def discover_parameterized_test_range(test_name: str, parameterized_list: list) -> range:
-    """
-    >>> x = [1, 2, 3, 4, 5, 6, 7, 8]
-    >>> assert discover_parameterized_test_range('test_1', x) == range(len(x))
-    >>> discover_parameterized_test_range('test_1[0]', x)
-    range(0, 1)
-    >>> assert discover_parameterized_test_range('test_1[-1:]', x) == range(-1, len(x))
-    >>> assert discover_parameterized_test_range('test_1[:-1]', x) == range(0, len(x)-1)
-    >>> assert discover_parameterized_test_range('test_1', x) == range(len(x))
-    >>> assert discover_parameterized_test_range('test_1[::-1]', x) == range(0, len(x), -1)
-    >>> discover_parameterized_test_range('test_1[1:1:1]', x)
-    range(1, 1)
-    >>> discover_parameterized_test_range('test_1[]', x)
-    range(0, 0)
-    >>> discover_parameterized_test_range('test_1[', x)
-    range(0, 0)
-    >>> discover_parameterized_test_range('test_1]', x)
-    range(0, 0)
-    >>> discover_parameterized_test_range('test_1][', x)
-    range(0, 0)
-    """
     open_bracket_index = test_name.find('[') + 1
     close_bracket_index = -1
     range_ = range(0)

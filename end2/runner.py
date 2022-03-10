@@ -317,29 +317,6 @@ class TestMethodRun:
 
 
 def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
-    """
-    >>> from end2.logger import empty_logger
-    >>> def test_1():
-    ...     assert True
-    >>> result = run_test_func(empty_logger, test_1)
-    >>> result.status == Status.PASSED and result.message == "" and result.end_time is not None
-    True
-    >>> def test_2(a):
-    ...     assert False
-    >>> result = run_test_func(empty_logger, test_2, 1)
-    >>> result.status == Status.FAILED and result.message != "" and result.end_time is not None
-    True
-    >>> def test_3(a, b):
-    ...     raise exceptions.SkipTestException("I skip")
-    >>> result = run_test_func(empty_logger, test_3, a=1, b=2)
-    >>> result.status == Status.SKIPPED and result.message == "I skip" and result.end_time is not None
-    True
-    >>> def test_4(a, b, c):
-    ...     raise Exception("Error")
-    >>> result = run_test_func(empty_logger, test_4, 1, 2, 3)
-    >>> result.status == Status.FAILED and "Encountered an exception" in result.message and result.end_time is not None
-    True
-    """
     result = TestMethodResult(func.__name__, status=Status.FAILED)
     try:
         func(*args, **kwargs)
@@ -364,31 +341,6 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
 
 
 async def run_async_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
-    """
-    >>> from end2.logger import empty_logger
-    >>> import asyncio
-    >>> loop = asyncio.get_event_loop()
-    >>> async def test_1():
-    ...     assert True
-    >>> result = loop.run_until_complete(run_async_test_func(empty_logger, test_1))
-    >>> result.status == Status.PASSED and result.message == "" and result.end_time is not None
-    True
-    >>> def test_2(a):
-    ...     assert False
-    >>> result = loop.run_until_complete(run_async_test_func(empty_logger, test_2, 1))
-    >>> result.status == Status.FAILED and result.message != "" and result.end_time is not None
-    True
-    >>> def test_3(a, b):
-    ...     raise exceptions.SkipTestException("I skip")
-    >>> result = loop.run_until_complete(run_async_test_func(empty_logger, test_3, a=1, b=2))
-    >>> result.status == Status.SKIPPED and result.message == "I skip" and result.end_time is not None
-    True
-    >>> def test_4(a, b, c):
-    ...     raise Exception("Error")
-    >>> result = loop.run_until_complete(run_async_test_func(empty_logger, test_4, 1, 2, 3))
-    >>> result.status == Status.FAILED and "Encountered an exception" in result.message and result.end_time is not None
-    True
-    """
     result = TestMethodResult(func.__name__, status=Status.FAILED)
     try:
         await func(*args, **kwargs)
