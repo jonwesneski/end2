@@ -5,162 +5,51 @@ from random import shuffle
 from typing import Tuple
 
 from src.fixtures import (
+    get_fixture,
     setup,
     setup_test,
     teardown,
     teardown_test
 )
-from src.enums import RunMode
+from src.enums import (
+    FUNCTION_TYPE,
+    RunMode
+)
 from src.exceptions import MoreThan1FixtureException
 from src.models.test_popo import (
     TestGroups,
-    empty_func,
     TestMethod,
     TestModule,
-    TestPackages
+    TestPackage,
+    TestPackageTree
 )
+from src.pattern_matchers import PatternMatcherBase
 
 
-FUNCTION_TYPE = type(lambda: None)
-
-def a():
-    raise
 def _shuffle_dict(dict_: dict) -> dict:
     list_ = list(dict_.items())
     shuffle(list_)
     return dict(list_)
 
-def discover_suite2():
-    class TestPackageTree:
-        def __init__(self, package = None, modules = None):
-            self.packages = [TestPackage(package, modules)] if package else []
 
-        def find(self, rhs):
-            for package in self.packages:
-                if package == rhs:
-                    return package
-                elif package.sub_packages:
-                    for sub_package in package.sub_packages:
-                        if sub_package == rhs:
-                            return sub_package
-
-        def find_by_str(self, rhs: str):
-            for package in self.packages:
-                if package.name == rhs:
-                    return package
-                elif package.sub_packages:
-                    for sub_package in package.sub_packages:
-                        if sub_package.name == rhs:
-                            return sub_package
-
-        def append(self, package):
-            found_package = self.find(package)
-            if found_package:
-                self.merge(found_package, package)
-            else:
-                found_parent = self.find_by_str(".".join(package.name.split('.'))[:-1])
-                if found_parent:
-                    found_parent.sub_packages.append(package)
-                else:
-                    self.packages.append(package)
-            print('found', found_package.name if found_package else None)
-
-        def merge(self, lhs, rhs):
-            for rm in rhs.modules:
-                updated = False
-                for lm in lhs.modules:
-                    updated = False
-                    if lm == rm:
-                        updated = True
-                        lm.update(rm)
-                        break
-                if not updated:
-                    lhs.modules.append(rm)
-            for i, lhs_sp in enumerate(lhs.sub_packages):
-                self.merge(lhs_sp, rhs.sub_packages[i])
-
-    class TestPackage:
-        def __init__(self, package, modules = None):
-            self.package = package
-            self.name = self.package.__name__
-            self.description = self.package.__doc__
-            self.suite_object = None
-            self.modules = modules or []
-            self.sub_packages = []
-
-        def __eq__(self, o) -> bool:
-            return self.name == o.name
-
-        def append(self, package):
-            self.sub_packages.append(TestPackage(package))
-
-        def tail(self, package, index: int = -1):
-            self._tail(TestPackage(package), index)
-
-        def _tail(self, package, index: int = -1):
-            sub_packages = self.sub_packages
-            if sub_packages:
-                sub_package = sub_packages[index]
-                sub_package._tail(package, -1)
-            else:
-                self.sub_packages.append(package)
-
-        def last(self, index: int = -1):
-            if not self.sub_packages:
-                return self
-            sub_package = self.sub_packages[index]
-            while sub_package.sub_packages:
-                sub_package = sub_package.sub_packages[-1]
-            return sub_package
-
-        def find(self, rhs: str, index: int = -1):
-            if self.name == rhs:
-                return self
-            elif self.sub_packages:
-                return self.sub_packages[index].find(rhs)
-
-    def discover_packages2(importable, test_pattern_matcher, test_package: TestPackage = None):
-        names = importable.replace(os.sep, '.').split('.')
-        package_names = []
-        if test_package:
-            package_names = [f'{test_package.name}.{names[-1]}']
-            # new_package = importlib.import_module(package_names[0])
-            # test_package.tail(new_package)
-        else:
-            for i in range(len(names)):
-                package_names.append(".".join(names[:i+1]))
-        new_package = importlib.import_module(package_names[0])
-        package_ = test_package or TestPackage(new_package)
-        for package_name in package_names[1:]:
-            new_package = importlib.import_module(package_name)
-            package_.tail(new_package)
-        print(package_names)
-        items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
-        shuffle(items)
-        end_package = package_.find(package_names[-1])
-        for item in items:
-            full_path = os.path.join(importable, item)
-            if os.path.isdir(full_path):
-                discover_packages2(full_path, test_pattern_matcher, end_package)
-            else:
-                pass#end_package.modules.append(discover_module(full_path, test_pattern_matcher))
-        return package_
-    
-    # importables = _shuffle_dict(paths)
+def discover_suite(paths):    
+    importables = _shuffle_dict(paths)
     # sequential_modules = set()
     # parallel_modules = set()
-    # failed_imports = set()
-    # for importable, test_pattern_matcher in importables.items():
+    failed_imports = set()
     package_tree = TestPackageTree()
-    for importable in ['examples\\package_objects\\package1\\package2a', 'examples\\package_objects\\package1']:
+    for importable, test_pattern_matcher in importables.items():
         package_name = importable.replace(os.sep, '.')
-        package = package_tree.find_by_str()
+        package = package_tree.find_by_str(package_name)
         if os.path.isdir(importable):
-            package_tree.append(discover_packages2(importable, package))
+            p, f = discover_packages(importable, test_pattern_matcher, package)
+            if p:
+                package_tree.append(p)
+            failed_imports |= f
         else:
             package_names = []
             if not package:
-                names = package.split('.')
+                names = package_name.split('.')
                 for i in range(len(names)):
                     package_names.append(".".join(names[:i+1]))
                 new_package = importlib.import_module(package_names[0])
@@ -168,80 +57,65 @@ def discover_suite2():
                 for package_name in package_names[1:]:
                     new_package = importlib.import_module(package_name)
                     package.tail(new_package)
-            package.modules.append(discover_module(importable, test_pattern_matcher))
-            package_tree.append(package)
-    return package_tree
-p = discover_suite2()
-print(p.packages[0].sub_package.sub_package.name)
-#exit()
-
-def discover_suite(paths: dict) -> tuple:
-    importables = _shuffle_dict(paths)
-    sequential_modules = set()
-    parallel_modules = set()
-    failed_imports = set()
-    for importable, test_pattern_matcher in importables.items():
-        if os.path.exists(importable):
-            if os.path.isdir(importable):
-                sm, pm, fi = discover_package(importable, test_pattern_matcher)
-                sequential_modules |= sm
-                parallel_modules |= pm
-                failed_imports |= fi
+            m, f = discover_module(importable, test_pattern_matcher)
+            if m:
+                package.append_module(m)
             else:
-                test_package = importlib.import_module(os.path.dirname(importable))
-                m, fi = discover_module(importable, test_pattern_matcher, TestPackages(test_package))
-                if m:
-                    if m.run_mode is RunMode.SEQUENTIAL:
-                        sequential_modules.add(m)
-                    else:
-                        parallel_modules.add(m)
-                else:
-                    failed_imports.add(fi)
-        else:
-            failed_imports.add(f"Path: {importable} does not exist")
-    return tuple(sequential_modules), tuple(parallel_modules), tuple(failed_imports)
+                failed_imports.add(f)
+            package_tree.append(package)
+    return package_tree, failed_imports
 
 
-def discover_package(importable: str, test_pattern_matcher, test_package_list: TestPackages = None) -> tuple:
-    sequential_modules = set()
-    parallel_modules = set()
+def discover_packages(importable: str, test_pattern_matcher: PatternMatcherBase, test_package: TestPackage = None) -> tuple:
+    names = importable.replace(os.sep, '.').split('.')
+    package_names = []
+    package_ = None
     failed_imports = set()
-    try:
-        test_package = importlib.import_module(importable.replace(os.sep, '.'))
-        items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
-        shuffle(items)
-        test_package_list_ = test_package_list or TestPackages(test_package)
-        test_package_list_.append(test_package)
-        for item in items:
-            full_path = os.path.join(importable, item)
-            if os.path.isdir(full_path):
-                test_package_list__ = test_package_list_.slice()
-                sm, pm, fi = discover_package(full_path, test_pattern_matcher, test_package_list__)
-                sequential_modules |= sm
-                parallel_modules |= pm
-                failed_imports |= fi
-            elif full_path.endswith('.py'):
-                m, fi = discover_module(full_path, test_pattern_matcher, test_package_list_)
-                if m:
-                    if m.run_mode is RunMode.SEQUENTIAL:
-                        sequential_modules.add(m)
-                    else:
-                        parallel_modules.add(m)
-                else:
-                    failed_imports.add(fi)
-    except Exception as e:
-        failed_imports.add(f'Failed to load {importable} - {e}')
-    return sequential_modules, parallel_modules, failed_imports
+    if test_package:
+        package_names = [f'{test_package.name}.{names[-1]}']
+    else:
+        for i in range(len(names)):
+            package_names.append(".".join(names[:i+1]))
+    if test_package and test_package.name == ".".join(names):
+        # Handling same package conflict
+        new_package = None
+        end_package = test_package
+    else:
+        new_package = importlib.import_module(package_names[0])
+    if new_package:
+        if test_package:
+            package_ = test_package
+            package_.tail(new_package)
+        else:
+            package_ = TestPackage(new_package)
+        for package_name in package_names[1:]:
+            new_package = importlib.import_module(package_name)
+            package_.tail(new_package)
+        end_package = package_.find(package_names[-1])
+    items = list(filter(lambda x: '__pycache__' not in x and x != '__init__.py', os.listdir(importable)))
+    shuffle(items)
+    for item in items:
+        full_path = os.path.join(importable, item)
+        if os.path.isdir(full_path):
+            _, f = discover_packages(full_path, test_pattern_matcher, end_package)
+            failed_imports |= f
+        else:
+            m, f = discover_module(full_path, test_pattern_matcher)
+            if m:
+                end_package.append_module(m)
+            else:
+                failed_imports.add(f)
+    return package_, failed_imports
 
 
-def discover_module(importable: str, test_pattern_matcher, test_package_list: TestPackages) -> Tuple[TestModule, str]:
+def discover_module(importable: str, test_pattern_matcher: PatternMatcherBase) -> Tuple[TestModule, str]:
     """
     >>> from src.pattern_matchers import PatternMatcherBase
-    >>> from src.models.test_popo import TestPackages
+    >>> from src.models.test_popo import TestPackage
     >>> matcher = PatternMatcherBase([], '', True)
-    >>> module, error_str = discover_module(os.path.join('examples', 'simple', 'smoke', 'sample1'), matcher, TestPackages())
+    >>> module, error_str = discover_module(os.path.join('examples', 'simple', 'smoke', 'sample1'), matcher, TestPackage())
     >>> assert module and error_str == ''
-    >>> module, error_str = discover_module('examples.dont_exist', matcher, TestPackages())
+    >>> module, error_str = discover_module('examples.dont_exist', matcher, TestPackage())
     >>> assert module is None and error_str
     """
     test_module, error_str = None, ''
@@ -249,7 +123,7 @@ def discover_module(importable: str, test_pattern_matcher, test_package_list: Te
     try:
         module = importlib.import_module(module_str)
         groups = discover_groups(module, test_pattern_matcher)
-        test_module = TestModule(module, groups, ignored_tests=set(test_pattern_matcher.excluded_items), test_package_list=test_package_list)
+        test_module = TestModule(module, groups, ignored_tests=set(test_pattern_matcher.excluded_items))
         if test_module.run_mode not in RunMode:
             error = f'{test_module.run_mode} is not a valid RunMode'
             raise Exception(error)
@@ -265,7 +139,7 @@ def discover_module(importable: str, test_pattern_matcher, test_package_list: Te
     return test_module, error_str
 
 
-def discover_tests(module, test_pattern_matcher) -> dict:
+def discover_tests(module, test_pattern_matcher: PatternMatcherBase) -> dict:
     """
     >>> from src.pattern_matchers import DefaultTestCasePatternMatcher
     >>> matcher = DefaultTestCasePatternMatcher([], '', True)
@@ -277,8 +151,8 @@ def discover_tests(module, test_pattern_matcher) -> dict:
     >>> assert len(tests) == 2
     """
     tests = {}
-    setup_test_ = _get_fixture(module, setup_test.__name__)
-    teardown_test_ = _get_fixture(module, teardown_test.__name__)
+    setup_test_ = get_fixture(module, setup_test.__name__)
+    teardown_test_ = get_fixture(module, teardown_test.__name__)
     for name in dir(module):
         attribute = getattr(module, name)
         if type(attribute) is FUNCTION_TYPE and name.startswith('test_'):
@@ -293,16 +167,15 @@ def discover_tests(module, test_pattern_matcher) -> dict:
     return _shuffle_dict(tests)
 
 
-def discover_groups(test_module, test_pattern_matcher) -> TestGroups:
-    setup_func = _get_fixture(test_module, setup.__name__)
-    teardown_func = _get_fixture(test_module, teardown.__name__)
-    group = TestGroups(discover_tests(test_module, test_pattern_matcher), setup_func, teardown_func)
+def discover_groups(test_module, test_pattern_matcher: PatternMatcherBase) -> TestGroups:
+    setup_func = get_fixture(test_module, setup.__name__)
+    teardown_func = get_fixture(test_module, teardown.__name__)
+    group = TestGroups('main', discover_tests(test_module, test_pattern_matcher), setup_func, teardown_func)
     for name in dir(test_module):
         attribute = getattr(test_module, name)
         if inspect.isclass(attribute) and name.startswith('Group'):
-            group.append(discover_groups(attribute, test_pattern_matcher))
+            group.append(name, discover_groups(attribute, test_pattern_matcher))
     return group
-
 
 
 def discover_parameterized_test_range(test_name: str, parameterized_list: list) -> range:
@@ -373,13 +246,3 @@ def discover_parameterized_test_range(test_name: str, parameterized_list: list) 
     elif '[' not in test_name and ']' not in test_name:
         range_ = range(len(parameterized_list))
     return range_
-
-
-def _get_fixture(module, name: str):
-        fixture = empty_func
-        for key in dir(module):
-            attribute = getattr(module, key)
-            if type(attribute) is FUNCTION_TYPE and  hasattr(attribute, name):
-                fixture = attribute
-                break
-        return fixture

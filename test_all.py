@@ -48,9 +48,9 @@ if __name__ == '__main__':
     doctest.testmod(discovery, verbose=False)
     doctest.testmod(runner, verbose=False)
 
-    for _test in [v for k, v in locals().items() if k.startswith('_test_')]:
-        try:
-            _test()
-        except:
-            print(traceback.format_exc())
-            print("FAILED:", _test.__name__)
+    # for _test in [v for k, v in locals().items() if k.startswith('_test_')]:
+    #     try:
+    #         _test()
+    #     except:
+    #         print(traceback.format_exc())
+    #         print("FAILED:", _test.__name__)
