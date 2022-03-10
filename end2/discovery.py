@@ -158,26 +158,6 @@ def discover_groups(test_module, test_pattern_matcher: PatternMatcherBase) -> Te
 
 
 def discover_parameterized_test_range(test_name: str, parameterized_list: list) -> range:
-    """
-    >>> x = [1, 2, 3, 4, 5, 6, 7, 8]
-    >>> assert discover_parameterized_test_range('test_1', x) == range(len(x))
-    >>> discover_parameterized_test_range('test_1[0]', x)
-    range(0, 1)
-    >>> assert discover_parameterized_test_range('test_1[-1:]', x) == range(-1, len(x))
-    >>> assert discover_parameterized_test_range('test_1[:-1]', x) == range(0, len(x)-1)
-    >>> assert discover_parameterized_test_range('test_1', x) == range(len(x))
-    >>> assert discover_parameterized_test_range('test_1[::-1]', x) == range(0, len(x), -1)
-    >>> discover_parameterized_test_range('test_1[1:1:1]', x)
-    range(1, 1)
-    >>> discover_parameterized_test_range('test_1[]', x)
-    range(0, 0)
-    >>> discover_parameterized_test_range('test_1[', x)
-    range(0, 0)
-    >>> discover_parameterized_test_range('test_1]', x)
-    range(0, 0)
-    >>> discover_parameterized_test_range('test_1][', x)
-    range(0, 0)
-    """
     open_bracket_index = test_name.find('[') + 1
     close_bracket_index = -1
     range_ = range(0)
