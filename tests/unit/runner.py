@@ -58,6 +58,7 @@ class TestRunMethodAsync(unittest.TestCase):
         self.assertEqual(result.status, Status.PASSED)
         self.assertEqual(result.message, "")
         self.assertIsNotNone(result.end_time)
+
     def test_async_method_failed(self):
         async def test_2(a):
             assert False
