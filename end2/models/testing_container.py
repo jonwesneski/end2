@@ -236,7 +236,7 @@ class TestPackageTree:
                         lm.update(rm)
                         break
                 if not updated:
-                    lhs.sequential_modules.append(rm)
+                    lhs.sequential_modules.add(rm)
             for i, lhs_sp in enumerate(lhs.sub_packages):
                 if len(rhs.sub_packages) - 1 > i:
                     self.merge(lhs_sp, rhs.sub_packages[i])
@@ -250,7 +250,7 @@ class TestPackageTree:
                         lm.update(rm)
                         break
                 if not updated:
-                    lhs.parallel_modules.append(rm)
+                    lhs.parallel_modules.add(rm)
             for i, lhs_sp in enumerate(lhs.sub_packages):
                 if len(rhs.sub_packages) - 1 > i:
                     self.merge(lhs_sp, rhs.sub_packages[i])

@@ -32,7 +32,7 @@ def _shuffle_dict(dict_: dict) -> dict:
     return dict(list_)
 
 
-def discover_suite(paths):    
+def discover_suite(paths) -> Tuple[TestPackageTree, set]:    
     importables = _shuffle_dict(paths)
     failed_imports = set()
     package_tree = TestPackageTree()
@@ -48,11 +48,13 @@ def discover_suite(paths):
             package_names = []
             if not package:
                 names = package_name.split('.')
+                if package_name.endswith('.py'):
+                    names = names[:-2]
                 for i in range(len(names)):
                     package_names.append(".".join(names[:i+1]))
                 new_package = importlib.import_module(package_names[0])
                 package = TestPackage(new_package)
-                for package_name in package_names[1:]:
+                for package_name in package_names[1:-1]:
                     new_package = importlib.import_module(package_name)
                     package.tail(new_package)
             m, f = discover_module(importable, test_pattern_matcher)
@@ -149,11 +151,11 @@ def discover_tests(module, test_pattern_matcher: PatternMatcherBase) -> dict:
 def discover_groups(test_module, test_pattern_matcher: PatternMatcherBase) -> TestGroups:
     setup_func = get_fixture(test_module, setup.__name__)
     teardown_func = get_fixture(test_module, teardown.__name__)
-    group = TestGroups('main', discover_tests(test_module, test_pattern_matcher), setup_func, teardown_func)
+    group = TestGroups(test_module.__name__, discover_tests(test_module, test_pattern_matcher), setup_func, teardown_func)
     for name in dir(test_module):
         attribute = getattr(test_module, name)
         if inspect.isclass(attribute) and name.startswith('Group'):
-            group.append(name, discover_groups(attribute, test_pattern_matcher))
+            group.append(discover_groups(attribute, test_pattern_matcher))
     return group
 
 
