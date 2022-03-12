@@ -1,6 +1,6 @@
 # end² Test Automation Framework
 The focus of this framework is:
-- A Minimal framework with easy learning curve
+- A Minimal framework only using the standard library
 - More for E2E and/or Functional type of testing
 - For testing that has heavy logging and needs to analyze failures in logs rather than test case code
 - For folks that like programatic ways instead of plugins with configuration files
@@ -30,9 +30,10 @@ The focus of this framework is:
 ## Features
 - Test Runner:
     - Discovers tests at runtime
-    - Test Fixtures
     - Test Pattern Matching: Can run individual tests and test modules
     - Runs tests sequentially and parallelly in 1 run
+    - Test Fixtures
+    - Package Objects
 - Fixtures:
     - setup package
     - teardown package
@@ -49,6 +50,7 @@ The focus of this framework is:
     - Each test module will be in its own folder
     - Each test will be in it's own file
     - Failed tests will be renamed to `FAILED_<test_name>.log`
+    - HAR logger
 
 ## Getting Started
 ### Understanding the end² Flow (Psuedo Code)
@@ -218,7 +220,12 @@ def test_3(logger):                   # least 1 tag matches test will run
     assert True is True
 ```
 
-## Fixtures Example of Test Package
+## Packages Object
+This is an object that you can build from within your packages. Since test parameters are always fresh objects you may want to pass data around and be able to access it in packages. This feature is kind of experimental but here are some ideas:
+- Build reports in the middle of runs
+- Building metrics
+
+#### Example of Test Package
 ``` python
 # test_package/__init__.py
 from end2 import (
@@ -255,7 +262,6 @@ def my_setup(package_globals):
     package_globals.sub_package_stuff.clear()
 ```
 ``` python
-# test_package/test_sub_package/test_module.py
 from end2 import RunMode
 
 
@@ -267,46 +273,46 @@ def test_1(logger, package_globals):
     assert package_globals.sub_package_stuff = ['other stuff']
 ```
 
-## TODO:
-- [x] change suites to be file path instead of dot notation
-- [x] support async fixtures
-- [x] support setup_test and teardown test again
-- [x] test groups
-- [x] move package setup/teardown to suiterun
-- [ ] be able to overwrite test_parameters_func in `packages/__init__.py`
-- [x] make runner use suitelogmanager again
-- [x] .testingrc or maybe setting.conf (have this file as a profile with setting about how to configure runner)
-    - [x] max threads
-    - [x] max sub folder logs
-    - [x] suite-aliases
-    - [x] disabled tests
-- [x] cli (overrides .testingrc)
-    - [x] make a default arparser
-        - [x] suite
-        - [x] suite-glob
-        - [x] suite-regex
-        - [x] suite-tag (e.g path::tag_name) [recurse path]
-        - [x] suite-last-failures (store failures as a text file in logs/)
-        - [x] max threads
-        - [x] max sub folder logs
-- [x] make code use/read cli and .testingrc
-- [x] keep track of last failed tests in logs folder
-- [] update readme
-    - [x] focus/intent/philosophy
-        - [x] this is for heaving logging
-        - [x] more for e2e
-        - [x] more for those that like to program more (do there own custom integrations)
-        - [x] minimal and not much to learn
-        - [x] tests are randomized to ensure they dont depend on other tests and to be state-aware of the thing you are testing
-        - [x] there are no tests classes. Test classes means you probably store state for other tests to use; which means they depend on each other
-        - [x] The test file itself should have the declaration of concurrency (that way you dont have to memorize what can and cant run parallel or specify it every time in the command line)
-        - [x] when we do a suite run we have the same parameters for each test
-    - [] update features
-    - [x] getting started
-        - [x] write a test
-        - [x] write a test with parameters
-    - [x] .testingrc or maybe setting.conf
-    - [x] cli
+## Test Groups
+Test groups allow you to organize your tests around setup and teardown. Maybe some of your tests the setup only needs to be run for 2 of your tests. Or maybe you want the same setup for all tests but you want an additional setup for 4 of the tests. Groups are declared as classes and the methods are techincally static but without decorating with `@staticmethod`
+``` python
+# test_package/test_sub_package/test_module.py
+from end2 import (
+    RunMode,
+    setup_test,
+    teardown
+)
+
+
+__run_mode__ = RunMode.PARALLEL  # This is required for every test module
+
+
+@setup_test
+def setup_all(logger):
+    pass  # do something at the start of each test.
+
+
+def test_1(logger):
+    assert package_globals.stuff == ['my_static_stuff']
+    assert package_globals.sub_package_stuff = ['other stuff']
+
+
+class Group1:
+    @setup_test
+    def setup_all1(logger):
+        pass  # do an extra something after setup_all
+
+    def test_2(logger):
+        pass
+
+    class Group2:
+        @setup_test
+        def setup_all2(logger):
+            pass  # do an extra something after setup_all and setup_all1
+
+        def test_2(logger):
+            pass
+```
 
 ## CLI
 It is best to run the `--help` arg on your **Driver** to get the latest information. Since **Pattern Matchers** are a little more complicated below is a more desciptive overview
@@ -368,7 +374,44 @@ For Suite runs you will use a **Suite Log Manager**. The default does what is de
 - Creates a log file for each test
 - Marks (Prefixes) file name as PASSED, FAILED, SKIPPED when test is finished
 
-## Packages Object
-This is an object that you can build from within your packages. Since test parameters are always fresh objects you may want to pass data around and be able to access it in packages. This feature is kind of experimental but here are some ideas:
-- Build reports in the middle of runs
-- Building metrics
+
+## TODO:
+- [x] change suites to be file path instead of dot notation
+- [x] support async fixtures
+- [x] support setup_test and teardown test again
+- [x] test groups
+- [x] move package setup/teardown to suiterun
+- [ ] be able to overwrite test_parameters_func in `packages/__init__.py`
+- [x] make runner use suitelogmanager again
+- [x] .testingrc or maybe setting.conf (have this file as a profile with setting about how to configure runner)
+    - [x] max threads
+    - [x] max sub folder logs
+    - [x] suite-aliases
+    - [x] disabled tests
+- [x] cli (overrides .testingrc)
+    - [x] make a default arparser
+        - [x] suite
+        - [x] suite-glob
+        - [x] suite-regex
+        - [x] suite-tag (e.g path::tag_name) [recurse path]
+        - [x] suite-last-failures (store failures as a text file in logs/)
+        - [x] max threads
+        - [x] max sub folder logs
+- [x] make code use/read cli and .testingrc
+- [x] keep track of last failed tests in logs folder
+- [] update readme
+    - [x] focus/intent/philosophy
+        - [x] this is for heaving logging
+        - [x] more for e2e
+        - [x] more for those that like to program more (do there own custom integrations)
+        - [x] minimal and not much to learn
+        - [x] tests are randomized to ensure they dont depend on other tests and to be state-aware of the thing you are testing
+        - [x] there are no tests classes. Test classes means you probably store state for other tests to use; which means they depend on each other
+        - [x] The test file itself should have the declaration of concurrency (that way you dont have to memorize what can and cant run parallel or specify it every time in the command line)
+        - [x] when we do a suite run we have the same parameters for each test
+    - [] update features
+    - [x] getting started
+        - [x] write a test
+        - [x] write a test with parameters
+    - [x] .testingrc or maybe setting.conf
+    - [x] cli
