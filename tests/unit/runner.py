@@ -47,9 +47,9 @@ class TestRunMethod(unittest.TestCase):
 
 
 class TestRunMethodAsync(unittest.TestCase):
-    def setUp(self) -> None:
-        self.loop = asyncio.get_event_loop()
-        return super().setUp()
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.loop = asyncio.get_event_loop()
 
     def test_async_method_passed(self):
         async def test_1():
