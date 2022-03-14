@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 
-from end2.enums import Status
+from end2.constants import Status
 from end2.models.result import (
     Result,
     TestMethodResult,

@@ -5,7 +5,7 @@ from typing import (
     List
 )
 
-from end2.enums import Status
+from end2.constants import Status
 
 
 class Result:

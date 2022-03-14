@@ -1,5 +1,5 @@
 # Only exporting stuff commonly used in test modules.
-from .enums import RunMode
+from .constants import RunMode
 from .exceptions import (
     IgnoreTestException,
     SkipTestException

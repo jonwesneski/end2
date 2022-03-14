@@ -1,5 +1,5 @@
 """
-    Enums for test framework library features
+    Constants/Enums for test framework library features
     * Please keep class names alphabetical
     * Please keep variables in classes alphabetical
 """

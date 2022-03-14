@@ -1,4 +1,4 @@
-from end2.enums import RunMode
+from end2.constants import RunMode
 from end2 import (
     parameterize,
     RunMode,

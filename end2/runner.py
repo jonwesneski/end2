@@ -10,7 +10,7 @@ from typing import (
 
 from end2 import exceptions
 from end2.discovery import discover_suite
-from end2.enums import Status
+from end2.constants import Status
 from end2.logger import SuiteLogManager
 from end2.models.result import (
     Result,

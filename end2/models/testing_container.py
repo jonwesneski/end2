@@ -2,7 +2,7 @@ from inspect import getmro
 import os
 from typing import Dict
 
-from end2.enums import RunMode
+from end2.constants import RunMode
 from end2.fixtures import (
     get_fixture,
     setup,
