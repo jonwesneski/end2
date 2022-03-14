@@ -11,7 +11,7 @@ from end2.fixtures import (
     teardown,
     teardown_test
 )
-from end2.enums import (
+from end2.constants import (
     FUNCTION_TYPE,
     RunMode
 )

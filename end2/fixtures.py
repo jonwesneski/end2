@@ -1,6 +1,6 @@
 import functools
 
-from end2.enums import FUNCTION_TYPE
+from end2.constants import FUNCTION_TYPE
 from end2.exceptions import MoreThan1FixtureException
 
 

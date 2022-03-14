@@ -2,7 +2,7 @@ import asyncio
 import unittest
 
 from end2 import runner
-from end2.enums import Status
+from end2.constants import Status
 from end2.logger import empty_logger
 from end2 import exceptions
 
