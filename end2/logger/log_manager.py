@@ -191,6 +191,9 @@ class SuiteLogManager(LogManager):
         self._test_terminator = '\n' + ('-' * _COLUMN_SIZE)
         self._module_terminator = '\n' + ('=' * _COLUMN_SIZE)
 
+    def __del__(self):
+        self._close_file_handlers(self.logger)
+
     @staticmethod
     def _close_file_handlers(logger: logging.Logger):
         for handler in logger.handlers:
