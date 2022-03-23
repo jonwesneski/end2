@@ -191,9 +191,6 @@ class SuiteLogManager(LogManager):
         self._test_terminator = '\n' + ('-' * _COLUMN_SIZE)
         self._module_terminator = '\n' + ('=' * _COLUMN_SIZE)
 
-    def __del__(self):
-        self._close_file_handlers(self.logger)
-
     @staticmethod
     def _close_file_handlers(logger: logging.Logger):
         for handler in logger.handlers:
@@ -337,6 +334,7 @@ class SuiteLogManager(LogManager):
 
     def on_suite_stop(self, suite_result: TestSuiteResult):
         self.logger.info(str(suite_result))
+        self._close_file_handlers(self.logger)
 
     def get_setup_logger(self, module_name: str) -> logging.Logger:
         logger, infix_name = self._get_logger(module_name, 'setup')
