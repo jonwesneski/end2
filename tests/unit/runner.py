@@ -47,10 +47,6 @@ class TestRunMethod(unittest.TestCase):
 
 
 class TestRunMethodAsync(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.loop = asyncio.get_event_loop()
-
     def test_async_method_passed(self):
         async def test_1():
             await asyncio.sleep(0.1)
