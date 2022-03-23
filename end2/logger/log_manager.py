@@ -334,6 +334,7 @@ class SuiteLogManager(LogManager):
 
     def on_suite_stop(self, suite_result: TestSuiteResult):
         self.logger.info(str(suite_result))
+        self._close_file_handlers(self.logger)
 
     def get_setup_logger(self, module_name: str) -> logging.Logger:
         logger, infix_name = self._get_logger(module_name, 'setup')
