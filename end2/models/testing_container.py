@@ -4,6 +4,7 @@ from typing import Dict
 
 from end2.constants import RunMode
 from end2.fixtures import (
+    empty_func,
     get_fixture,
     setup,
     teardown
@@ -12,10 +13,6 @@ from end2.fixtures import (
 
 def build_full_name(module_name: str, test_name: str) -> str:
     return f'{module_name}::{test_name}'
-
-
-def empty_func(*args, **kwargs) -> None:
-    pass
 
 
 class TestMethod:
@@ -69,7 +66,7 @@ class DynamicMroMixin:
         raise AttributeError(f"No atrribute named {name}")
     
     @classmethod
-    def __setattrcls__(cls, name, value):
+    def __setattrcls__(cls, name, value) -> None:
         for a in cls._get_mros():
             if hasattr(a, name):
                 setattr(a, name, value)
@@ -79,7 +76,7 @@ class DynamicMroMixin:
     def __getattr__(self, name):
         return self.__getattrcls__(name)
     
-    def __setattr__(self, name, value):
+    def __setattr__(self, name, value) -> None:
         return self.__setattrcls__(name, value)
 
     @staticmethod
@@ -124,7 +121,7 @@ class TestModule:
 
 class TestPackage:
     def __init__(self, package, sequential_modules: list = None, parallel_modules: list = None
-                 , package_object: DynamicMroMixin = None):
+                 , package_object: DynamicMroMixin = None) -> None:
         self.package = package
         self.setup_func = get_fixture(package, setup.__name__)
         self.teardown_func = get_fixture(package, teardown.__name__)
@@ -182,7 +179,7 @@ class TestPackage:
 
 
 class TestPackageTree:
-        def __init__(self, package = None, modules = None):
+        def __init__(self, package = None, modules = None) -> None:
             self.packages = [TestPackage(package, modules)] if package else []
 
         def __iter__(self):
