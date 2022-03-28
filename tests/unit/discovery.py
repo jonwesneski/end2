@@ -5,7 +5,7 @@ from end2.pattern_matchers import (
     DefaultTestCasePatternMatcher,
     PatternMatcherBase
 )
-from end2.models.testing_container import TestPackage
+from end2.models.testing_containers import TestPackage
 from end2 import discovery
 
 from examples.simple.smoke import sample1

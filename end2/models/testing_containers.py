@@ -6,6 +6,7 @@ from end2.constants import RunMode
 from end2.fixtures import (
     empty_func,
     get_fixture,
+    package_test_parameters,
     setup,
     teardown
 )
@@ -123,8 +124,9 @@ class TestPackage:
     def __init__(self, package, sequential_modules: list = None, parallel_modules: list = None
                  , package_object: DynamicMroMixin = None) -> None:
         self.package = package
-        self.setup_func = get_fixture(package, setup.__name__)
-        self.teardown_func = get_fixture(package, teardown.__name__)
+        self.setup_func = get_fixture(self.package, setup.__name__)
+        self.teardown_func = get_fixture(self.package, teardown.__name__)
+        self.package_test_parameters_func = get_fixture(self.package, package_test_parameters.__name__, default=None)
         self.name = self.package.__name__
         self.description = self.package.__doc__
         self.package_object = package_object or DynamicMroMixin()
@@ -144,6 +146,8 @@ class TestPackage:
     def append(self, package) -> None:
         package_object = DynamicMroMixin.add_mixin(package.__name__, self.package_object)
         self.sub_packages.append(TestPackage(package, package_object=package_object))
+        if self.sub_packages[-1].package_test_parameters_func is None:
+            self.sub_packages[-1].package_test_parameters_func = self.package_test_parameters_func
 
     def append_module(self, module: TestModule) -> None:
         if module.is_parallel:

@@ -18,7 +18,7 @@ from end2.models.result import (
     TestModuleResult,
     TestSuiteResult,
 )
-from end2.models.testing_container import (
+from end2.models.testing_containers import (
     DynamicMroMixin,
     TestGroups,
     TestMethod,
@@ -53,7 +53,7 @@ class SuiteRun:
         self.allow_concurrency = not self.args.no_concurrency
         self.name = 'suite_run'
         self.results = None
-        self.log_manager = log_manager or SuiteLogManager(run_logger_name='suite_run', max_folders=self.args.max_log_folders)
+        self.log_manager = log_manager or SuiteLogManager(run_logger_name=self.name, max_folders=self.args.max_log_folders)
         self.logger = self.log_manager.logger
 
     def run(self) -> TestSuiteResult:
@@ -61,6 +61,7 @@ class SuiteRun:
         self.results = TestSuiteResult(self.name)
         try:
             for package in self.test_packages:
+                test_parameters_func = package.package_test_parameters_func or self.test_parameters_func 
                 package.setup()
                 if self.allow_concurrency:
                     sequential_modules = package.sequential_modules
@@ -69,13 +70,13 @@ class SuiteRun:
                     sequential_modules = sequential_modules + parallel_modules
                     parallel_modules = tuple()
                 for test_module in sequential_modules:
-                    module_run = TestModuleRun(self.test_parameters_func, test_module, self.log_manager, package.package_object, self.args.stop_on_fail)
+                    module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.args.stop_on_fail)
                     self.results.append(module_run.run())
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.max_workers) as executor:
                     futures = [
                         executor.submit(
-                            TestModuleRun(self.test_parameters_func, test_module, self.log_manager, package.package_object, self.args.stop_on_fail, executor).run)
+                            TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.args.stop_on_fail, executor).run)
                         for test_module in parallel_modules
                     ]
                     for future in futures:
@@ -137,7 +138,13 @@ class TestModuleRun:
     def setup(self, setup_func) -> Result:
         setup_logger = self.log_manager.get_setup_logger(self.module.name)
         args, kwargs = self.test_parameters_func(setup_logger, self.package_object)
-        result = run_test_func(setup_logger, setup_func, *args, **kwargs)
+        if inspect.iscoroutinefunction(setup_func):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(run_async_test_func(setup_logger, setup_func, *args, **kwargs))
+            loop.close()
+        else:
+            result = run_test_func(setup_logger, setup_func, *args, **kwargs)
         self.log_manager.on_setup_module_done(self.module.name, result.to_base())
         return result
 
@@ -215,7 +222,13 @@ class TestModuleRun:
     def teardown(self, teardown_func) -> Result:
         teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
         args, kwargs = self.test_parameters_func(teardown_logger, self.package_object)
-        result = run_test_func(teardown_logger, teardown_func, *args, **kwargs)
+        if inspect.iscoroutinefunction(teardown_func):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(run_async_test_func(teardown_logger, teardown_func, *args, **kwargs))
+            loop.close()
+        else:
+            result = run_test_func(teardown_logger, teardown_func, *args, **kwargs)
         self.log_manager.on_teardown_module_done(self.module.name, result.to_base())
         return result
 
@@ -240,6 +253,19 @@ class TestMethodRun:
             setup_result = self._intialize_args_and_setup()
 
         result = self._intialize_args_and_run()
+        if result.status is Status.FAILED and hasattr(self.test_method.func, 'on_test_failure'):
+            logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
+            args, kwargs = self.test_parameters_func(logger, self.package_object)
+            if inspect.iscoroutinefunction(self.test_method.func.on_test_failure):
+                try:
+                    loop.run_until_complete(self.test_method.func.on_test_failure, *args, **kwargs)
+                except Exception as e:
+                    self.log_manager.logger.error(traceback.format_exc())
+            else:
+                try:
+                    self.test_method.func.on_test_failure(*args, **kwargs)
+                except Exception as e:
+                    self.log_manager.logger.error(traceback.format_exc())
 
         if inspect.iscoroutinefunction(self.test_method.teardown_func):
             teardown_result = loop.run_until_complete(
@@ -253,14 +279,25 @@ class TestMethodRun:
         return result
 
     async def run_async(self) -> TestMethodResult:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         if inspect.iscoroutinefunction(self.test_method.setup_func):
             setup_result = await self._intialize_args_and_setup_async()
         else:
             setup_result = self._intialize_args_and_setup()
 
         result = await self._intialize_args_and_run_async()
+        if result.status is Status.FAILED and hasattr(self.test_method.func, 'on_test_failure'):
+            logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
+            args, kwargs = self.test_parameters_func(logger, self.package_object)
+            if inspect.iscoroutinefunction(self.test_method.func.on_test_failure):
+                try:
+                    await self.test_method.func.on_test_failure(*args, **kwargs)
+                except Exception as e:
+                    self.log_manager.logger.error(traceback.format_exc())
+            else:
+                try:
+                    self.test_method.func.on_test_failure(*args, **kwargs)
+                except Exception as e:
+                    self.log_manager.logger.error(traceback.format_exc())
 
         if inspect.iscoroutinefunction(self.test_method.teardown_func):
             teardown_result = await self._intialize_args_and_teardown_async()
@@ -268,7 +305,6 @@ class TestMethodRun:
             teardown_result = self._intialize_args_and_teardown()
         result.setup_result = setup_result
         result.teardown_result = teardown_result
-        loop.close()
         return result
 
     def _intialize_args_and_setup(self) -> Result:
