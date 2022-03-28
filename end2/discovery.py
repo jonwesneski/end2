@@ -16,7 +16,7 @@ from end2.constants import (
     RunMode
 )
 from end2.exceptions import MoreThan1FixtureException
-from end2.models.testing_container import (
+from end2.models.testing_containers import (
     TestGroups,
     TestMethod,
     TestModule,

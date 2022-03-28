@@ -18,7 +18,7 @@ from end2.models.result import (
     TestModuleResult,
     TestSuiteResult,
 )
-from end2.models.testing_container import (
+from end2.models.testing_containers import (
     DynamicMroMixin,
     TestGroups,
     TestMethod,
