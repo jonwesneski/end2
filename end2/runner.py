@@ -137,7 +137,13 @@ class TestModuleRun:
     def setup(self, setup_func) -> Result:
         setup_logger = self.log_manager.get_setup_logger(self.module.name)
         args, kwargs = self.test_parameters_func(setup_logger, self.package_object)
-        result = run_test_func(setup_logger, setup_func, *args, **kwargs)
+        if inspect.iscoroutinefunction(setup_func):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(run_async_test_func(setup_logger, setup_func, *args, **kwargs))
+            loop.close()
+        else:
+            result = run_test_func(setup_logger, setup_func, *args, **kwargs)
         self.log_manager.on_setup_module_done(self.module.name, result.to_base())
         return result
 
@@ -215,7 +221,13 @@ class TestModuleRun:
     def teardown(self, teardown_func) -> Result:
         teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
         args, kwargs = self.test_parameters_func(teardown_logger, self.package_object)
-        result = run_test_func(teardown_logger, teardown_func, *args, **kwargs)
+        if inspect.iscoroutinefunction(teardown_func):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(run_async_test_func(teardown_logger, teardown_func, *args, **kwargs))
+            loop.close()
+        else:
+            result = run_test_func(teardown_logger, teardown_func, *args, **kwargs)
         self.log_manager.on_teardown_module_done(self.module.name, result.to_base())
         return result
 

@@ -20,20 +20,22 @@ def teardown_module(func):
     return wrapper
 
 
-def on_failure_in_module(func):
+def on_failures_in_module(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         return func(*args, **kwargs)
-    wrapper.on_failure_in_module = None
+    wrapper.on_failures_in_module = None
     return wrapper
 
 
 def on_test_failure(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.on_test_failure = None
-    return wrapper
+    def inner(func_):
+        @functools.wraps(func_)
+        def wrapper(*args, **kwargs):
+            return func_(*args, **kwargs)
+        wrapper.on_test_failure = func
+        return wrapper
+    return inner
 
 
 def setup(func):

@@ -1,42 +1,42 @@
 import unittest
 
-from end2 import (
-    metadata,
-    parameterize,
-    setup,
-    setup_test,
-    teardown,
-    teardown_test
-)
+import end2
 
 
 class TestFixtures(unittest.TestCase):
-    @setup
+    @end2.setup
     def setup_(self):
         pass
 
-    @setup_test
+    @end2.setup_test
     def setup_test_(self):
         pass
 
-    @teardown
+    @end2.teardown
     def teardown_(self):
         pass
 
-    @teardown_test
+    @end2.teardown_test
     def teardown_test_(self):
         pass
 
-    @metadata(tags=['a', 'b', 'c'])
+    @end2.metadata(tags=['a', 'b', 'c'])
     def metadata_(self):
         pass
 
-    @parameterize([
+    @end2.parameterize([
         ('a', 'b', 'c'),
         ('a', 'b', 'c')
     ])
     def parameterize_(self):
         pass
+
+    @end2.on_failures_in_module
+    def on_failures_in_module_(self):
+        pass
+
+    def my_failure_step(self, *args, **kwargs):
+        self.abc = True
 
     def test_setup(self):
         self.assertTrue(hasattr(self.setup_, 'setup'))
@@ -59,3 +59,13 @@ class TestFixtures(unittest.TestCase):
         self.assertTrue(hasattr(self.parameterize_, 'parameterized_list'))
         self.assertEqual(len(self.parameterize_.names), 2)
         self.assertEqual(len(self.parameterize_.parameterized_list), 2)
+
+    def test_on_failures_in_module(self):
+        self.assertTrue(hasattr(self.on_failures_in_module_, 'on_failures_in_module'))
+
+    def test_on_test_failure(self):
+        @end2.on_test_failure(self.my_failure_step)
+        def dd():
+            pass
+        dd.on_test_failure()
+        self.assertTrue(hasattr(self, 'abc'))

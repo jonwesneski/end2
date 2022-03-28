@@ -5,6 +5,8 @@ from .exceptions import (
     SkipTestException
 )
 from .fixtures import (
+    on_failures_in_module,
+    on_test_failure,
     metadata,
     parameterize,
     setup,
@@ -14,6 +16,7 @@ from .fixtures import (
 )
 
 __all__ = [
-    'IgnoreTestException', 'metadata', 'parameterize', 'RunMode',
-    'setup', 'setup_test', 'SkipTestException', 'teardown', 'teardown_test'
+    'IgnoreTestException', 'on_failures_in_module', 'on_test_failure',
+    'metadata', 'parameterize', 'RunMode', 'setup', 'setup_test',
+    'SkipTestException', 'teardown', 'teardown_test'
 ]
