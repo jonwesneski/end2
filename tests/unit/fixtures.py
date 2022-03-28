@@ -1,6 +1,7 @@
 import unittest
 
 import end2
+from end2.fixtures import package_test_parameters
 
 
 class TestFixtures(unittest.TestCase):
@@ -34,6 +35,10 @@ class TestFixtures(unittest.TestCase):
     @end2.on_failures_in_module
     def on_failures_in_module_(self):
         pass
+
+    @package_test_parameters
+    def package_test_parameters_(self, logger, package_object):
+        return (logger,), {}
 
     def my_failure_step(self, *args, **kwargs):
         self.abc = True
@@ -69,3 +74,6 @@ class TestFixtures(unittest.TestCase):
             pass
         dd.on_test_failure()
         self.assertTrue(hasattr(self, 'abc'))
+
+    def test_on_test_failure(self):
+        self.assertTrue(hasattr(self.package_test_parameters_, 'package_test_parameters'))

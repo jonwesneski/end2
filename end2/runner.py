@@ -61,6 +61,7 @@ class SuiteRun:
         self.results = TestSuiteResult(self.name)
         try:
             for package in self.test_packages:
+                test_parameters_func = package.package_test_parameters_func or self.test_parameters_func 
                 package.setup()
                 if self.allow_concurrency:
                     sequential_modules = package.sequential_modules
@@ -69,13 +70,13 @@ class SuiteRun:
                     sequential_modules = sequential_modules + parallel_modules
                     parallel_modules = tuple()
                 for test_module in sequential_modules:
-                    module_run = TestModuleRun(self.test_parameters_func, test_module, self.log_manager, package.package_object, self.args.stop_on_fail)
+                    module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.args.stop_on_fail)
                     self.results.append(module_run.run())
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.max_workers) as executor:
                     futures = [
                         executor.submit(
-                            TestModuleRun(self.test_parameters_func, test_module, self.log_manager, package.package_object, self.args.stop_on_fail, executor).run)
+                            TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.args.stop_on_fail, executor).run)
                         for test_module in parallel_modules
                     ]
                     for future in futures:

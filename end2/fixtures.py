@@ -70,11 +70,11 @@ def teardown(func):
     return wrapper
 
 
-def test_parameters(func):
+def package_test_parameters(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         return func(*args, **kwargs)
-    wrapper.test_parameters = None
+    wrapper.package_test_parameters = None
     return wrapper
 
 
@@ -104,8 +104,8 @@ def empty_func(*args, **kwargs):
     return
 
 
-def get_fixture(module, name: str):
-    fixture = empty_func
+def get_fixture(module, name: str, default=empty_func):
+    fixture = default
     found = False
     for key in dir(module):
         attribute = getattr(module, key)

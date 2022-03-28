@@ -86,6 +86,7 @@ def run_tests(discovered_modules):
                 module.teardown_test()
             module.teardown()
         package.teardown()
+
 ```
 
 ### Simple Example of a Driver
@@ -107,6 +108,7 @@ if __name__ == '__main__':
 
     test_suite_result, failed_imports = start_test_run(args, test_parameters)
     exit(test_suite_result.exit_code)
+
 ```
 
 ### Simple Example of a Test Module
@@ -132,6 +134,7 @@ async def test_2(client, logger):  # Both sync and async test methods can exist 
 
 def helper():  # Not a test method
     return {'a': 1}
+
 ```
 
 ### Simple Example of Checking Test Case Readiness at Runtime
@@ -159,11 +162,14 @@ async def test_2(client, logger):  # Both sync and async test methods can exist 
     actual = await client.get_stuff()               # A test result will be made with status of skipped and the
     assert actual == "some expected data"           # message of what was supplied in the SkipTestException()
     logger.info('Hi async')
+
 ```
 
 ## Fixture Example of a Test Module
 ``` python
 from end2 import (
+    on_failures_in_module,
+    on_test_failure,
     parameterize,
     RunMode,
     setup,
@@ -196,6 +202,11 @@ def my_teardown(logger):
     logger.info('do something during teardown')
 
 
+@on_failures_in_module
+def my_teardown(logger):  # Runs once at the end of the test module if you have more 1 or more failed test cases
+    logger.info('do something')
+
+
 # Parameterize takes 1 argument: list of tuples
 #  - Each tuple must be the same length
 @parameterize([
@@ -216,7 +227,16 @@ def test_2(logger):                               # This data will also be avail
 
 
 @metadata(tags=['yellow', 'potato'])  # tags is a special keyword used for Pattern Matching. As long as at
-def test_3(logger):                   # least 1 tag matches test will run
+def test_3(logger):                   # least 1 tag matches test will run (when using --suite-tag)
+    assert True is True
+
+
+def cleanup(logger):
+    logger.info('do some cleanup')
+
+
+@on_test_failure(cleanup)  # This fixture will run the function in the decorator argument only if the test fails
+def test_4(logger):
     assert True is True
 ```
 
@@ -232,6 +252,7 @@ from end2 import (
     setup,
     teardown
 )
+from end2.fixtures import package_test_parameters
 
 
 @setup
@@ -242,6 +263,12 @@ def my_setup(package_globals):
 @teardown
 def my_setup(package_globals):
     package_globals.stuff.clear()
+
+
+@package_test_parameters
+def my_custom_test_parameters(logger, pacakge_object):  # Use if you want to override the test_parameters defined
+    return (some_other_client(logger),) {}              # in your 'driver.py'
+
 ```
 ``` python
 # test_package/test_sub_package/__init__.py
@@ -260,8 +287,10 @@ def my_setup(package_globals):
 @teardown
 def my_setup(package_globals):
     package_globals.sub_package_stuff.clear()
+
 ```
 ``` python
+# test_package/test_sub_package/my_test_module.py
 from end2 import RunMode
 
 
@@ -271,6 +300,7 @@ __run_mode__ = RunMode.PARALLEL  # This is required for every test module
 def test_1(logger, package_globals):
     assert package_globals.stuff == ['my_static_stuff']
     assert package_globals.sub_package_stuff = ['other stuff']
+
 ```
 
 ## Test Groups
@@ -312,6 +342,7 @@ class Group1:
 
         def test_2(logger):
             pass
+
 ```
 
 ## CLI
@@ -373,45 +404,3 @@ For Suite runs you will use a **Suite Log Manager**. The default does what is de
 - Creates a file for both setup and teardown of a module
 - Creates a log file for each test
 - Marks (Prefixes) file name as PASSED, FAILED, SKIPPED when test is finished
-
-
-## TODO:
-- [x] change suites to be file path instead of dot notation
-- [x] support async fixtures
-- [x] support setup_test and teardown test again
-- [x] test groups
-- [x] move package setup/teardown to suiterun
-- [ ] be able to overwrite test_parameters_func in `packages/__init__.py`
-- [x] make runner use suitelogmanager again
-- [x] .testingrc or maybe setting.conf (have this file as a profile with setting about how to configure runner)
-    - [x] max threads
-    - [x] max sub folder logs
-    - [x] suite-aliases
-    - [x] disabled tests
-- [x] cli (overrides .testingrc)
-    - [x] make a default arparser
-        - [x] suite
-        - [x] suite-glob
-        - [x] suite-regex
-        - [x] suite-tag (e.g path::tag_name) [recurse path]
-        - [x] suite-last-failures (store failures as a text file in logs/)
-        - [x] max threads
-        - [x] max sub folder logs
-- [x] make code use/read cli and .testingrc
-- [x] keep track of last failed tests in logs folder
-- [] update readme
-    - [x] focus/intent/philosophy
-        - [x] this is for heaving logging
-        - [x] more for e2e
-        - [x] more for those that like to program more (do there own custom integrations)
-        - [x] minimal and not much to learn
-        - [x] tests are randomized to ensure they dont depend on other tests and to be state-aware of the thing you are testing
-        - [x] there are no tests classes. Test classes means you probably store state for other tests to use; which means they depend on each other
-        - [x] The test file itself should have the declaration of concurrency (that way you dont have to memorize what can and cant run parallel or specify it every time in the command line)
-        - [x] when we do a suite run we have the same parameters for each test
-    - [] update features
-    - [x] getting started
-        - [x] write a test
-        - [x] write a test with parameters
-    - [x] .testingrc or maybe setting.conf
-    - [x] cli
