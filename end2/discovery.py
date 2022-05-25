@@ -32,7 +32,7 @@ def _shuffle_dict(dict_: dict) -> dict:
     return dict(list_)
 
 
-def discover_suite(paths) -> Tuple[TestPackageTree, set]:    
+def discover_suite(paths: dict) -> Tuple[TestPackageTree, set]:    
     importables = _shuffle_dict(paths)
     failed_imports = set()
     package_tree = TestPackageTree()

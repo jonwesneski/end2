@@ -88,7 +88,7 @@ def metadata(**kwargs):
     return inner
 
 
-def parameterize(parameters_list, first_arg_is_name: bool = False):
+def parameterize(parameters_list: list, first_arg_is_name: bool = False):
     def wrapper(func):
         if first_arg_is_name:
             func.names = [f'{func.__name__}[{i}] {args[0]}' for i, args in enumerate(parameters_list)]
@@ -100,7 +100,7 @@ def parameterize(parameters_list, first_arg_is_name: bool = False):
     return wrapper
 
 
-def empty_func(*args, **kwargs):
+def empty_func(*args, **kwargs) -> None:
     return
 
 
