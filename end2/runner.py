@@ -375,7 +375,7 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
         import os
         for root, dirs, files in os.walk('logs'):
             for dir in dirs:
-                print(os.listdir(os.path.join(root, dir))
+                print(os.listdir(os.path.join(root, dir)))
         logger.debug(traceback.format_exc())
         result.message = f'Encountered an exception: {e}'
         logger.error(result.message)
