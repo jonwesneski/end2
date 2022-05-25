@@ -20,3 +20,6 @@ __all__ = [
     'metadata', 'parameterize', 'RunMode', 'setup', 'setup_test',
     'SkipTestException', 'teardown', 'teardown_test'
 ]
+
+PARALLEL = RunMode.PARALLEL
+SEQUENTIAL = RunMode.SEQUENTIAL
