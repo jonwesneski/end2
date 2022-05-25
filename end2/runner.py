@@ -2,6 +2,7 @@ from argparse import Namespace
 import asyncio
 import concurrent.futures
 import inspect
+from logging import Logger
 import traceback
 import sys
 from typing import (
@@ -353,7 +354,7 @@ class TestMethodRun:
         return result
 
 
-def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
+def run_test_func(logger: Logger, func, *args, **kwargs) -> TestMethodResult:
     result = TestMethodResult(func.__name__, status=Status.FAILED)
     try:
         func(*args, **kwargs)
@@ -371,18 +372,13 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     except exceptions.IgnoreTestException as ite:
         raise
     except Exception as e:
-        print(traceback.format_exc())
-        import os
-        for root, dirs, files in os.walk('logs'):
-            for dir in dirs:
-                print(os.listdir(os.path.join(root, dir)))
         logger.debug(traceback.format_exc())
         result.message = f'Encountered an exception: {e}'
         logger.error(result.message)
     return result.end()
 
 
-async def run_async_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
+async def run_async_test_func(logger: Logger, func, *args, **kwargs) -> TestMethodResult:
     result = TestMethodResult(func.__name__, status=Status.FAILED)
     try:
         await func(*args, **kwargs)

@@ -1,4 +1,5 @@
 import os
+from time import sleep
 import unittest
 
 from end2 import (
@@ -9,6 +10,7 @@ from end2 import (
 
 class TestStartRun(unittest.TestCase):
     def test_integration_simple(self):
+        sleep(1)  # Sleeping because I want a different timestamp folder name
         arg_list=['--suite', os.path.join('examples', 'simple', 'regression')]
         args = arg_parser.default_parser().parse_args(arg_list)
 
@@ -22,6 +24,7 @@ class TestStartRun(unittest.TestCase):
                             for result in results))
 
     def test_integration_module(self):
+        sleep(1)  # Sleeping because I want a different timestamp folder name
         arg_list=['--suite', os.path.join('examples', 'simple', 'smoke', 'sample1.py'), os.path.join('examples', 'simple', 'regression')]
         args = arg_parser.default_parser().parse_args(arg_list)
 
