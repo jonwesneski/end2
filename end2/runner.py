@@ -371,6 +371,11 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     except exceptions.IgnoreTestException as ite:
         raise
     except Exception as e:
+        print(traceback.format_exc())
+        import os
+        for root, dirs, files in os.walk('logs'):
+            for dir in dirs:
+                print(os.listdir(dir))
         logger.debug(traceback.format_exc())
         result.message = f'Encountered an exception: {e}'
         logger.error(result.message)

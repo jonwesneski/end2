@@ -172,7 +172,6 @@ class LogManager:
     def create_file_logger(self, name: str) -> logging.Logger:
         logger = self.get_logger(name)
         if not logger.hasHandlers():
-            filter_ = InfixFilter(name)
             logger.setLevel(logging.DEBUG)
             logger.addHandler(self.create_file_handler(self.folder, name, logging.DEBUG))
             logger.propagate = False
