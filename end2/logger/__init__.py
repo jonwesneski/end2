@@ -11,6 +11,7 @@ from .log_manager import (
 
 
 empty_logger = logging.getLogger('end²EMPTY')
+empty_logger.addHandler(logging.NullHandler())
 empty_logger.propagate = False
 empty_logger.disabled = True
 

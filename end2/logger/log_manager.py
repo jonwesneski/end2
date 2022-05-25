@@ -172,7 +172,6 @@ class LogManager:
     def create_file_logger(self, name: str) -> logging.Logger:
         logger = self.get_logger(name)
         if not logger.hasHandlers():
-            filter_ = InfixFilter(name)
             logger.setLevel(logging.DEBUG)
             logger.addHandler(self.create_file_handler(self.folder, name, logging.DEBUG))
             logger.propagate = False
@@ -327,6 +326,7 @@ class SuiteLogManager(LogManager):
         if test_module_result.status in [Status.PASSED, Status.SKIPPED]:
             for test_result in test_module_result.test_results:
                 self._close_file_handlers(self._get_logger(test_module_result.name, test_result.name)[0])
+            print("HIMOM", test_module_result.name)
             os.rename(
                 os.path.join(self.folder, test_module_result.name),
                 os.path.join(self.folder, f'{test_module_result.status.name}_{test_module_result.name}'))

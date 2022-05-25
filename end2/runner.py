@@ -2,6 +2,7 @@ from argparse import Namespace
 import asyncio
 import concurrent.futures
 import inspect
+from logging import Logger
 import traceback
 import sys
 from typing import (
@@ -353,7 +354,7 @@ class TestMethodRun:
         return result
 
 
-def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
+def run_test_func(logger: Logger, func, *args, **kwargs) -> TestMethodResult:
     result = TestMethodResult(func.__name__, status=Status.FAILED)
     try:
         func(*args, **kwargs)
@@ -377,7 +378,7 @@ def run_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
     return result.end()
 
 
-async def run_async_test_func(logger, func, *args, **kwargs) -> TestMethodResult:
+async def run_async_test_func(logger: Logger, func, *args, **kwargs) -> TestMethodResult:
     result = TestMethodResult(func.__name__, status=Status.FAILED)
     try:
         await func(*args, **kwargs)
