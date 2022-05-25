@@ -1,4 +1,4 @@
-from argparse import ArgumentParser
+from argparse import Namespace
 import asyncio
 import concurrent.futures
 import inspect
@@ -33,28 +33,28 @@ def default_test_parameters(logger, package_object) -> Tuple[tuple, dict]:
     return (logger,), {}
 
 
-def create_test_run(args: ArgumentParser, test_parameters_func=default_test_parameters
+def create_test_run(parsed_args: Namespace, test_parameters_func=default_test_parameters
                     , log_manager: SuiteLogManager = None) -> Tuple[TestSuiteResult, Tuple[str]]:
-    test_packages, failed_imports = discover_suite(args.suite.modules)
-    suite_run = SuiteRun(args, test_parameters_func, test_packages, log_manager)
+    test_packages, failed_imports = discover_suite(parsed_args.suite.modules)
+    suite_run = SuiteRun(parsed_args, test_parameters_func, test_packages, log_manager)
     return suite_run, failed_imports
 
 
-def start_test_run(args: ArgumentParser, test_parameters_func=default_test_parameters
+def start_test_run(parsed_args: Namespace, test_parameters_func=default_test_parameters
                    , log_manager: SuiteLogManager = None) -> Tuple[TestSuiteResult, Tuple[str]]:
-    suite_run, failed_imports = create_test_run(args, test_parameters_func, log_manager)
+    suite_run, failed_imports = create_test_run(parsed_args, test_parameters_func, log_manager)
     return suite_run.run(), failed_imports
 
 
 class SuiteRun:
-    def __init__(self, args: ArgumentParser, test_parameters_func, test_packages: Tuple[TestPackageTree], log_manager: SuiteLogManager = None) -> None:
-        self.args = args
+    def __init__(self, parsed_args: Namespace, test_parameters_func, test_packages: Tuple[TestPackageTree], log_manager: SuiteLogManager = None) -> None:
+        self.parsed_args = parsed_args
         self.test_parameters_func = test_parameters_func
         self.test_packages = test_packages
-        self.allow_concurrency = not self.args.no_concurrency
+        self.allow_concurrency = not self.parsed_args.no_concurrency
         self.name = 'suite_run'
         self.results = None
-        self.log_manager = log_manager or SuiteLogManager(run_logger_name=self.name, max_folders=self.args.max_log_folders)
+        self.log_manager = log_manager or SuiteLogManager(run_logger_name=self.name, max_folders=self.parsed_args.max_log_folders)
         self.logger = self.log_manager.logger
 
     def run(self) -> TestSuiteResult:
@@ -71,13 +71,13 @@ class SuiteRun:
                     sequential_modules = sequential_modules + parallel_modules
                     parallel_modules = tuple()
                 for test_module in sequential_modules:
-                    module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.args.stop_on_fail)
+                    module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args.stop_on_fail)
                     self.results.append(module_run.run())
 
-                with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.max_workers) as executor:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=self.parsed_args.max_workers) as executor:
                     futures = [
                         executor.submit(
-                            TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.args.stop_on_fail, executor).run)
+                            TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args.stop_on_fail, executor).run)
                         for test_module in parallel_modules
                     ]
                     for future in futures:
