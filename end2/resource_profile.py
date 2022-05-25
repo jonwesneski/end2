@@ -2,6 +2,7 @@ from configparser import ConfigParser
 import os
 
 from end2.constants import Status
+from end2.models.result import TestSuiteResult
 
 
 _PRODUCT_NAME = 'end2'
@@ -80,7 +81,7 @@ def _check_for_corruption(file_name: str) -> ConfigParser:
     return rc
 
 
-def create_last_run_rc(results):
+def create_last_run_rc(results: TestSuiteResult) -> None:
     failed_test_dict = {}
     for module in results:
         if module.status is Status.FAILED:

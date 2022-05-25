@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 import asyncio
 import concurrent.futures
 import inspect
@@ -32,21 +33,21 @@ def default_test_parameters(logger, package_object) -> Tuple[tuple, dict]:
     return (logger,), {}
 
 
-def create_test_run(args, test_parameters_func=default_test_parameters
+def create_test_run(args: ArgumentParser, test_parameters_func=default_test_parameters
                     , log_manager: SuiteLogManager = None) -> Tuple[TestSuiteResult, Tuple[str]]:
     test_packages, failed_imports = discover_suite(args.suite.modules)
     suite_run = SuiteRun(args, test_parameters_func, test_packages, log_manager)
     return suite_run, failed_imports
 
 
-def start_test_run(args, test_parameters_func=default_test_parameters
+def start_test_run(args: ArgumentParser, test_parameters_func=default_test_parameters
                    , log_manager: SuiteLogManager = None) -> Tuple[TestSuiteResult, Tuple[str]]:
     suite_run, failed_imports = create_test_run(args, test_parameters_func, log_manager)
     return suite_run.run(), failed_imports
 
 
 class SuiteRun:
-    def __init__(self, args, test_parameters_func, test_packages: Tuple[TestPackageTree], log_manager: SuiteLogManager = None) -> None:
+    def __init__(self, args: ArgumentParser, test_parameters_func, test_packages: Tuple[TestPackageTree], log_manager: SuiteLogManager = None) -> None:
         self.args = args
         self.test_parameters_func = test_parameters_func
         self.test_packages = test_packages

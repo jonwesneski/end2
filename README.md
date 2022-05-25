@@ -203,7 +203,7 @@ def my_teardown(logger):
 
 
 @on_failures_in_module
-def my_teardown(logger):  # Runs once at the end of the test module if you have more 1 or more failed test cases
+def my_teardown(logger):  # Runs once at the end of the test module if you have 1 or more failed test cases
     logger.info('do something')
 
 
@@ -351,25 +351,25 @@ It is best to run the `--help` arg on your **Driver** to get the latest informat
 ### Suite Pattern Matchers
 #### Default
 A suite path is a string that contains the path to the module delimited by a period:
-- To run a single test package: `--suite path.to.package`
-- To run a single test module: `--suite path.to.package.module`
-- To run multiple test packages: `--suite path.to.package path2.to.package`
-- To run multiple test packages and modules: `--suite path.to.package path2.to.package path3.to.package.module path4.to.package.module`
+- To run a single test package: `--suite path/to/package`
+- To run a single test module: `--suite path/to/file.py`
+- To run multiple test packages: `--suite path/to/package path2/to/package`
+- To run multiple test packages and modules: `--suite path/to/package path2/to/package path3/to/package/module.py path4/to/package/module.py`
 It can also contains filters:
-- `::` which is to run specific tests in a module: `--suite path.to.package.module::test_1`
-- `;` which is delimiter for modules: `--suite path.to.package.module;module2`
-- `,` which is a delimiter for tests: `--suite path.to.package.module::test_1,test_2;module2`
+- `::` which is to run specific tests in a module: `--suite path/to/package/module.py::test_1`
+- `;` which is delimiter for modules: `--suite path/to/package/module.py;module2.py`
+- `,` which is a delimiter for tests: `--suite path/to/package/module.py::test_1,test_2;module2.py`
 - `!` which means run everything before the `!` but nothing after:
-    - `--suite path.to.package.!module;module2`  runs everything in `path.to.package` except `module` and `module2`
-    - `--suite path.to.package.module::!test_1,test_2;module2`  runs `module2` and everything in `module` except `test_1` and `test_2`
+    - `--suite path/to/package/!module.py;module2.py`  runs everything in `path/to/package` except `module.py` and `module2.py`
+    - `--suite path/to/package/module.py::!test_1,test_2;module2.py`  runs `module2.py` and everything in `module.py` except `test_1` and `test_2`
 - `[n]` which will run specific parameterized tests:
-    - `--suite path.to.package.module::test_name[1]`  runs the 2nd test in the parameterized list
-    - `--suite  path.to.module::test_name[2:6]`  runs tests 2 through 6 in the parameterized list
-    - `--suite path.to.module::test_name[2:6:2]`  runs the 2nd, 4th, 6th test in the parameterized list
+    - `--suite path/to/package/module.py::test_name[1]`  runs the 2nd test in the parameterized list
+    - `--suite path/to/module.py::test_name[2:6]`  runs tests 2 through 6 in the parameterized list
+    - `--suite path/to/module.py::test_name[2:6:2]`  runs the 2nd, 4th, 6th test in the parameterized list
 
 #### Tags
 Tags can be defined by using `@metadata` in you test as mentioned [above](#fixture-example-of-a-test-module). They works pretty similar to the **Default Pattern Matcher** but uses a tag instead of a test name:
-- `--suite-tag path.to.module::tag_name1,tag_name2`
+- `--suite-tag path/to/module.py::tag_name1,tag_name2`
 
 #### regex and glob
 These 2 are pretty similar to each and I split module and test the same:
