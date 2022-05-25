@@ -32,11 +32,11 @@ jobs:
         python -m pip install coverage
     - name: Install dependencies by OS
       if: startsWith(matrix.os,'ubuntu') || startsWith(matrix.os,'macOS')
-      run: |
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        - run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       if: startsWith(matrix.os,'windows')
-      run: |
-        if EXIST requirements.txt (pip install -r requirements.txt)
+        - run: |
+          if EXIST requirements.txt (pip install -r requirements.txt)
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
