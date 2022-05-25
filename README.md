@@ -17,8 +17,8 @@ The focus of this framework is:
 ## Intent/Philosophy
 - Shuffling:
     - By having tests run in random order, we are ensuring that tests don't need to run in a specific order. If test-1 fails, then test-2 will obviously fail, but test-2 is a false negative. It might be better to consider test-1 and test-2 as test steps and just combine test-1 and test-2 in one test case instead. Another plus to Shuffling is the test writer will be able to find out if there are any side effects on the test case side or the SUT and be able to fix what is necessary. This will make them have a better understanding of there own coding, others members coding, and the SUT as well if the side effect is on the SUT itself
-- Create you own **Driver**:
-    - This is the entrypoint for your testing. It is your own python module that you will write that defines what the test parameters are and uses `default_parser()` to add any additional args before you start your testing. You can name it whatever you want but in below examples I refer to it as `driver.py` 
+- Create you own script entry point:
+    - This is the entrypoint for your testing. It is your own python module that you will write that defines what the test parameters are and uses `default_parser()` to add any additional args before you start your testing. You can name it whatever you want but in below examples I refer to it as `run.py` 
 - Declaring:
     - Test case design is very important and the design should speak for itself in the file/module. Declaring the concurrency/run-mode in the file lets everyone know that that particular file can run in parallel. Passing that info in the command line can be confusing over time because not everyone will remember what can and can't run parallel
 - 1 set of parameters per suite:
@@ -89,7 +89,7 @@ def run_tests(discovered_modules):
 
 ```
 
-### Simple Example of a Driver
+### Simple Example of a Run script
 ``` python
 #!/usr/bin/env python3
 from end2.runner import start_test_run
@@ -267,7 +267,7 @@ def my_setup(package_globals):
 
 @package_test_parameters
 def my_custom_test_parameters(logger, pacakge_object):  # Use if you want to override the test_parameters defined
-    return (some_other_client(logger),) {}              # in your 'driver.py'
+    return (some_other_client(logger),) {}              # in your 'run.py'
 
 ```
 ``` python
@@ -346,7 +346,7 @@ class Group1:
 ```
 
 ## CLI
-It is best to run the `--help` arg on your **Driver** to get the latest information. Since **Pattern Matchers** are a little more complicated below is a more desciptive overview
+It is best to run the `--help` arg on your "run.py" to get the latest information. Since **Pattern Matchers** are a little more complicated below is a more desciptive overview
 
 ### Suite Pattern Matchers
 #### Default
