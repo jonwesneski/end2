@@ -15,12 +15,12 @@ setup(
     install_requires=[],
     classifiers=[
         'Development Status :: 3 - Alpha',      # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
-        'Intended Audience :: QA Automation',      # Define that your audience are developers
-        'Topic :: QA Automation :: Testing',
+        'Topic :: Software Development :: Quality Assurance',
+        'Topic :: Software Development :: Testing',
+        'Topic :: Software Development :: Testing :: Acceptance',
         'License :: OSI Approved :: MIT License',   # Again, pick a license
-        'Programming Language :: Python :: 3.6.5',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
 )
