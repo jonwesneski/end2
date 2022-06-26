@@ -19,3 +19,9 @@ class Status(Enum):
     IGNORED = 'Ignored'
     PASSED = 'Passed'
     SKIPPED = 'Skipped'
+
+
+class ReservedWords(Enum):
+    END = 'end'
+    LOGGER = 'logger'
+    PACKAGE_OBJECT = 'package_object'
