@@ -32,7 +32,8 @@ _default_rc_dict = {
         'max-workers': (int, 20),
         'max-log-folders': (int, 10),
         'no-concurrency': (bool, False),
-        'stop-on-fail': (bool, False)
+        'stop-on-fail': (bool, False),
+        'event-timeout': (float, 20.0)
     },
     'suite-alias': {
         '# Examples': (str, ''),
@@ -64,7 +65,7 @@ def _check_for_corruption(file_name: str) -> ConfigParser:
         if section == 'settings':
             for k, v in options.items():
                 if section in rc:
-                    if not isinstance(rc[section][k], v[0]):
+                    if not isinstance(rc[section].get(k, None), v[0]):
                         corrupted = True
                         rc[section][k] = str(v[1])
                 else:

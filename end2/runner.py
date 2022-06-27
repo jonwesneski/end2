@@ -37,7 +37,7 @@ def default_test_parameters(logger, package_object) -> Tuple[tuple, dict]:
 
 
 def create_test_run(parsed_args: Namespace, test_parameters_func=default_test_parameters
-                    , log_manager: SuiteLogManager = None) -> Tuple[TestSuiteResult, Tuple[str]]:
+                    , log_manager: SuiteLogManager = None) -> Tuple['SuiteRun', Tuple[str]]:
     test_packages, failed_imports = discover_suite(parsed_args.suite.modules)
     suite_run = SuiteRun(parsed_args, test_parameters_func, test_packages, log_manager)
     return suite_run, failed_imports
@@ -46,11 +46,13 @@ def create_test_run(parsed_args: Namespace, test_parameters_func=default_test_pa
 def start_test_run(parsed_args: Namespace, test_parameters_func=default_test_parameters
                    , log_manager: SuiteLogManager = None) -> Tuple[TestSuiteResult, Tuple[str]]:
     suite_run, failed_imports = create_test_run(parsed_args, test_parameters_func, log_manager)
-    return suite_run.run(), failed_imports
+    results = suite_run.run()
+    suite_run.log_manager.close()
+    return results, failed_imports
 
 
 class SuiteRun:
-    def __init__(self, parsed_args: Namespace, test_parameters_func, test_packages: Tuple[TestPackageTree], log_manager: SuiteLogManager = None) -> None:
+    def __init__(self, parsed_args: Namespace, test_parameters_func: Callable, test_packages: Tuple[TestPackageTree], log_manager: SuiteLogManager = None) -> None:
         self.parsed_args = parsed_args
         self.test_parameters_func = test_parameters_func
         self.test_packages = test_packages
@@ -74,13 +76,13 @@ class SuiteRun:
                     sequential_modules = sequential_modules + parallel_modules
                     parallel_modules = tuple()
                 for test_module in sequential_modules:
-                    module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args.stop_on_fail)
+                    module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args)
                     self.results.append(module_run.run())
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=self.parsed_args.max_workers) as executor:
                     futures = [
                         executor.submit(
-                            TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args.stop_on_fail, executor).run)
+                            TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args, executor).run)
                         for test_module in parallel_modules
                     ]
                     for future in futures:
@@ -96,13 +98,14 @@ class SuiteRun:
 
 class TestModuleRun:
     def __init__(self, test_parameters_func, module: TestModule, log_manager: SuiteLogManager
-                 , package_object: DynamicMroMixin, stop_on_fail: bool
+                 , package_object: DynamicMroMixin, parsed_args: Namespace
                  , concurrent_executor: concurrent.futures.ThreadPoolExecutor = None) -> None:
         self.test_parameters_func = test_parameters_func
         self.module = module
         self.log_manager = log_manager
         self.package_object = package_object
-        self.stop_on_fail = stop_on_fail
+        self.parsed_args = parsed_args
+        self.stop_on_fail = parsed_args.stop_on_fail
         self.concurrent_executor = concurrent_executor
 
     def run(self) -> TestModuleResult:
@@ -141,7 +144,7 @@ class TestModuleRun:
 
     def setup(self, setup_func) -> Result:
         setup_logger = self.log_manager.get_setup_logger(self.module.name)
-        method_resolver = TestParametersResolver(setup_func, self.test_parameters_func, self.package_object)
+        method_resolver = TestParametersResolver(setup_func, self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
         args, kwargs, ender = method_resolver.resolve(setup_logger)
         if inspect.iscoroutinefunction(setup_func):
             loop = asyncio.new_event_loop()
@@ -166,7 +169,7 @@ class TestModuleRun:
         
         routines, coroutines = [], []
         for k, test in group.tests.items():
-            test_run = TestMethodRun(test, self.test_parameters_func, self.log_manager, self.module.name, self.package_object)
+            test_run = TestMethodRun(test, self.test_parameters_func, self.log_manager, self.module.name, self.package_object, self.parsed_args)
             if inspect.iscoroutinefunction(test.func):
                 coroutines.append(test_run)
             else:
@@ -227,7 +230,7 @@ class TestModuleRun:
     def teardown(self, teardown_func) -> Result:
         teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
         args, kwargs = self.test_parameters_func(teardown_logger, self.package_object)
-        method_resolver = TestParametersResolver(teardown_func, self.test_parameters_func, self.package_object)
+        method_resolver = TestParametersResolver(teardown_func, self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
         args, kwargs, ender = method_resolver.resolve(teardown_logger)
         if inspect.iscoroutinefunction(teardown_func):
             loop = asyncio.new_event_loop()
@@ -295,13 +298,14 @@ class TestParametersResolver:
 
 class TestMethodRun:
     def __init__(self, test_method: TestMethod, test_parameters_func
-                 , log_manager: SuiteLogManager, module_name: str, package_object: DynamicMroMixin) -> None:
+                 , log_manager: SuiteLogManager, module_name: str, package_object: DynamicMroMixin, parsed_args: Namespace) -> None:
         self.test_method = test_method
         self.test_parameters_func = test_parameters_func
         self.log_manager = log_manager
         self.module_name = module_name
         self.package_object = package_object
-        self.test_resolver = TestParametersResolver(self.test_method.func, self.test_parameters_func, self.package_object)
+        self.parsed_args = parsed_args
+        self.test_resolver = TestParametersResolver(self.test_method.func, self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
 
     def run(self) -> TestMethodResult:
         loop = asyncio.new_event_loop()

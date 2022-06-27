@@ -186,7 +186,7 @@ class LogManager:
         return logger
 
     def close(self) -> None:
-        self._close_file_handlers(self.logger.handlers)
+        self._close_file_handlers(self.logger)
 
 
 class SuiteLogManager(LogManager):
@@ -384,6 +384,6 @@ class ManualFlushHandler(MemoryHandler):
 
 
 class InfixFilter(logging.Filter):
-    def filter(self, record):
+    def filter(self, record) -> bool:
         record.infix = self.name
         return True
