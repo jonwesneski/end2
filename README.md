@@ -33,7 +33,7 @@ The focus of this framework is:
     - Test Pattern Matching: Can run individual tests and test modules
     - Runs tests sequentially and parallelly in 1 run
     - Test Fixtures
-    - Package Objects
+    - Test Reserved Keywords
 - Fixtures:
     - setup package
     - teardown package
@@ -120,16 +120,13 @@ from end2 import RunMode
 __run_mode__ = RunMode.SEQUENTIAL  # This is required for every test module
 
 
-def test_1(client, logger):
-    assert 1 == 1        # assert is used for validation; if assertion fails the test fails and exits on that assert
-    assert True is True  #
-    logger.info('Hi')
+def test_1(client):
+    assert client.get('Hi') is not None  # assert is used for validation; if assertion fails the test fails and exits on that assert
 
 
-async def test_2(client, logger):  # Both sync and async test methods can exist in the same file
+async def test_2(client):  # Both sync and async test methods can exist in the same file
     actual = await client.get_stuff()
     assert actual == "some expected data"
-    logger.info('Hi async')
 
 
 def helper():  # Not a test method
@@ -183,28 +180,28 @@ __run_mode__ = RunMode.SEQUENTIAL  # This is required for every test module
 
 
 @setup
-def my_setup(logger):
-    logger.info('do something during setup')
+def my_setup(client):
+    client.do('something during setup')
 
 
 @setup_test
-def my_setup_test(logger):
-    logger.info('do something during setup test')
+def my_setup_test(client):
+    client.do('something during setup test')
 
 
 @teardown_test
-def my_teardown_test(logger):
-    logger.info('do something during teardown test')
+def my_teardown_test(client):
+    client.do('something during teardown test')
 
 
 @teardown
-def my_teardown(logger):
-    logger.info('do something during teardown')
+def my_teardown(client):
+    client.do('something during teardown')
 
 
 @on_failures_in_module
-def my_teardown(logger):  # Runs once at the end of the test module if you have 1 or more failed test cases
-    logger.info('do something')
+def my_teardown(client):  # Runs once at the end of the test module if you have 1 or more failed test cases
+    client.do('something')
 
 
 # Parameterize takes 1 argument: list of tuples
@@ -216,29 +213,48 @@ def my_teardown(logger):  # Runs once at the end of the test module if you have 
     (1.2, 2.3, 3.5),
     (True, False, 1)
 ])
-def test_1(logger, var1, var2, rhs):  # Parameterized parameters will come in after all runner.test_parameters
+def test_1(var1, var2, rhs):  # Parameterized parameters will come in after all runner.test_parameters
     assert var1 + var2 == rhs
-    logger.info('Hi')
 
 
 @metadata(defect_id='SR-432', case_id='C-23451')  # Use metadata when you want to add extra info to your test
-def test_2(logger):                               # This data will also be available to you after the test run
+def test_2(client):                               # This data will also be available to you after the test run
     assert True is True
 
 
 @metadata(tags=['yellow', 'potato'])  # tags is a special keyword used for Pattern Matching. As long as at
-def test_3(logger):                   # least 1 tag matches test will run (when using --suite-tag)
+def test_3(client):                   # least 1 tag matches test will run (when using --suite-tag)
     assert True is True
 
 
-def cleanup(logger):
-    logger.info('do some cleanup')
+def cleanup(client):
+    client.do('some cleanup')
 
 
 @on_test_failure(cleanup)  # This fixture will run the function in the decorator argument only if the test fails
-def test_4(logger):
+def test_4(client):
     assert True is True
 ```
+
+## Reserved Keywords
+These are optional keyword-only-args that can be added at the end of your test case parameters:
+- **end** - This is helpful if you have event handling in the app you are testing and need the callback to be called. Only use this if you have to wait for some event otherwise you test will just timeout if **end** is not called:
+    ``` python
+    def test_4(client, *, end):
+        def handler:
+            assert True is True
+            end()  # ends the test case
+        client.on(handler)  # This test will not finish until end() is called or has timeout
+    ```
+    ``` python
+    def test_4(client, *, end):
+        def handler:
+            assert True is True
+            end.fail("This event should not have been called")  # ends the test case
+        client.on(handler)  # This test will not finish until end.fail() is called or has timeout
+    ```
+- **logger** - The logger used for that specific test case
+- **package_object** - More on this in the next section
 
 ## Packages Object
 This is an object that you can build from within your packages. Since test parameters are always fresh objects you may want to pass data around and be able to access it in packages. This feature is kind of experimental but here are some ideas:
@@ -297,7 +313,7 @@ from end2 import RunMode
 __run_mode__ = RunMode.PARALLEL  # This is required for every test module
 
 
-def test_1(logger, package_globals):
+def test_1(client, package_globals):
     assert package_globals.stuff == ['my_static_stuff']
     assert package_globals.sub_package_stuff = ['other stuff']
 
@@ -318,29 +334,29 @@ __run_mode__ = RunMode.PARALLEL  # This is required for every test module
 
 
 @setup_test
-def setup_all(logger):
+def setup_all(client):
     pass  # do something at the start of each test.
 
 
-def test_1(logger):
+def test_1(client):
     assert package_globals.stuff == ['my_static_stuff']
     assert package_globals.sub_package_stuff = ['other stuff']
 
 
 class Group1:
     @setup_test
-    def setup_all1(logger):
+    def setup_all1(client):
         pass  # do an extra something after setup_all
 
-    def test_2(logger):
+    def test_2(client):
         pass
 
     class Group2:
         @setup_test
-        def setup_all2(logger):
+        def setup_all2(client):
             pass  # do an extra something after setup_all and setup_all1
 
-        def test_2(logger):
+        def test_2(client):
             pass
 
 ```
