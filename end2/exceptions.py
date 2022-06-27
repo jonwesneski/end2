@@ -1,33 +1,32 @@
 """
-    * Please keep class names alphabetical (except BaseEnd2Exception)
+    * Please keep class names alphabetical
 """
 
-class BaseEnd2Exception(Exception):
-    def __init__(self, *args):
-        self.message = args[0]
 
-
-class IgnoreTestException(BaseEnd2Exception):
+class IgnoreTestException(Exception):
     pass
 
 
-class MoreThan1FixtureException(BaseEnd2Exception):
+class MoreThan1FixtureException(Exception):
     def __init__(self, *args):
         # args[0] is fixture name args[1] is module name
         self.message = f'More than 1 {args[0]} in {args[1]}'
 
+    def __str__(self) -> str:
+        return self.message
 
-class OnEventFailedException(BaseEnd2Exception):
+
+class OnEventFailedException(Exception):
     pass
 
 
-class SkipTestException(BaseEnd2Exception):
+class SkipTestException(Exception):
     pass
 
 
-class StopTestRunException(BaseEnd2Exception):
+class StopTestRunException(Exception):
     pass
 
 
-class TestCodeException(BaseEnd2Exception):
+class TestCodeException(Exception):
     pass

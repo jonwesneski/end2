@@ -11,10 +11,9 @@ from examples.fake_clients import run as clients
 
 class TestStartRun(unittest.TestCase):
     def setUp(self):
-        sleep(1)  # Sleeping because I want a different timestamp folder name
+        sleep(1)  # Sleeping because I want a different timestamp folder name for each integration test
 
     def test_integration_simple(self):
-        #sleep(1)  # Sleeping because I want a different timestamp folder name
         arg_list=['--suite', os.path.join('examples', 'simple', 'regression')]
         args = arg_parser.default_parser().parse_args(arg_list)
 
@@ -28,7 +27,6 @@ class TestStartRun(unittest.TestCase):
                             for result in results))
 
     def test_integration_module(self):
-        #sleep(1)  # Sleeping because I want a different timestamp folder name
         arg_list=['--suite', os.path.join('examples', 'simple', 'smoke', 'sample1.py'), os.path.join('examples', 'simple', 'regression')]
         args = arg_parser.default_parser().parse_args(arg_list)
 
@@ -42,7 +40,6 @@ class TestStartRun(unittest.TestCase):
                             for result in results))
 
     def test_integration_package_object(self):
-        #sleep(1)  # Sleeping because I want a different timestamp folder name
         arg_list=['--suite', os.path.join('examples', 'package_objects', 'package1')]
         args = arg_parser.default_parser().parse_args(arg_list)
 
@@ -56,7 +53,6 @@ class TestStartRun(unittest.TestCase):
                             for result in results))
 
     def test_integration_end_timeout(self):
-        #sleep(1)  # Sleeping because I want a different timestamp folder name
         timeout = 2.0
         arg_list=['--suite', os.path.join('examples', 'fake_clients', 'regression', 'sample3.py::test_32'), '--event-timeout', str(timeout)]
         args = arg_parser.default_parser().parse_args(arg_list)

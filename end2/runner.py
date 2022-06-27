@@ -429,15 +429,15 @@ def run_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMe
         filename, line, func, error_text = tb_info[-1]
         result.message = str(ae) if str(ae) else error_text
         logger.error(result.message)
-    except exceptions.OnEventFailedException as oefe:
-        result.message = oefe.message
-        logger.error(result.message)
     except exceptions.SkipTestException as ste:
-        logger.info(ste.message)
-        result.message = ste.message
         result.status = Status.SKIPPED
-    except exceptions.IgnoreTestException as ite:
+        result.message = str(ste)
+        logger.info(result.message)
+    except exceptions.IgnoreTestException:
         raise
+    except (TimeoutError, exceptions.OnEventFailedException) as other:
+        result.message = f'{other.__class__.__name__}: {other}'
+        logger.error(result.message)
     except Exception as e:
         logger.debug(traceback.format_exc())
         result.message = f'Encountered an exception: {e}'
@@ -456,18 +456,18 @@ async def run_async_test_func(logger: Logger, func, *args, **kwargs) -> TestMeth
         filename, line, func, error_text = tb_info[-1]
         result.message = str(ae) if str(ae) else error_text
         logger.error(result.message)
-    except exceptions.OnEventFailedException as oefe:
-        result.message = oefe.message
-        logger.error(result.message)
     except exceptions.SkipTestException as ste:
-        logger.info(ste.message)
-        result.message = ste.message
         result.status = Status.SKIPPED
-    except exceptions.IgnoreTestException as ite:
+        result.message = str(ste)
+        logger.info(result.message)
+    except exceptions.IgnoreTestException:
         raise
+    except (TimeoutError, exceptions.OnEventFailedException) as other:
+        result.message = f'{other.__class__.__name__}: {other}'
+        logger.error(result.message)
     except asyncio.CancelledError:
-        result.message = 'I got cancelled'
         result.status = Status.SKIPPED
+        result.message = 'I got cancelled'
         logger.info(result.message)
     except Exception as e:
         logger.debug(traceback.format_exc())
