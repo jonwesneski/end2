@@ -125,17 +125,17 @@ class LogManager:
     """
     formatter = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s]   %(message)s', datefmt=_DATEFORMAT)
 
-    def __init__(self, logger_name: str, base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO, mode: str = 'w'):
+    def __init__(self, logger_name: str, base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO, mode: str = 'w') -> None:
         self.logger_name = logger_name
         self._create_folder(base_folder)
         self._rotate(base_folder, max_folders)
         self.logger = self.create_full_logger(self.logger_name, stream_level, mode)
 
-    def _create_folder(self, base_folder: str):
+    def _create_folder(self, base_folder: str) -> None:
         self.folder = os.path.join(base_folder, datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
         os.makedirs(self.folder, exist_ok=True)
 
-    def _rotate(self, base_folder: str, max_folders: int):
+    def _rotate(self, base_folder: str, max_folders: int) -> None:
         sub_folders = sorted([x for x in Path(base_folder).iterdir() if x.is_dir()], key=os.path.getmtime)
         count = len(sub_folders) - max_folders
         if count > 0:
@@ -149,6 +149,14 @@ class LogManager:
         file_handler.setLevel(file_level)
         file_handler.setFormatter(cls.formatter)
         return file_handler
+
+    @staticmethod
+    def _close_file_handlers(logger: logging.Logger):
+        for handler in logger.handlers:
+            if isinstance(handler, logging.FileHandler):
+                handler.close()
+                if os.path.exists(handler.baseFilename) and os.stat(handler.baseFilename).st_size == 0:
+                    os.remove(handler.baseFilename)
 
     @classmethod
     def create_stream_handler(cls, stream_level: int = logging.INFO) -> logging.StreamHandler:
@@ -177,6 +185,9 @@ class LogManager:
             logger.propagate = False
         return logger
 
+    def close(self) -> None:
+        self._close_file_handlers(self.logger.handlers)
+
 
 class SuiteLogManager(LogManager):
     """
@@ -184,28 +195,20 @@ class SuiteLogManager(LogManager):
     """
     formatter = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] %(infix)s   %(message)s', datefmt=_DATEFORMAT)
 
-    def __init__(self, run_logger_name: str = 'suite_run', base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO):
+    def __init__(self, run_logger_name: str = 'suite_run', base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO) -> None:
         super().__init__(run_logger_name, base_folder, max_folders, stream_level, mode='a+')
         self.test_run_file_handler = _get_log_handler(self.logger, logging.FileHandler)
         self._test_terminator = '\n' + ('-' * _COLUMN_SIZE)
         self._module_terminator = '\n' + ('=' * _COLUMN_SIZE)
 
     @staticmethod
-    def _close_file_handlers(logger: logging.Logger):
-        for handler in logger.handlers:
-            if isinstance(handler, logging.FileHandler):
-                handler.close()
-                if os.path.exists(handler.baseFilename) and os.stat(handler.baseFilename).st_size == 0:
-                    os.remove(handler.baseFilename)
-
-    @staticmethod
-    def _change_filter_name(logger: logging.Logger, name: str):
+    def _change_filter_name(logger: logging.Logger, name: str) -> None:
         for handler in logger.handlers:
             if isinstance(handler, logging.StreamHandler):
                 for filter in handler.filters:
                     filter.name = name
 
-    def _add_flush_handler(self, logger: logging.Logger, filter_name: str):
+    def _add_flush_handler(self, logger: logging.Logger, filter_name: str) -> None:
         filter_ = InfixFilter(filter_name)
         test_run_memory_handler = ManualFlushHandler(
             self.create_file_handler(self.folder, self.logger_name, logging.INFO, filter_=filter_, mode='a+')
@@ -215,7 +218,7 @@ class SuiteLogManager(LogManager):
         logger.addHandler(test_run_memory_handler)
 
     @staticmethod
-    def _flush_and_close_log_memory_handler(logger: logging.Logger, infix_name: str):
+    def _flush_and_close_log_memory_handler(logger: logging.Logger, infix_name: str) -> None:
         handler_ = None
         for handler in logger.handlers:
             if isinstance(handler, ManualFlushHandler) and handler.filters[0].name == infix_name:
@@ -261,20 +264,20 @@ class SuiteLogManager(LogManager):
             stream_handler.setFormatter(super().formatter)
         return stream_handler
 
-    def on_suite_start(self, suite_name: str):
+    def on_suite_start(self, suite_name: str) -> None:
         pass
 
-    def on_module_start(self, module_name: str):
+    def on_module_start(self, module_name: str) -> None:
         pass
 
-    def on_setup_module_done(self, module_name: str, result: Result):
+    def on_setup_module_done(self, module_name: str, result: Result) -> None:
         logger, infix_name = self._get_logger(module_name, 'setup')
         self._flush_and_close_log_memory_handler(logger, infix_name)
         if result and result.status is Status.SKIPPED:
             self.logger.critical(f'Setup Skipping all tests in {module_name}')
         self._close_file_handlers(logger)
 
-    def on_setup_test_done(self, module_name: str, test_name: str, setup_test_result: Result):
+    def on_setup_test_done(self, module_name: str, test_name: str, setup_test_result: Result) -> None:
         logger, infix_name = self._get_logger(module_name, test_name, 'setup_test')
         self._flush_and_close_log_memory_handler(logger, infix_name)
         if setup_test_result and setup_test_result.status is Status.SKIPPED:
@@ -288,7 +291,7 @@ class SuiteLogManager(LogManager):
             logger.removeHandler(file_handler)
             logger.addHandler(self.create_file_handler(os.path.join(self.folder, module_name), test_name, logging.DEBUG))
 
-    def on_test_done(self, module_name: str, test_method_result: TestMethodResult):
+    def on_test_done(self, module_name: str, test_method_result: TestMethodResult) -> None:
         logger, infix_name = self._get_logger(module_name, test_method_result.name)
         self._flush_and_close_log_memory_handler(logger, infix_name)
         if test_method_result.status is Status.FAILED:
@@ -296,33 +299,33 @@ class SuiteLogManager(LogManager):
         self._close_file_handlers(logger) 
         self.logger.info(f'{module_name}::{test_method_result}{self._test_terminator}')
 
-    def on_parameterized_test_done(self, module_name: str, parameter_result: TestMethodResult):
+    def on_parameterized_test_done(self, module_name: str, parameter_result: TestMethodResult) -> None:
         self.on_test_done(module_name, parameter_result)
         if parameter_result.status is Status.FAILED:
             self._move_failed_test(module_name, self._get_logger(module_name, parameter_result.name)[0])
         self.logger.info(f'{module_name}::{parameter_result}{self._test_terminator}')
 
-    def _move_failed_test(self, module_name: str, logger: logging.Logger):
+    def _move_failed_test(self, module_name: str, logger: logging.Logger) -> None:
         for handler in logger.handlers:
             if isinstance(handler, logging.FileHandler):
                 handler.close()
                 base_name = os.path.basename(handler.baseFilename)
                 os.rename(handler.baseFilename, os.path.join(self.folder, f'{Status.FAILED.name}_{module_name}.{base_name}'))
 
-    def on_teardown_test_done(self, module_name: str, test_name: str, teardown_test_result: Result):
+    def on_teardown_test_done(self, module_name: str, test_name: str, teardown_test_result: Result) -> None:
         logger, infix_name = self._get_logger(module_name, test_name, 'teardown_test')
         self._flush_and_close_log_memory_handler(logger, infix_name)
         if teardown_test_result and teardown_test_result.status is not Status.PASSED:
             self.logger.critical(f'Teardown Test Failed for {test_name}')
 
-    def on_teardown_module_done(self, module_name: str, result: Result):
+    def on_teardown_module_done(self, module_name: str, result: Result) -> None:
         logger, infix_name = self._get_logger(module_name, 'teardown')
         self._flush_and_close_log_memory_handler(logger, infix_name)
         if result and result.status is Status.FAILED:
             self.logger.critical(f'Teardown Module Failed for {module_name}')
         self._close_file_handlers(logger)
 
-    def on_module_done(self, test_module_result: TestModuleResult):
+    def on_module_done(self, test_module_result: TestModuleResult) -> None:
         if test_module_result.status in [Status.PASSED, Status.SKIPPED]:
             for test_result in test_module_result.test_results:
                 self._close_file_handlers(self._get_logger(test_module_result.name, test_result.name)[0])
@@ -332,7 +335,7 @@ class SuiteLogManager(LogManager):
                 os.path.join(self.folder, f'{test_module_result.status.name}_{test_module_result.name}'))
         self.logger.info(f'{test_module_result}{self._module_terminator}')
 
-    def on_suite_stop(self, suite_result: TestSuiteResult):
+    def on_suite_stop(self, suite_result: TestSuiteResult) -> None:
         self.logger.info(str(suite_result))
         self._close_file_handlers(self.logger)
 
@@ -368,15 +371,15 @@ class ManualFlushHandler(MemoryHandler):
     """
     This class will only flush on close; also emits at log level or above.
     """
-    def __init__(self, target, emit_level=logging.INFO):
+    def __init__(self, target, emit_level=logging.INFO) -> None:
         super().__init__(capacity=None, target=target)
         self.emit_level = emit_level
 
-    def emit(self, record):
+    def emit(self, record) -> None:
         if record.levelno >= self.emit_level:
             super().emit(record)
 
-    def shouldFlush(self, record):
+    def shouldFlush(self, record) -> bool:
         return False
 
 

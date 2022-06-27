@@ -1,7 +1,6 @@
 from argparse import Namespace
 import asyncio
 import concurrent.futures
-from enum import Enum
 import inspect
 from logging import Logger
 import threading
