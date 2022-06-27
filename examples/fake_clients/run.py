@@ -51,7 +51,7 @@ class Client:
         self._sleep()
 
     def on(self, handler):
-        self.pub_sub.subscribe(handler)
+        self.pub_sub.subscribe("event", handler)
 
 
 class AsyncClient:

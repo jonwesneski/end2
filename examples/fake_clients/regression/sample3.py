@@ -26,10 +26,12 @@ def test_31(client, async_client):
     assert client.put({'hi': 33}) is None
 
 
-def test_32(client, async_client):
+def test_32(client, async_client, *, end):
+    def handler():
+        end()
     client.logger.info('hi12')
     assert client.post({'hi': 32}) is None
-    assert client.post({'hi': 32}) is None
+    client.on(handler)
     assert client.post({'hi': 33}) is None
 
 

@@ -144,8 +144,8 @@ class TestModuleRun:
 
     def setup(self, setup_func) -> Result:
         setup_logger = self.log_manager.get_setup_logger(self.module.name)
-        method_resolver = TestParametersResolver(setup_func, self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
-        args, kwargs, ender = method_resolver.resolve(setup_logger)
+        resolver = TestParametersResolver(self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
+        args, kwargs, ender = resolver.resolve(setup_func, setup_logger)
         if inspect.iscoroutinefunction(setup_func):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -230,8 +230,8 @@ class TestModuleRun:
     def teardown(self, teardown_func) -> Result:
         teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
         args, kwargs = self.test_parameters_func(teardown_logger, self.package_object)
-        method_resolver = TestParametersResolver(teardown_func, self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
-        args, kwargs, ender = method_resolver.resolve(teardown_logger)
+        resolver = TestParametersResolver(self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
+        args, kwargs, ender = resolver.resolve(teardown_func, teardown_logger)
         if inspect.iscoroutinefunction(teardown_func):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -265,19 +265,18 @@ class Ender:
     def wait(self) -> None:
         in_time = self.event.wait(self.time_out)
         if not in_time:
-            raise TimeoutError(f"Time out reached: {self.time_out}s")
+            raise TimeoutError(f"end() time out reached: {self.time_out}s")
 
 
 class TestParametersResolver:
-    def __init__(self, method, test_parameters_func, package_object, time_out: float = 15.0) -> None:
-        self._method = method
+    def __init__(self, test_parameters_func, package_object, time_out: float = 15.0) -> None:
         self._package_object = package_object
         self._test_parameters_func = test_parameters_func
         self.time_out = time_out
 
-    def resolve(self, logger) -> tuple:
+    def resolve(self, method: Callable, logger: Logger) -> tuple:
         args, kwargs = self._test_parameters_func(logger, self._package_object)
-        kwonlyargs = dict.fromkeys(inspect.getfullargspec(self._method).kwonlyargs, True)
+        kwonlyargs = dict.fromkeys(inspect.getfullargspec(method).kwonlyargs, True)
         ender = None
         if kwonlyargs:
             end_found = kwonlyargs.pop(ReservedWords.END.value, False)
@@ -305,7 +304,7 @@ class TestMethodRun:
         self.module_name = module_name
         self.package_object = package_object
         self.parsed_args = parsed_args
-        self.test_resolver = TestParametersResolver(self.test_method.func, self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
+        self.test_resolver = TestParametersResolver(self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
 
     def run(self) -> TestMethodResult:
         loop = asyncio.new_event_loop()
@@ -374,7 +373,7 @@ class TestMethodRun:
 
     def _intialize_args_and_setup(self) -> Result:
         logger = self.log_manager.get_setup_test_logger(self.module_name, self.test_method.name)
-        args, kwargs, ender = self.test_resolver.resolve(logger)
+        args, kwargs, ender = self.test_resolver.resolve(self.test_method.setup_func, logger)
         result = run_test_func(logger, ender, self.test_method.setup_func, *args, **kwargs)
         self.log_manager.on_setup_test_done(self.module_name, self.test_method.name, result.to_base())
         return result
@@ -388,7 +387,7 @@ class TestMethodRun:
 
     def _intialize_args_and_teardown(self) -> Result:
         logger = self.log_manager.get_teardown_test_logger(self.module_name, self.test_method.name)
-        args, kwargs, ender = self.test_resolver.resolve(logger)
+        args, kwargs, ender = self.test_resolver.resolve(self.test_method.teardown_func, logger)
         result = run_test_func(logger, ender, self.test_method.teardown_func, *args, **kwargs)
         self.log_manager.on_teardown_test_done(self.module_name, self.test_method.name, result.to_base())
         return result
@@ -402,7 +401,7 @@ class TestMethodRun:
 
     def _intialize_args_and_run(self) -> TestMethodResult:
         logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
-        args, kwargs, ender = self.test_resolver.resolve(logger)
+        args, kwargs, ender = self.test_resolver.resolve(self.test_method.func, logger)
         result = run_test_func(logger, ender, self.test_method.func, *(args + self.test_method.parameterized_tuple), **kwargs)
         result.metadata = self.test_method.metadata
         self.log_manager.on_test_done(self.module_name, result)
