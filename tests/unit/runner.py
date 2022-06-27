@@ -62,7 +62,7 @@ class TestRunMethod(unittest.TestCase):
         end = ender.create()
         result = runner.run_test_func(empty_logger, ender, test_4, end=end)
         self.assertEqual(result.status, Status.FAILED)
-        self.assertEqual(result.message, expected_message)
+        self.assertIn(expected_message, result.message)
 
     def test_method_end_callback_timeout(self):
         expected_timeout = 1.0
