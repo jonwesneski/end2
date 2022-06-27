@@ -36,13 +36,13 @@ excluding - anything on the right side of a '\!' will be excluded:
 --suite path/to/\!file.py  # will run everything under path/to except path/to/file.py
 --suite path/to/file.py::\!test_1,test_2  # will run everything under path/to/file.py except test_1 and test_2""")
     parent_parser.add_argument('--suite-glob', nargs='*', action=SuiteFactoryAction,
-                               help="list of glob expression to search for tests")
+                               help="List of glob expression to search for tests")
     parent_parser.add_argument('--suite-regex', nargs='*', action=SuiteFactoryAction,
-                               help="list of regex expression to search for tests")
+                               help="List of regex expression to search for tests")
     parent_parser.add_argument('--suite-tag', nargs='*', action=SuiteFactoryAction,
-                               help="list of path-tags to search for tests")
+                               help="List of path-tags to search for tests")
     parent_parser.add_argument('--suite-last-failed', nargs=0, action=SuiteFactoryAction,
-                               help="list of regex expression to search for tests")
+                               help="List of regex expression to search for tests")
     parent_parser.add_argument('--max-workers', type=int, default=rc['settings'].getint('max-workers'),
                                help='Total number of workers allowed to run concurrently')
     parent_parser.add_argument('--max-log-folders', type=int, default=rc['settings'].getint('max-log-folders'),
@@ -51,36 +51,16 @@ excluding - anything on the right side of a '\!' will be excluded:
                                help='Make all tests run sequentially')
     parent_parser.add_argument('--stop-on-fail', action='store_true', default=rc['settings'].getboolean('stop-on-fail'),
                                help='Make all tests run sequentially')
+    parent_parser.add_argument('--event-timeout', type=float, default=rc['settings'].getfloat('event-timeout'),
+                               help='Timeout value in seconds used if end() is not called in time')
     return parent_parser
-
-
-class SuiteFactoryAction(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        if values or option_string == '--suite-last-failed':
-            arg_to_name = f"_parse_{option_string[2:].replace('-', '_')}"
-            setattr(namespace, 'suite', getattr(self, arg_to_name)(values))
-
-    def _parse_suite(self, suite: list):
-        return SuiteArg(suite, DefaultModulePatternMatcher, DefaultTestCasePatternMatcher)
-
-    def _parse_suite_glob(self, suite: list):
-        return SuiteArg(suite, GlobModulePatternMatcher, GlobTestCasePatternMatcher)
-
-    def _parse_suite_regex(self, suite: list):
-        return SuiteArg(suite, RegexModulePatternMatcher, RegexTestCasePatternMatcher)
-
-    def _parse_suite_tag(self, suite: list):
-        return SuiteArg(suite, TagModulePatternMatcher, TagTestCasePatternMatcher)
-
-    def _parse_suite_last_failed(self, _: list):
-        return self._parse_suite(get_last_run_rc()['failures'])
 
 
 class SuiteArg:
     rc_alias = 'suite-alias'
     rc_disabled = 'suite-disabled'
 
-    def __init__(self, paths: list, module_class: PatternMatcherBase, test_class: PatternMatcherBase):
+    def __init__(self, paths: list, module_class: PatternMatcherBase, test_class: PatternMatcherBase) -> None:
         self.modules = {}
         self.excluded_modules = []
         rc = get_rc()
@@ -110,7 +90,7 @@ class SuiteArg:
                     paths_.add(path)
         return paths_
 
-    def __str__(self):
+    def __str__(self) -> str:
         temp_ = {
             "included_modules": {}
         }
@@ -118,3 +98,25 @@ class SuiteArg:
             temp_["included_modules"][k] = str(v)
         temp_["excluded_modules"] = self.excluded_modules
         return str(temp_)
+
+
+class SuiteFactoryAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None) -> None:
+        if values or option_string == '--suite-last-failed':
+            arg_to_name = f"_parse_{option_string[2:].replace('-', '_')}"
+            setattr(namespace, 'suite', getattr(self, arg_to_name)(values))
+
+    def _parse_suite(self, suite: list) -> SuiteArg:
+        return SuiteArg(suite, DefaultModulePatternMatcher, DefaultTestCasePatternMatcher)
+
+    def _parse_suite_glob(self, suite: list) -> SuiteArg:
+        return SuiteArg(suite, GlobModulePatternMatcher, GlobTestCasePatternMatcher)
+
+    def _parse_suite_regex(self, suite: list) -> SuiteArg:
+        return SuiteArg(suite, RegexModulePatternMatcher, RegexTestCasePatternMatcher)
+
+    def _parse_suite_tag(self, suite: list) -> SuiteArg:
+        return SuiteArg(suite, TagModulePatternMatcher, TagTestCasePatternMatcher)
+
+    def _parse_suite_last_failed(self, _: list) -> SuiteArg:
+        return self._parse_suite(get_last_run_rc()['failures'])

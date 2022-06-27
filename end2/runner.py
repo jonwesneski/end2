@@ -3,16 +3,18 @@ import asyncio
 import concurrent.futures
 import inspect
 from logging import Logger
+import threading
 import traceback
 import sys
 from typing import (
+    Callable,
     List,
     Tuple
 )
 
 from end2 import exceptions
 from end2.discovery import discover_suite
-from end2.constants import Status
+from end2.constants import ReservedWords, Status
 from end2.logger import SuiteLogManager
 from end2.models.result import (
     Result,
@@ -35,7 +37,7 @@ def default_test_parameters(logger, package_object) -> Tuple[tuple, dict]:
 
 
 def create_test_run(parsed_args: Namespace, test_parameters_func=default_test_parameters
-                    , log_manager: SuiteLogManager = None) -> Tuple[TestSuiteResult, Tuple[str]]:
+                    , log_manager: SuiteLogManager = None) -> Tuple['SuiteRun', Tuple[str]]:
     test_packages, failed_imports = discover_suite(parsed_args.suite.modules)
     suite_run = SuiteRun(parsed_args, test_parameters_func, test_packages, log_manager)
     return suite_run, failed_imports
@@ -44,11 +46,13 @@ def create_test_run(parsed_args: Namespace, test_parameters_func=default_test_pa
 def start_test_run(parsed_args: Namespace, test_parameters_func=default_test_parameters
                    , log_manager: SuiteLogManager = None) -> Tuple[TestSuiteResult, Tuple[str]]:
     suite_run, failed_imports = create_test_run(parsed_args, test_parameters_func, log_manager)
-    return suite_run.run(), failed_imports
+    results = suite_run.run()
+    suite_run.log_manager.close()
+    return results, failed_imports
 
 
 class SuiteRun:
-    def __init__(self, parsed_args: Namespace, test_parameters_func, test_packages: Tuple[TestPackageTree], log_manager: SuiteLogManager = None) -> None:
+    def __init__(self, parsed_args: Namespace, test_parameters_func: Callable, test_packages: Tuple[TestPackageTree], log_manager: SuiteLogManager = None) -> None:
         self.parsed_args = parsed_args
         self.test_parameters_func = test_parameters_func
         self.test_packages = test_packages
@@ -72,13 +76,13 @@ class SuiteRun:
                     sequential_modules = sequential_modules + parallel_modules
                     parallel_modules = tuple()
                 for test_module in sequential_modules:
-                    module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args.stop_on_fail)
+                    module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args)
                     self.results.append(module_run.run())
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=self.parsed_args.max_workers) as executor:
                     futures = [
                         executor.submit(
-                            TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args.stop_on_fail, executor).run)
+                            TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args, executor).run)
                         for test_module in parallel_modules
                     ]
                     for future in futures:
@@ -94,13 +98,14 @@ class SuiteRun:
 
 class TestModuleRun:
     def __init__(self, test_parameters_func, module: TestModule, log_manager: SuiteLogManager
-                 , package_object: DynamicMroMixin, stop_on_fail: bool
+                 , package_object: DynamicMroMixin, parsed_args: Namespace
                  , concurrent_executor: concurrent.futures.ThreadPoolExecutor = None) -> None:
         self.test_parameters_func = test_parameters_func
         self.module = module
         self.log_manager = log_manager
         self.package_object = package_object
-        self.stop_on_fail = stop_on_fail
+        self.parsed_args = parsed_args
+        self.stop_on_fail = parsed_args.stop_on_fail
         self.concurrent_executor = concurrent_executor
 
     def run(self) -> TestModuleResult:
@@ -139,14 +144,15 @@ class TestModuleRun:
 
     def setup(self, setup_func) -> Result:
         setup_logger = self.log_manager.get_setup_logger(self.module.name)
-        args, kwargs = self.test_parameters_func(setup_logger, self.package_object)
+        resolver = TestParametersResolver(self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
+        args, kwargs, ender = resolver.resolve(setup_func, setup_logger)
         if inspect.iscoroutinefunction(setup_func):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             loop.run_until_complete(run_async_test_func(setup_logger, setup_func, *args, **kwargs))
             loop.close()
         else:
-            result = run_test_func(setup_logger, setup_func, *args, **kwargs)
+            result = run_test_func(setup_logger, ender, setup_func, *args, **kwargs)
         self.log_manager.on_setup_module_done(self.module.name, result.to_base())
         return result
 
@@ -163,7 +169,7 @@ class TestModuleRun:
         
         routines, coroutines = [], []
         for k, test in group.tests.items():
-            test_run = TestMethodRun(test, self.test_parameters_func, self.log_manager, self.module.name, self.package_object)
+            test_run = TestMethodRun(test, self.test_parameters_func, self.log_manager, self.module.name, self.package_object, self.parsed_args)
             if inspect.iscoroutinefunction(test.func):
                 coroutines.append(test_run)
             else:
@@ -224,25 +230,81 @@ class TestModuleRun:
     def teardown(self, teardown_func) -> Result:
         teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
         args, kwargs = self.test_parameters_func(teardown_logger, self.package_object)
+        resolver = TestParametersResolver(self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
+        args, kwargs, ender = resolver.resolve(teardown_func, teardown_logger)
         if inspect.iscoroutinefunction(teardown_func):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             loop.run_until_complete(run_async_test_func(teardown_logger, teardown_func, *args, **kwargs))
             loop.close()
         else:
-            result = run_test_func(teardown_logger, teardown_func, *args, **kwargs)
+            result = run_test_func(teardown_logger, ender, teardown_func, *args, **kwargs)
         self.log_manager.on_teardown_module_done(self.module.name, result.to_base())
         return result
 
 
+class Ender:
+    def __init__(self, time_out: float = 15.0) -> None:
+        self.time_out = time_out
+        self.event = threading.Event()
+        
+    def create(self) -> Callable:
+        self.event = threading.Event()
+        return Ender.end_wrapper(self.event)
+
+    @staticmethod
+    def end_wrapper(event: threading.Event) -> Callable:
+        def end() -> None:
+            event.set()
+        def fail(x: str) -> None:
+            event.set()
+            raise exceptions.OnEventFailedException(x)
+        end.fail = fail
+        return end
+
+    def wait(self) -> None:
+        in_time = self.event.wait(self.time_out)
+        if not in_time:
+            raise TimeoutError(f"end() time out reached: {self.time_out}s")
+
+
+class TestParametersResolver:
+    def __init__(self, test_parameters_func, package_object, time_out: float = 15.0) -> None:
+        self._package_object = package_object
+        self._test_parameters_func = test_parameters_func
+        self.time_out = time_out
+
+    def resolve(self, method: Callable, logger: Logger) -> tuple:
+        args, kwargs = self._test_parameters_func(logger, self._package_object)
+        kwonlyargs = dict.fromkeys(inspect.getfullargspec(method).kwonlyargs, True)
+        ender = None
+        if kwonlyargs:
+            end_found = kwonlyargs.pop(ReservedWords.END.value, False)
+            if end_found:
+                ender = Ender(self.time_out)
+                kwargs[ReservedWords.END.value] = ender.create()
+            logger_found = kwonlyargs.pop(ReservedWords.LOGGER.value, False)
+            if logger_found:
+                kwargs[ReservedWords.LOGGER.value] = logger
+            package_object_found = kwonlyargs.pop(ReservedWords.PACKAGE_OBJECT.value, False)
+            if package_object_found:
+                kwargs[ReservedWords.PACKAGE_OBJECT.value] = self.package_object
+            if kwonlyargs:
+                raise exceptions.TestCodeException(f"Unknown reserved words found or possibly typos: {list(kwonlyargs.keys())}"
+                                                   f"\npossible reserved keywords: {[[x.name for x in ReservedWords]]}")
+        return args, kwargs, ender
+
+
 class TestMethodRun:
     def __init__(self, test_method: TestMethod, test_parameters_func
-                 , log_manager: SuiteLogManager,  module_name: str, package_object: DynamicMroMixin) -> None:
+                 , log_manager: SuiteLogManager, module_name: str, package_object: DynamicMroMixin, parsed_args: Namespace) -> None:
         self.test_method = test_method
         self.test_parameters_func = test_parameters_func
         self.log_manager = log_manager
         self.module_name = module_name
         self.package_object = package_object
+        self.parsed_args = parsed_args
+        self.test_resolver = TestParametersResolver(self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
 
     def run(self) -> TestMethodResult:
         loop = asyncio.new_event_loop()
@@ -311,8 +373,8 @@ class TestMethodRun:
 
     def _intialize_args_and_setup(self) -> Result:
         logger = self.log_manager.get_setup_test_logger(self.module_name, self.test_method.name)
-        args, kwargs = self.test_parameters_func(logger, self.package_object)
-        result = run_test_func(logger, self.test_method.setup_func, *args, **kwargs)
+        args, kwargs, ender = self.test_resolver.resolve(self.test_method.setup_func, logger)
+        result = run_test_func(logger, ender, self.test_method.setup_func, *args, **kwargs)
         self.log_manager.on_setup_test_done(self.module_name, self.test_method.name, result.to_base())
         return result
 
@@ -325,8 +387,8 @@ class TestMethodRun:
 
     def _intialize_args_and_teardown(self) -> Result:
         logger = self.log_manager.get_teardown_test_logger(self.module_name, self.test_method.name)
-        args, kwargs = self.test_parameters_func(logger, self.package_object)
-        result = run_test_func(logger, self.test_method.teardown_func, *args, **kwargs)
+        args, kwargs, ender = self.test_resolver.resolve(self.test_method.teardown_func, logger)
+        result = run_test_func(logger, ender, self.test_method.teardown_func, *args, **kwargs)
         self.log_manager.on_teardown_test_done(self.module_name, self.test_method.name, result.to_base())
         return result
 
@@ -339,8 +401,8 @@ class TestMethodRun:
 
     def _intialize_args_and_run(self) -> TestMethodResult:
         logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
-        args, kwargs = self.test_parameters_func(logger, self.package_object)
-        result = run_test_func(logger, self.test_method.func, *(args + self.test_method.parameterized_tuple), **kwargs)
+        args, kwargs, ender = self.test_resolver.resolve(self.test_method.func, logger)
+        result = run_test_func(logger, ender, self.test_method.func, *(args + self.test_method.parameterized_tuple), **kwargs)
         result.metadata = self.test_method.metadata
         self.log_manager.on_test_done(self.module_name, result)
         return result
@@ -354,10 +416,12 @@ class TestMethodRun:
         return result
 
 
-def run_test_func(logger: Logger, func, *args, **kwargs) -> TestMethodResult:
+def run_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMethodResult:
     result = TestMethodResult(func.__name__, status=Status.FAILED)
     try:
         func(*args, **kwargs)
+        if ender:
+            ender.wait()
         result.status = Status.PASSED
     except AssertionError as ae:
         _, _, tb = sys.exc_info()
@@ -366,11 +430,14 @@ def run_test_func(logger: Logger, func, *args, **kwargs) -> TestMethodResult:
         result.message = str(ae) if str(ae) else error_text
         logger.error(result.message)
     except exceptions.SkipTestException as ste:
-        logger.info(ste.message)
-        result.message = ste.message
         result.status = Status.SKIPPED
-    except exceptions.IgnoreTestException as ite:
+        result.message = str(ste)
+        logger.info(result.message)
+    except exceptions.IgnoreTestException:
         raise
+    except (TimeoutError, exceptions.OnEventFailedException) as other:
+        result.message = f'{other.__class__.__name__}: {other}'
+        logger.error(result.message)
     except Exception as e:
         logger.debug(traceback.format_exc())
         result.message = f'Encountered an exception: {e}'
@@ -390,14 +457,17 @@ async def run_async_test_func(logger: Logger, func, *args, **kwargs) -> TestMeth
         result.message = str(ae) if str(ae) else error_text
         logger.error(result.message)
     except exceptions.SkipTestException as ste:
-        logger.info(ste.message)
-        result.message = ste.message
         result.status = Status.SKIPPED
-    except exceptions.IgnoreTestException as ite:
+        result.message = str(ste)
+        logger.info(result.message)
+    except exceptions.IgnoreTestException:
         raise
+    except (TimeoutError, exceptions.OnEventFailedException) as other:
+        result.message = f'{other.__class__.__name__}: {other}'
+        logger.error(result.message)
     except asyncio.CancelledError:
-        result.message = 'I got cancelled'
         result.status = Status.SKIPPED
+        result.message = 'I got cancelled'
         logger.info(result.message)
     except Exception as e:
         logger.debug(traceback.format_exc())

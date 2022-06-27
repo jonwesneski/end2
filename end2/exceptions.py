@@ -1,3 +1,6 @@
+"""
+    * Please keep class names alphabetical
+"""
 
 
 class IgnoreTestException(Exception):
@@ -9,17 +12,21 @@ class MoreThan1FixtureException(Exception):
         # args[0] is fixture name args[1] is module name
         self.message = f'More than 1 {args[0]} in {args[1]}'
 
+    def __str__(self) -> str:
+        return self.message
+
+
+class OnEventFailedException(Exception):
+    pass
+
 
 class SkipTestException(Exception):
-    def __init__(self, *args):
-        self.message = args[0]
+    pass
 
 
 class StopTestRunException(Exception):
-    def __init__(self, *args):
-        self.message = args[0]
+    pass
 
 
 class TestCodeException(Exception):
-    def __init__(self, *args):
-        self.message = args[0]
+    pass

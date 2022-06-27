@@ -10,9 +10,26 @@ from end2.runner import start_test_run
 from end2.arg_parser import default_parser
 
 
+
+class SimplePubSub:
+    def __init__(self) -> None:
+        self.subscribers = {}
+
+    def unsubscribe(self, event: str) -> None:
+        self.subscribers.pop(event, None)
+
+    def subscribe(self, event: str, callback) -> None:
+        self.subscribers[event] = callback
+
+    def publish(self, event: str, *args) -> None:
+        if event in self.subscribers.keys():
+            self.subscribers[event](*args)
+
+
 class Client:
     def __init__(self, logger):
         self.logger = logger
+        self.pub_sub = SimplePubSub()
 
     @staticmethod
     def _sleep():
@@ -32,6 +49,9 @@ class Client:
     
     def delete(self):
         self._sleep()
+
+    def on(self, handler):
+        self.pub_sub.subscribe("event", handler)
 
 
 class AsyncClient:
