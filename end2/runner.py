@@ -412,7 +412,8 @@ class TestMethodRun:
     async def _intialize_args_and_run_async(self) -> TestMethodResult:
         logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
         args, kwargs = self.test_parameters_func(logger, self.package_object)
-        result = await run_async_test_func(logger, self.test_method.func, *(args + self.test_method.parameterized_tuple), **kwargs)
+        args, kwargs, ender = self.test_resolver.resolve(self.test_method.func, logger, self.test_method.parameterized_tuple)
+        result = await run_async_test_func(logger, ender, self.test_method.func, *args, **kwargs)
         result.metadata = self.test_method.metadata
         self.log_manager.on_test_done(self.module_name, result)
         return result
@@ -447,10 +448,12 @@ def run_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMe
     return result.end()
 
 
-async def run_async_test_func(logger: Logger, func, *args, **kwargs) -> TestMethodResult:
+async def run_async_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMethodResult:
     result = TestMethodResult(func.__name__, status=Status.FAILED)
     try:
         await func(*args, **kwargs)
+        if ender:
+            ender.wait()
         result.status = Status.PASSED
     except AssertionError as ae:
         _, _, tb = sys.exc_info()

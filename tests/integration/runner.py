@@ -64,3 +64,16 @@ class TestStartRun(unittest.TestCase):
 
         results, _ = runner.start_test_run(args, test_parameters)
         self.assertIn(f'time out reached: {timeout}s', results.test_modules[0].test_results[0].message)
+
+    def test_integration_end_timeout_async(self):
+        timeout = 2.0
+        arg_list=['--suite', os.path.join('examples', 'fake_clients', 'regression', 'sample3.py::test_33'), '--event-timeout', str(timeout)]
+        args = arg_parser.default_parser().parse_args(arg_list)
+
+        async_client = clients.AsyncClient(None)
+        def test_parameters(logger, package_object):
+            async_client.logger = logger
+            return (clients.Client(logger), async_client), {}
+
+        results, _ = runner.start_test_run(args, test_parameters)
+        self.assertIn(f'time out reached: {timeout}s', results.test_modules[0].test_results[0].message)

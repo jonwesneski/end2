@@ -35,5 +35,12 @@ def test_32(client, async_client, *, end):
     assert client.post({'hi': 33}) is None
 
 
-async def test_33(client, async_client):
+async def test_33(client, async_client, *, end):
+    def handler():
+        end()
+    client.on(handler)
+    assert await async_client.get()
+
+
+async def test_34(client, async_client):
     assert await async_client.get() == await async_client.get()
