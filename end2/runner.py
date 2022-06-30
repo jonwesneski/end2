@@ -274,8 +274,10 @@ class TestParametersResolver:
         self._test_parameters_func = test_parameters_func
         self.time_out = time_out
 
-    def resolve(self, method: Callable, logger: Logger) -> tuple:
+    def resolve(self, method: Callable, logger: Logger, extra_args: tuple = None) -> tuple:
         args, kwargs = self._test_parameters_func(logger, self._package_object)
+        if extra_args:
+            args += extra_args
         kwonlyargs = dict.fromkeys(inspect.getfullargspec(method).kwonlyargs, True)
         ender = None
         if kwonlyargs:
@@ -401,8 +403,8 @@ class TestMethodRun:
 
     def _intialize_args_and_run(self) -> TestMethodResult:
         logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
-        args, kwargs, ender = self.test_resolver.resolve(self.test_method.func, logger)
-        result = run_test_func(logger, ender, self.test_method.func, *(args + self.test_method.parameterized_tuple), **kwargs)
+        args, kwargs, ender = self.test_resolver.resolve(self.test_method.func, logger, self.test_method.parameterized_tuple)
+        result = run_test_func(logger, ender, self.test_method.func, *args, **kwargs)
         result.metadata = self.test_method.metadata
         self.log_manager.on_test_done(self.module_name, result)
         return result
