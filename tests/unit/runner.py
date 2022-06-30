@@ -120,3 +120,33 @@ class TestRunMethodAsync(unittest.TestCase):
         self.assertEqual(result.status, Status.FAILED)
         self.assertIn("Encountered an exception", result.message)
         self.assertIsNotNone(result.end_time)
+
+    def test_async_method_end_callback(self):
+        async def test_4(*, end):
+            await asyncio.sleep(0.1)
+            end()
+        ender = runner.Ender()
+        end = ender.create()
+        result = runner.run_test_func(empty_logger, ender, test_4, end=end)
+        self.assertEqual(result.status, Status.PASSED)
+
+    def test_async_method_end_fail_callback(self):
+        expected_message = "i fail"
+        async def test_4(*, end):
+            end.fail(expected_message)
+            await asyncio.sleep(0.1)
+        ender = runner.Ender()
+        end = ender.create()
+        result = runner.run_test_func(empty_logger, ender, test_4, end=end)
+        self.assertEqual(result.status, Status.FAILED)
+        self.assertIn(expected_message, result.message)
+
+    def test_async_method_end_callback_timeout(self):
+        expected_timeout = 1.0
+        async def test_4(*, end):
+            await asyncio.sleep(0.1)
+        ender = runner.Ender(expected_timeout)
+        end = ender.create()
+        result = runner.run_test_func(empty_logger, ender, test_4, end=end)
+        self.assertEqual(result.status, Status.FAILED)
+        self.assertIn(str(expected_timeout), result.message)
