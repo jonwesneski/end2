@@ -80,7 +80,7 @@ class TestRunMethodAsync(unittest.TestCase):
         async def test_1():
             await asyncio.sleep(0.1)
             assert True
-        result = asyncio.run(runner.run_async_test_func(empty_logger, test_1))
+        result = asyncio.run(runner.run_async_test_func(empty_logger, None, test_1))
         self.assertEqual(result.status, Status.PASSED)
         self.assertEqual(result.message, "")
         self.assertIsNotNone(result.end_time)
@@ -89,7 +89,7 @@ class TestRunMethodAsync(unittest.TestCase):
         async def test_2(a):
             await asyncio.sleep(0.1)
             assert False
-        result = asyncio.run(runner.run_async_test_func(empty_logger, test_2, 1))
+        result = asyncio.run(runner.run_async_test_func(empty_logger, None, test_2, 1))
         self.assertEqual(result.status, Status.FAILED)
         self.assertNotEqual(result.message, "")
         self.assertIsNotNone(result.end_time)
@@ -98,7 +98,7 @@ class TestRunMethodAsync(unittest.TestCase):
         async def test_3(a, b):
             await asyncio.sleep(0.1)
             raise exceptions.SkipTestException("I skip")
-        result = asyncio.run(runner.run_async_test_func(empty_logger, test_3, a=1, b=2))
+        result = asyncio.run(runner.run_async_test_func(empty_logger, None, test_3, a=1, b=2))
         self.assertEqual(result.status, Status.SKIPPED) and self.assertEqual(result.message, "I skip") 
         self.assertIsNotNone(result.end_time)
 
@@ -108,7 +108,7 @@ class TestRunMethodAsync(unittest.TestCase):
             raise exceptions.IgnoreTestException("Error")
 
         def run_to_completion():
-            return asyncio.run(runner.run_async_test_func(empty_logger, test_4))
+            return asyncio.run(runner.run_async_test_func(empty_logger, None, test_4))
 
         self.assertRaises(exceptions.IgnoreTestException, run_to_completion)
         
@@ -116,7 +116,7 @@ class TestRunMethodAsync(unittest.TestCase):
         async def test_4(a, b, c):
             await asyncio.sleep(0.1)
             raise Exception("Error")
-        result = asyncio.run(runner.run_async_test_func(empty_logger, test_4, 1, 2, 3))
+        result = asyncio.run(runner.run_async_test_func(empty_logger, None, test_4, 1, 2, 3))
         self.assertEqual(result.status, Status.FAILED)
         self.assertIn("Encountered an exception", result.message)
         self.assertIsNotNone(result.end_time)

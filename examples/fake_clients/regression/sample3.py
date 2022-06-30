@@ -39,7 +39,7 @@ async def test_33(client, async_client, *, end):
     def handler():
         end()
     client.on(handler)
-    assert await async_client.get()
+    assert await async_client.get() == await async_client.get()
 
 
 async def test_34(client, async_client):

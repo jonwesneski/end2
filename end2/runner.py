@@ -269,7 +269,7 @@ class Ender:
 
 
 class TestParametersResolver:
-    def __init__(self, test_parameters_func, package_object, time_out: float = 15.0) -> None:
+    def __init__(self, test_parameters_func: Callable, package_object, time_out: float = 15.0) -> None:
         self._package_object = package_object
         self._test_parameters_func = test_parameters_func
         self.time_out = time_out
