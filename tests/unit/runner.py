@@ -127,7 +127,7 @@ class TestRunMethodAsync(unittest.TestCase):
             end()
         ender = runner.Ender()
         end = ender.create()
-        result = runner.run_test_func(empty_logger, ender, test_4, end=end)
+        result = asyncio.run(runner.run_async_test_func(empty_logger, ender, test_4, end=end))
         self.assertEqual(result.status, Status.PASSED)
 
     def test_async_method_end_fail_callback(self):
@@ -137,7 +137,7 @@ class TestRunMethodAsync(unittest.TestCase):
             await asyncio.sleep(0.1)
         ender = runner.Ender()
         end = ender.create()
-        result = runner.run_test_func(empty_logger, ender, test_4, end=end)
+        result = asyncio.run(runner.run_async_test_func(empty_logger, ender, test_4, end=end))
         self.assertEqual(result.status, Status.FAILED)
         self.assertIn(expected_message, result.message)
 
@@ -147,6 +147,6 @@ class TestRunMethodAsync(unittest.TestCase):
             await asyncio.sleep(0.1)
         ender = runner.Ender(expected_timeout)
         end = ender.create()
-        result = runner.run_test_func(empty_logger, ender, test_4, end=end)
+        result = asyncio.run(runner.run_async_test_func(empty_logger, ender, test_4, end=end))
         self.assertEqual(result.status, Status.FAILED)
         self.assertIn(str(expected_timeout), result.message)
