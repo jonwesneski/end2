@@ -408,7 +408,6 @@ class TestStepsRun:
     def __init__(self, logger: Logger) -> None:
         self.logger = logger
         self.steps = []
-        self.total_duration = 0
 
     def __str__(self) -> str:
         return f'Number of steps: {len(self.steps)} | Duration: {self.duration}'
@@ -422,7 +421,6 @@ class TestStepsRun:
         except Exception as e:
             exception = e
         self.steps.append(step_.end())
-        self.total_duration += self.steps[-1]
         if not exception:
             if assert_lambda:
                 assert assert_lambda(return_value)
@@ -439,7 +437,6 @@ class TestStepsRun:
         except Exception as e:
             exception = e
         self.steps.append(step_.end())
-        self.total_duration += self.steps[-1]
         if not exception:
             assert lambda_(return_value)
         else:
