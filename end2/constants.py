@@ -25,3 +25,4 @@ class ReservedWords(Enum):
     END = 'end'
     LOGGER = 'logger'
     PACKAGE_OBJECT = 'package_object'
+    STEP = 'step'

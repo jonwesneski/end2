@@ -51,6 +51,16 @@ class Result:
         return self
 
 
+class TestStepResult(Result):
+    def __init__(self, message: str) -> None:
+        self.message = message
+        self._end_time = None
+        self.start()
+
+    def __str__(self) -> str:
+        return f'{self.message} | Duration: {self.duration}'
+
+
 class TestMethodResult(Result):
     def __init__(self, name: str, setup: Result = None, teardown: Result = None
                  , status: Status = None, message: str = "", description: str = ""
@@ -60,6 +70,7 @@ class TestMethodResult(Result):
         self.teardown_result = teardown
         self.metadata = metadata or {}
         self.description = description
+        self.steps = []
 
     def to_base(self) -> Result:
         result = Result(self.name, self.status, self.message)
@@ -118,7 +129,7 @@ class TestModuleResult(Result):
 
 
 class TestSuiteResult(Result):
-    def __init__(self, name: str, test_modules: list = None, status: Status = None, message: str = "") -> None:
+    def __init__(self, name: str, test_modules: List[TestModuleResult] = None, status: Status = None, message: str = "") -> None:
         super().__init__(name, status, message)
         self.test_modules = test_modules if test_modules else []
         self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0

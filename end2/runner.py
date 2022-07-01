@@ -20,6 +20,7 @@ from end2.models.result import (
     Result,
     TestMethodResult,
     TestModuleResult,
+    TestStepResult,
     TestSuiteResult,
 )
 from end2.models.testing_containers import (
@@ -107,7 +108,7 @@ class TestModuleRun:
         self.parsed_args = parsed_args
         self.stop_on_fail = parsed_args.stop_on_fail
         self.concurrent_executor = concurrent_executor
-        self.parameters_resolver = TestParametersResolver(test_parameters_func, self.package_object, self.parsed_args.event_timeout)
+        self.parameters_resolver = ParametersResolver(test_parameters_func, self.package_object, self.parsed_args.event_timeout)
 
     def run(self) -> TestModuleResult:
         result = TestModuleResult(self.module)
@@ -143,7 +144,7 @@ class TestModuleRun:
             test_results.extend(self._create_skipped_results(g, message))
         return test_results
 
-    def setup(self, setup_func) -> Result:
+    def setup(self, setup_func: Callable) -> Result:
         setup_logger = self.log_manager.get_setup_logger(self.module.name)
         args, kwargs, ender = self.parameters_resolver.resolve(setup_func, setup_logger)
         if inspect.iscoroutinefunction(setup_func):
@@ -227,7 +228,7 @@ class TestModuleRun:
             if loop is not None and loop.is_running():
                 loop.close()
 
-    def teardown(self, teardown_func) -> Result:
+    def teardown(self, teardown_func: Callable) -> Result:
         teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
         args, kwargs = self.test_parameters_func(teardown_logger, self.package_object)
         args, kwargs, ender = self.parameters_resolver.resolve(teardown_func, teardown_logger)
@@ -267,7 +268,7 @@ class Ender:
             raise TimeoutError(f"end() time out reached: {self.time_out}s")
 
 
-class TestParametersResolver:
+class ParametersResolver:
     def __init__(self, test_parameters_func: Callable, package_object, time_out: float = 15.0) -> None:
         self._package_object = package_object
         self._test_parameters_func = test_parameters_func
@@ -287,6 +288,8 @@ class TestParametersResolver:
                 kwargs[ReservedWords.LOGGER.value] = logger
             if kwonlyargs.pop(ReservedWords.PACKAGE_OBJECT.value, False):
                 kwargs[ReservedWords.PACKAGE_OBJECT.value] = self._package_object
+            if kwonlyargs.pop(ReservedWords.STEP.value, False):
+                kwargs[ReservedWords.STEP.value] = True
             if kwonlyargs:
                 raise exceptions.TestCodeException(f"Unknown reserved words found or possibly typos: {list(kwonlyargs.keys())}"
                                                    f"\npossible reserved keywords: {[[x.name for x in ReservedWords]]}")
@@ -294,7 +297,7 @@ class TestParametersResolver:
 
 
 class TestMethodRun:
-    def __init__(self, test_method: TestMethod, parameters_resolver: TestParametersResolver
+    def __init__(self, test_method: TestMethod, parameters_resolver: ParametersResolver
                  , log_manager: SuiteLogManager, module_name: str) -> None:
         self.test_method = test_method
         self.parameters_resolver = parameters_resolver
@@ -401,13 +404,48 @@ class TestMethodRun:
         return result
 
 
-def run_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMethodResult:
+class TestStepsRun:
+    def __init__(self, logger: Logger) -> None:
+        self.logger = logger
+        self.steps: TestStepResult = []
+
+    def __str__(self) -> str:
+        return f'Number of steps: {len(self.steps)} | Duration: {self.duration}'
+
+    def step(self, message: str, assert_lambda: Callable, func: Callable, *args, **kwargs):
+        self.logger.info(message)
+        step_ = TestStepResult(message)
+        try:
+            return_value = func(*args, **kwargs)
+        finally:
+            self.steps.append(step_.end())
+            if assert_lambda:
+                assert assert_lambda(return_value)
+            return return_value
+
+    async def step_async(self, message: str, assert_lambda: Callable, func: Callable, *args, **kwargs):
+        self.logger.info(message)
+        step_ = TestStepResult(message)
+        try:
+            return_value = await func(*args, **kwargs)
+        finally:
+            self.steps.append(step_.end())
+            if assert_lambda:
+                assert assert_lambda(return_value)
+            return return_value
+
+
+def run_test_func(logger: Logger, ender: Ender, func: Callable, *args, **kwargs) -> TestMethodResult:
     result = TestMethodResult(func.__name__, status=Status.FAILED)
+    steps = TestStepsRun(logger)
+    if kwargs.get('step'):
+        kwargs['step'] = steps.step
     try:
         func(*args, **kwargs)
         if ender:
             ender.wait()
         result.status = Status.PASSED
+        result.steps = steps.steps
     except AssertionError as ae:
         _, _, tb = sys.exc_info()
         tb_info = traceback.extract_tb(tb)
@@ -430,13 +468,17 @@ def run_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMe
     return result.end()
 
 
-async def run_async_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMethodResult:
+async def run_async_test_func(logger: Logger, ender: Ender, func: Callable, *args, **kwargs) -> TestMethodResult:
     result = TestMethodResult(func.__name__, status=Status.FAILED)
+    steps = TestStepsRun(logger)
+    if kwargs.get('step'):
+        kwargs['step'] = steps.step_async
     try:
         await func(*args, **kwargs)
         if ender:
             ender.wait()
         result.status = Status.PASSED
+        result.steps = steps.steps
     except AssertionError as ae:
         _, _, tb = sys.exc_info()
         tb_info = traceback.extract_tb(tb)
