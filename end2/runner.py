@@ -415,18 +415,24 @@ class TestStepsRun:
     def step(self, message: str, assert_lambda: Callable, func: Callable, *args, **kwargs):
         self.logger.info(message)
         step_ = TestStepResult(message)
-        exception = None
+        return_value = None
         try:
             return_value = func(*args, **kwargs)
-        except Exception as e:
-            exception = e
-        self.steps.append(step_.end())
-        if not exception:
-            if assert_lambda:
+        finally:
+            self.steps.append(step_.end())
+            print(len(self.steps), 'SIZE')
+            if return_value and assert_lambda:
                 assert assert_lambda(return_value)
-        else:
-            raise exception
-        return return_value
+            return return_value
+        # except Exception as e:
+        #     exception = e
+        # self.steps.append(step_.end())
+        # if not exception:
+        #     if assert_lambda:
+        #         assert assert_lambda(return_value)
+        # else:
+        #     raise exception
+        # return return_value
 
     async def step_async(self, message: str, assert_lambda: Callable, func: Callable, *args, **kwargs):
         self.logger.info(message)
