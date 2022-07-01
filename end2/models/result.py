@@ -128,7 +128,7 @@ class TestModuleResult(Result):
 
 
 class TestSuiteResult(Result):
-    def __init__(self, name: str, test_modules: list = None, status: Status = None, message: str = "") -> None:
+    def __init__(self, name: str, test_modules: List[TestModuleResult] = None, status: Status = None, message: str = "") -> None:
         super().__init__(name, status, message)
         self.test_modules = test_modules if test_modules else []
         self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
