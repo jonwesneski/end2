@@ -19,18 +19,20 @@ def my_teardown(client, async_client):
     assert client.delete() is None
 
 
-def test_21(client, async_client):
+def test_21(client, async_client, *, step):
     client.logger.info('hi')
-    assert client.put({'hi': 21}) is None
-    assert client.put({'hi': 22}) is None
-    assert client.put({'hi': 23}) is None
+    step("my first step", lambda x: x is None, client.put, {'hi': 21})
+    result = step("my second step", None, client.put, {'hi': 22})
+    step("my second step", None, client.put, {'hi': 23})
+    assert result is None
 
 
-async def test_22(client, async_client):
+async def test_22(client, async_client, *, step):
     client.logger.info('hi22')
-    assert await async_client.post({'hi': 21}) is None
-    assert await async_client.post({'hi': 22}) is None
-    assert await async_client.post({'hi': 23}) is None
+    await step("my first step", lambda x: x == {}, async_client.post, {'hi': 21})
+    result = await step("my second step", None, async_client.post, {'hi': 22})
+    await step("my third step", None, async_client.post, {'hi': 23})
+    assert result == {}
 
 
 def test_23(client, async_client):

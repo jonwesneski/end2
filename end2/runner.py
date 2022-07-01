@@ -413,7 +413,7 @@ class TestStepsRun:
     def __str__(self) -> str:
         return f'Number of steps: {len(self.steps)} | Duration: {self.duration}'
 
-    def step(self, message: str, lambda_: Callable, func: Callable, *args, **kwargs):
+    def step(self, message: str, assert_lambda: Callable, func: Callable, *args, **kwargs):
         self.logger.info(message)
         step_ = TestStepResult(message)
         exception = None
@@ -424,7 +424,8 @@ class TestStepsRun:
         self.steps.append(step_.end())
         self.total_duration += self.steps[-1]
         if not exception:
-            assert lambda_(return_value)
+            if assert_lambda:
+                assert assert_lambda(return_value)
         else:
             raise exception
         return return_value

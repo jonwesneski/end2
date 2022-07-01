@@ -69,6 +69,7 @@ class AsyncClient:
     async def post(self, payload):
         self.logger.info(payload)
         await self._sleep()
+        return {}
 
     async def put(self, payload):
         self.logger.info(payload)
