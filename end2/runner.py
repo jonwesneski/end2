@@ -144,7 +144,7 @@ class TestModuleRun:
             test_results.extend(self._create_skipped_results(g, message))
         return test_results
 
-    def setup(self, setup_func) -> Result:
+    def setup(self, setup_func: Callable) -> Result:
         setup_logger = self.log_manager.get_setup_logger(self.module.name)
         args, kwargs, ender = self.parameters_resolver.resolve(setup_func, setup_logger)
         if inspect.iscoroutinefunction(setup_func):
@@ -228,7 +228,7 @@ class TestModuleRun:
             if loop is not None and loop.is_running():
                 loop.close()
 
-    def teardown(self, teardown_func) -> Result:
+    def teardown(self, teardown_func: Callable) -> Result:
         teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
         args, kwargs = self.test_parameters_func(teardown_logger, self.package_object)
         args, kwargs, ender = self.parameters_resolver.resolve(teardown_func, teardown_logger)
@@ -435,7 +435,7 @@ class TestStepsRun:
             return return_value
 
 
-def run_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMethodResult:
+def run_test_func(logger: Logger, ender: Ender, func: Callable, *args, **kwargs) -> TestMethodResult:
     result = TestMethodResult(func.__name__, status=Status.FAILED)
     steps = TestStepsRun(logger)
     if kwargs.get('step'):
@@ -468,7 +468,7 @@ def run_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMe
     return result.end()
 
 
-async def run_async_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMethodResult:
+async def run_async_test_func(logger: Logger, ender: Ender, func: Callable, *args, **kwargs) -> TestMethodResult:
     result = TestMethodResult(func.__name__, status=Status.FAILED)
     steps = TestStepsRun(logger)
     if kwargs.get('step'):
