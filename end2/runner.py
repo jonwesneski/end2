@@ -280,15 +280,12 @@ class TestParametersResolver:
         kwonlyargs = dict.fromkeys(inspect.getfullargspec(method).kwonlyargs, True)
         ender = None
         if kwonlyargs:
-            end_found = kwonlyargs.pop(ReservedWords.END.value, False)
-            if end_found:
+            if kwonlyargs.pop(ReservedWords.END.value, False):
                 ender = Ender(self.time_out)
                 kwargs[ReservedWords.END.value] = ender.create()
-            logger_found = kwonlyargs.pop(ReservedWords.LOGGER.value, False)
-            if logger_found:
+            if kwonlyargs.pop(ReservedWords.LOGGER.value, False):
                 kwargs[ReservedWords.LOGGER.value] = logger
-            package_object_found = kwonlyargs.pop(ReservedWords.PACKAGE_OBJECT.value, False)
-            if package_object_found:
+            if kwonlyargs.pop(ReservedWords.PACKAGE_OBJECT.value, False):
                 kwargs[ReservedWords.PACKAGE_OBJECT.value] = self._package_object
             if kwonlyargs:
                 raise exceptions.TestCodeException(f"Unknown reserved words found or possibly typos: {list(kwonlyargs.keys())}"
