@@ -4,7 +4,6 @@ import concurrent.futures
 import inspect
 from logging import Logger
 import threading
-from time import time
 import traceback
 import sys
 from typing import (
@@ -281,7 +280,6 @@ class ParametersResolver:
             args += extra_args
         kwonlyargs = dict.fromkeys(inspect.getfullargspec(method).kwonlyargs, True)
         ender = None
-        steps = None
         if kwonlyargs:
             if kwonlyargs.pop(ReservedWords.END.value, False):
                 ender = Ender(self.time_out)
@@ -295,7 +293,7 @@ class ParametersResolver:
             if kwonlyargs:
                 raise exceptions.TestCodeException(f"Unknown reserved words found or possibly typos: {list(kwonlyargs.keys())}"
                                                    f"\npossible reserved keywords: {[[x.name for x in ReservedWords]]}")
-        return args, kwargs, ender, steps
+        return args, kwargs, ender
 
 
 class TestMethodRun:

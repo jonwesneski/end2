@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import (
     Any,
-    Callable,
     Generator,
     List
 )
