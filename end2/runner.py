@@ -407,7 +407,7 @@ class TestMethodRun:
 class TestStepsRun:
     def __init__(self, logger: Logger) -> None:
         self.logger = logger
-        self.steps = []
+        self.steps: TestStepResult = []
 
     def __str__(self) -> str:
         return f'Number of steps: {len(self.steps)} | Duration: {self.duration}'
@@ -420,7 +420,7 @@ class TestStepsRun:
             return_value = func(*args, **kwargs)
         finally:
             self.steps.append(step_.end())
-            print(len(self.steps), 'SIZE')
+            self.logger.info(len(self.steps), 'SIZEEEEEEE')
             if return_value and assert_lambda:
                 assert assert_lambda(return_value)
             return return_value
@@ -462,6 +462,8 @@ def run_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMe
             ender.wait()
         result.status = Status.PASSED
         result.steps = steps.steps
+        logger.info(len(result.steps), 'EEEEEEESIZEEEEEEE')
+        logger.info(len(steps.steps), 'EEEEEEESIZEEEEEEE')
     except AssertionError as ae:
         _, _, tb = sys.exc_info()
         tb_info = traceback.extract_tb(tb)
