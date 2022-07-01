@@ -107,6 +107,7 @@ class TestModuleRun:
         self.parsed_args = parsed_args
         self.stop_on_fail = parsed_args.stop_on_fail
         self.concurrent_executor = concurrent_executor
+        self.parameters_resolver = TestParametersResolver(test_parameters_func, self.package_object, self.parsed_args.event_timeout)
 
     def run(self) -> TestModuleResult:
         result = TestModuleResult(self.module)
@@ -122,7 +123,7 @@ class TestModuleRun:
         setup_results = [self.setup(group.setup_func)]
         teardown_results = []
         if setup_results[0].status is Status.FAILED:
-            test_results = self.create_skipped_results(group, setup_results[0].message)
+            test_results = self._create_skipped_results(group, setup_results[0].message)
         else:
             test_results = self.run_tests(group)
             for group_ in group.children:
@@ -133,23 +134,22 @@ class TestModuleRun:
             teardown_results.append(self.teardown(group.teardown_func))
         return setup_results, test_results, teardown_results
 
-    def create_skipped_results(self, group: TestGroups, message: str) -> List[TestMethodResult]:
+    def _create_skipped_results(self, group: TestGroups, message: str) -> List[TestMethodResult]:
         test_results = [
             TestMethodResult(v.name, status=Status.SKIPPED, message=message, description=v.__doc__, metadata=v.metadata)
             for _, v in group.tests.items()
         ]
         for g in group.children:
-            test_results.extend(self.create_skipped_results(g, message))
+            test_results.extend(self._create_skipped_results(g, message))
         return test_results
 
     def setup(self, setup_func) -> Result:
         setup_logger = self.log_manager.get_setup_logger(self.module.name)
-        resolver = TestParametersResolver(self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
-        args, kwargs, ender = resolver.resolve(setup_func, setup_logger)
+        args, kwargs, ender = self.parameters_resolver.resolve(setup_func, setup_logger)
         if inspect.iscoroutinefunction(setup_func):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(run_async_test_func(setup_logger, setup_func, *args, **kwargs))
+            loop.run_until_complete(run_async_test_func(setup_logger, ender, setup_func, *args, **kwargs))
             loop.close()
         else:
             result = run_test_func(setup_logger, ender, setup_func, *args, **kwargs)
@@ -169,7 +169,7 @@ class TestModuleRun:
         
         routines, coroutines = [], []
         for k, test in group.tests.items():
-            test_run = TestMethodRun(test, self.test_parameters_func, self.log_manager, self.module.name, self.package_object, self.parsed_args)
+            test_run = TestMethodRun(test, self.parameters_resolver, self.log_manager, self.module.name)
             if inspect.iscoroutinefunction(test.func):
                 coroutines.append(test_run)
             else:
@@ -230,12 +230,11 @@ class TestModuleRun:
     def teardown(self, teardown_func) -> Result:
         teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
         args, kwargs = self.test_parameters_func(teardown_logger, self.package_object)
-        resolver = TestParametersResolver(self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
-        args, kwargs, ender = resolver.resolve(teardown_func, teardown_logger)
+        args, kwargs, ender = self.parameters_resolver.resolve(teardown_func, teardown_logger)
         if inspect.iscoroutinefunction(teardown_func):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(run_async_test_func(teardown_logger, teardown_func, *args, **kwargs))
+            loop.run_until_complete(run_async_test_func(teardown_logger, ender, teardown_func, *args, **kwargs))
             loop.close()
         else:
             result = run_test_func(teardown_logger, ender, teardown_func, *args, **kwargs)
@@ -281,16 +280,13 @@ class TestParametersResolver:
         kwonlyargs = dict.fromkeys(inspect.getfullargspec(method).kwonlyargs, True)
         ender = None
         if kwonlyargs:
-            end_found = kwonlyargs.pop(ReservedWords.END.value, False)
-            if end_found:
+            if kwonlyargs.pop(ReservedWords.END.value, False):
                 ender = Ender(self.time_out)
                 kwargs[ReservedWords.END.value] = ender.create()
-            logger_found = kwonlyargs.pop(ReservedWords.LOGGER.value, False)
-            if logger_found:
+            if kwonlyargs.pop(ReservedWords.LOGGER.value, False):
                 kwargs[ReservedWords.LOGGER.value] = logger
-            package_object_found = kwonlyargs.pop(ReservedWords.PACKAGE_OBJECT.value, False)
-            if package_object_found:
-                kwargs[ReservedWords.PACKAGE_OBJECT.value] = self.package_object
+            if kwonlyargs.pop(ReservedWords.PACKAGE_OBJECT.value, False):
+                kwargs[ReservedWords.PACKAGE_OBJECT.value] = self._package_object
             if kwonlyargs:
                 raise exceptions.TestCodeException(f"Unknown reserved words found or possibly typos: {list(kwonlyargs.keys())}"
                                                    f"\npossible reserved keywords: {[[x.name for x in ReservedWords]]}")
@@ -298,15 +294,12 @@ class TestParametersResolver:
 
 
 class TestMethodRun:
-    def __init__(self, test_method: TestMethod, test_parameters_func
-                 , log_manager: SuiteLogManager, module_name: str, package_object: DynamicMroMixin, parsed_args: Namespace) -> None:
+    def __init__(self, test_method: TestMethod, parameters_resolver: TestParametersResolver
+                 , log_manager: SuiteLogManager, module_name: str) -> None:
         self.test_method = test_method
-        self.test_parameters_func = test_parameters_func
+        self.parameters_resolver = parameters_resolver
         self.log_manager = log_manager
         self.module_name = module_name
-        self.package_object = package_object
-        self.parsed_args = parsed_args
-        self.test_resolver = TestParametersResolver(self.test_parameters_func, self.package_object, self.parsed_args.event_timeout)
 
     def run(self) -> TestMethodResult:
         loop = asyncio.new_event_loop()
@@ -321,17 +314,13 @@ class TestMethodRun:
         result = self._intialize_args_and_run()
         if result.status is Status.FAILED and hasattr(self.test_method.func, 'on_test_failure'):
             logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
-            args, kwargs = self.test_parameters_func(logger, self.package_object)
+            args, kwargs, ender = self.parameters_resolver.resolve(self.test_method.func.on_test_failure, logger)
             if inspect.iscoroutinefunction(self.test_method.func.on_test_failure):
-                try:
-                    loop.run_until_complete(self.test_method.func.on_test_failure, *args, **kwargs)
-                except Exception as e:
-                    self.log_manager.logger.error(traceback.format_exc())
+                loop.run_until_complete(
+                    run_async_test_func(self.log_manager.logger, ender, self.test_method.func.on_test_failure, *args, **kwargs)
+                )
             else:
-                try:
-                    self.test_method.func.on_test_failure(*args, **kwargs)
-                except Exception as e:
-                    self.log_manager.logger.error(traceback.format_exc())
+                run_test_func(self.log_manager.logger, ender, self.test_method.func.on_test_failure, *args, **kwargs)
 
         if inspect.iscoroutinefunction(self.test_method.teardown_func):
             teardown_result = loop.run_until_complete(
@@ -353,17 +342,11 @@ class TestMethodRun:
         result = await self._intialize_args_and_run_async()
         if result.status is Status.FAILED and hasattr(self.test_method.func, 'on_test_failure'):
             logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
-            args, kwargs = self.test_parameters_func(logger, self.package_object)
+            args, kwargs, ender = self.parameters_resolver.resolve(self.test_method.func.on_test_failure, logger)
             if inspect.iscoroutinefunction(self.test_method.func.on_test_failure):
-                try:
-                    await self.test_method.func.on_test_failure(*args, **kwargs)
-                except Exception as e:
-                    self.log_manager.logger.error(traceback.format_exc())
+                await run_async_test_func(self.log_manager.logger, ender, self.test_method.func.on_test_failure, *args, **kwargs)
             else:
-                try:
-                    self.test_method.func.on_test_failure(*args, **kwargs)
-                except Exception as e:
-                    self.log_manager.logger.error(traceback.format_exc())
+                run_test_func(self.log_manager.logger, ender, self.test_method.func.on_test_failure, *args, **kwargs)
 
         if inspect.iscoroutinefunction(self.test_method.teardown_func):
             teardown_result = await self._intialize_args_and_teardown_async()
@@ -375,35 +358,35 @@ class TestMethodRun:
 
     def _intialize_args_and_setup(self) -> Result:
         logger = self.log_manager.get_setup_test_logger(self.module_name, self.test_method.name)
-        args, kwargs, ender = self.test_resolver.resolve(self.test_method.setup_func, logger)
+        args, kwargs, ender = self.parameters_resolver.resolve(self.test_method.setup_func, logger)
         result = run_test_func(logger, ender, self.test_method.setup_func, *args, **kwargs)
         self.log_manager.on_setup_test_done(self.module_name, self.test_method.name, result.to_base())
         return result
 
     async def _intialize_args_and_setup_async(self) -> Result:
         logger = self.log_manager.get_setup_test_logger(self.module_name, self.test_method.name)
-        args, kwargs = self.test_parameters_func(logger, self.package_object)
-        result = await run_async_test_func(logger, self.test_method.setup_func, *args, **kwargs)
+        args, kwargs, ender = self.parameters_resolver.resolve(self.test_method.setup_func, logger)
+        result = await run_async_test_func(logger, ender, self.test_method.setup_func, *args, **kwargs)
         self.log_manager.on_setup_test_done(self.module_name, self.test_method.name, result.to_base())
         return result
 
     def _intialize_args_and_teardown(self) -> Result:
         logger = self.log_manager.get_teardown_test_logger(self.module_name, self.test_method.name)
-        args, kwargs, ender = self.test_resolver.resolve(self.test_method.teardown_func, logger)
+        args, kwargs, ender = self.parameters_resolver.resolve(self.test_method.teardown_func, logger)
         result = run_test_func(logger, ender, self.test_method.teardown_func, *args, **kwargs)
         self.log_manager.on_teardown_test_done(self.module_name, self.test_method.name, result.to_base())
         return result
 
     async def _intialize_args_and_teardown_async(self) -> Result:
         logger = self.log_manager.get_teardown_test_logger(self.module_name, self.test_method.name)
-        args, kwargs = self.test_parameters_func(logger, self.package_object)
-        result = await run_async_test_func(logger, self.test_method.teardown_func, *args, **kwargs)
+        args, kwargs, ender = self.parameters_resolver.resolve(self.test_method.teardown_func, logger)
+        result = await run_async_test_func(logger, ender, self.test_method.teardown_func, *args, **kwargs)
         self.log_manager.on_teardown_test_done(self.module_name, self.test_method.name, result.to_base())
         return result
 
     def _intialize_args_and_run(self) -> TestMethodResult:
         logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
-        args, kwargs, ender = self.test_resolver.resolve(self.test_method.func, logger, self.test_method.parameterized_tuple)
+        args, kwargs, ender = self.parameters_resolver.resolve(self.test_method.func, logger, self.test_method.parameterized_tuple)
         result = run_test_func(logger, ender, self.test_method.func, *args, **kwargs)
         result.metadata = self.test_method.metadata
         self.log_manager.on_test_done(self.module_name, result)
@@ -411,8 +394,7 @@ class TestMethodRun:
 
     async def _intialize_args_and_run_async(self) -> TestMethodResult:
         logger = self.log_manager.get_test_logger(self.module_name, self.test_method.name)
-        args, kwargs = self.test_parameters_func(logger, self.package_object)
-        args, kwargs, ender = self.test_resolver.resolve(self.test_method.func, logger, self.test_method.parameterized_tuple)
+        args, kwargs, ender = self.parameters_resolver.resolve(self.test_method.func, logger, self.test_method.parameterized_tuple)
         result = await run_async_test_func(logger, ender, self.test_method.func, *args, **kwargs)
         result.metadata = self.test_method.metadata
         self.log_manager.on_test_done(self.module_name, result)
