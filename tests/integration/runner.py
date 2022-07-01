@@ -76,7 +76,7 @@ class TestStartRun(unittest.TestCase):
 
     def test_integration_step(self):
         timeout = 2.0
-        arg_list=['--suite', os.path.join('examples', 'fake_clients', 'regression', 'sample2.py::test_22,test_23')]
+        arg_list=['--suite', os.path.join('examples', 'fake_clients', 'regression', 'sample2.py::test_21,test_22')]
         args = arg_parser.default_parser().parse_args(arg_list)
 
         def test_parameters(logger, package_object):

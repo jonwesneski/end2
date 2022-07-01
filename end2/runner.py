@@ -415,41 +415,24 @@ class TestStepsRun:
     def step(self, message: str, assert_lambda: Callable, func: Callable, *args, **kwargs):
         self.logger.info(message)
         step_ = TestStepResult(message)
-        return_value = None
         try:
             return_value = func(*args, **kwargs)
         finally:
             self.steps.append(step_.end())
-            self.logger.info(len(self.steps), 'SIZEEEEEEE')
-            self.logger.info(f"{len(self.steps)} {'SIZEEEEEEE'}")
-            if return_value and assert_lambda:
+            if assert_lambda:
                 assert assert_lambda(return_value)
             return return_value
-        # except Exception as e:
-        #     exception = e
-        # self.steps.append(step_.end())
-        # if not exception:
-        #     if assert_lambda:
-        #         assert assert_lambda(return_value)
-        # else:
-        #     raise exception
-        # return return_value
 
     async def step_async(self, message: str, assert_lambda: Callable, func: Callable, *args, **kwargs):
         self.logger.info(message)
         step_ = TestStepResult(message)
-        exception = None
         try:
             return_value = await func(*args, **kwargs)
-        except Exception as e:
-            exception = e
-        self.steps.append(step_.end())
-        if not exception:
+        finally:
+            self.steps.append(step_.end())
             if assert_lambda:
                 assert assert_lambda(return_value)
-        else:
-            raise exception
-        return return_value
+            return return_value
 
 
 def run_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMethodResult:
@@ -463,8 +446,6 @@ def run_test_func(logger: Logger, ender: Ender, func, *args, **kwargs) -> TestMe
             ender.wait()
         result.status = Status.PASSED
         result.steps = steps.steps
-        logger.info(f"{len(result.steps)} {'EEEEEEESIZEEEEEEE'}")
-        logger.info(f"{len(steps.steps)} {'EEEEEEESIZEEEEEEE'}")
     except AssertionError as ae:
         _, _, tb = sys.exc_info()
         tb_info = traceback.extract_tb(tb)
