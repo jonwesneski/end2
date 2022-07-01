@@ -54,6 +54,7 @@ class Result:
 class TestStepResult(Result):
     def __init__(self, message: str) -> None:
         self.message = message
+        self._end_time = None
         self.start()
 
     def __str__(self) -> str:
