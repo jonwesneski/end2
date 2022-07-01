@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import (
     Any,
+    Callable,
     Generator,
     List
 )
@@ -51,6 +52,15 @@ class Result:
         return self
 
 
+class TestStepResult(Result):
+    def __init__(self, message: str) -> None:
+        self.message = message
+        self.start()
+
+    def __str__(self) -> str:
+        return f'{self.message} | Duration: {self.duration}'
+
+
 class TestMethodResult(Result):
     def __init__(self, name: str, setup: Result = None, teardown: Result = None
                  , status: Status = None, message: str = "", description: str = ""
@@ -60,6 +70,7 @@ class TestMethodResult(Result):
         self.teardown_result = teardown
         self.metadata = metadata or {}
         self.description = description
+        self.steps = []
 
     def to_base(self) -> Result:
         result = Result(self.name, self.status, self.message)
