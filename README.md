@@ -6,7 +6,7 @@ The focus of this framework is:
 - For folks that like programatic ways instead of plugins with configuration files
 
 ## Contents
-- [Intent/Philosophy](#intent/philosophy)
+- [Intent/Philosophy](#intent-philosophy)
 - [Features](#features)
 - [Getting Started](#getting-started)
 - [CLI](#cli)
