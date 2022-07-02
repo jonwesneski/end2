@@ -61,7 +61,7 @@ class TestStartRun(unittest.TestCase):
             return (clients.Client(logger), clients.AsyncClient(logger)), {}
 
         results, _ = runner.start_test_run(args, test_parameters)
-        self.assertIn(f'time out reached: {timeout}s', results.test_modules[0].test_results[0].message)
+        self.assertIn(f'time out reached: {timeout}s', results.test_modules[0].test_results[0].record)
 
     def test_integration_end_timeout_async(self):
         timeout = 2.0
@@ -72,7 +72,7 @@ class TestStartRun(unittest.TestCase):
             return (clients.Client(logger), clients.AsyncClient(logger)), {}
 
         results, _ = runner.start_test_run(args, test_parameters)
-        self.assertIn(f'time out reached: {timeout}s', results.test_modules[0].test_results[0].message)
+        self.assertIn(f'time out reached: {timeout}s', results.test_modules[0].test_results[0].record)
 
     def test_integration_step(self):
         timeout = 2.0

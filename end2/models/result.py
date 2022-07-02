@@ -6,15 +6,16 @@ from typing import (
 )
 
 from end2.constants import Status
+from end2.models.testing_containers import TestModule
 
 
 class Result:
-    def __init__(self, name: str, status: Status = None, message: str = "") -> None:
+    def __init__(self, name: str, status: Status = None, record: str = "") -> None:
         self.name = name
         self._end_time = None
         self.duration = None
         self.status = status
-        self.message = message
+        self.record = record
         self.start()
 
     def __str__(self) -> str:
@@ -52,20 +53,20 @@ class Result:
 
 
 class TestStepResult(Result):
-    def __init__(self, message: str) -> None:
-        self.message = message
+    def __init__(self, record: str) -> None:
+        self.record = record
         self._end_time = None
         self.start()
 
     def __str__(self) -> str:
-        return f'{self.message} | Duration: {self.duration}'
+        return f'{self.record} | Duration: {self.duration}'
 
 
 class TestMethodResult(Result):
     def __init__(self, name: str, setup: Result = None, teardown: Result = None
-                 , status: Status = None, message: str = "", description: str = ""
+                 , status: Status = None, record: str = "", description: str = ""
                  , metadata: dict = None) -> None:
-        super().__init__(name, status, message)
+        super().__init__(name, status, record)
         self.setup_result = setup
         self.teardown_result = teardown
         self.metadata = metadata or {}
@@ -73,17 +74,17 @@ class TestMethodResult(Result):
         self.steps = []
 
     def to_base(self) -> Result:
-        result = Result(self.name, self.status, self.message)
+        result = Result(self.name, self.status, self.record)
         result._start_time = self._start_time
         result._end_time = self._end_time
         return result
 
 
 class TestModuleResult(Result):
-    def __init__(self, module, setups: List[Result] = None, teardowns: List[Result] = None
+    def __init__(self, module: TestModule, setups: List[Result] = None, teardowns: List[Result] = None
                  , test_results: List[TestMethodResult] = None, status: Status = None
-                 , message: str = "") -> None:
-        super().__init__(module.name, status, message)
+                 , record: str = "") -> None:
+        super().__init__(module.name, status, record)
         self.file_name = module.file_name
         self.setups = setups or []
         self.teardowns = teardowns or []
@@ -129,8 +130,8 @@ class TestModuleResult(Result):
 
 
 class TestSuiteResult(Result):
-    def __init__(self, name: str, test_modules: List[TestModuleResult] = None, status: Status = None, message: str = "") -> None:
-        super().__init__(name, status, message)
+    def __init__(self, name: str, test_modules: List[TestModuleResult] = None, status: Status = None, record: str = "") -> None:
+        super().__init__(name, status, record)
         self.test_modules = test_modules if test_modules else []
         self.passed_count, self.failed_count, self.skipped_count = 0, 0, 0
 

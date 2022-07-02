@@ -124,7 +124,7 @@ class TestModuleRun:
         setup_results = [self.setup(group.setup_func)]
         teardown_results = []
         if setup_results[0].status is Status.FAILED:
-            test_results = self._create_skipped_results(group, setup_results[0].message)
+            test_results = self._create_skipped_results(group, setup_results[0].record)
         else:
             test_results = self.run_tests(group)
             for group_ in group.children:
@@ -135,13 +135,13 @@ class TestModuleRun:
             teardown_results.append(self.teardown(group.teardown_func))
         return setup_results, test_results, teardown_results
 
-    def _create_skipped_results(self, group: TestGroups, message: str) -> List[TestMethodResult]:
+    def _create_skipped_results(self, group: TestGroups, record: str) -> List[TestMethodResult]:
         test_results = [
-            TestMethodResult(v.name, status=Status.SKIPPED, message=message, description=v.__doc__, metadata=v.metadata)
+            TestMethodResult(v.name, status=Status.SKIPPED, record=record, description=v.__doc__, metadata=v.metadata)
             for _, v in group.tests.items()
         ]
         for g in group.children:
-            test_results.extend(self._create_skipped_results(g, message))
+            test_results.extend(self._create_skipped_results(g, record))
         return test_results
 
     def setup(self, setup_func: Callable) -> Result:
@@ -189,7 +189,7 @@ class TestModuleRun:
                             result = future_result.result()
                             results.append(result)
                             if self.stop_on_fail and result.status is Status.FAILED:
-                                raise exceptions.StopTestRunException(result.message)
+                                raise exceptions.StopTestRunException(result.record)
                         except exceptions.IgnoreTestException:
                             pass
                 except exceptions.StopTestRunException as stre:
@@ -206,7 +206,7 @@ class TestModuleRun:
                         try:
                             results.append(test.run())
                             if self.stop_on_fail and results[-1].status is Status.FAILED:
-                                raise exceptions.StopTestRunException(results[-1].message)
+                                raise exceptions.StopTestRunException(results[-1].record)
                         except exceptions.IgnoreTestException:
                             pass
                     loop = asyncio.new_event_loop()
@@ -215,7 +215,7 @@ class TestModuleRun:
                         try:
                             results.append(loop.run_until_complete(test.run_async()))
                             if self.stop_on_fail and results[-1].status is Status.FAILED:
-                                raise exceptions.StopTestRunException(results[-1].message)
+                                raise exceptions.StopTestRunException(results[-1].record)
                         except exceptions.IgnoreTestException:
                             pass
                     loop.close()
@@ -412,9 +412,9 @@ class TestStepsRun:
     def __str__(self) -> str:
         return f'Number of steps: {len(self.steps)} | Duration: {self.duration}'
 
-    def step(self, message: str, assert_lambda: Callable, func: Callable, *args, **kwargs):
-        self.logger.info(message)
-        step_ = TestStepResult(message)
+    def step(self, record: str, assert_lambda: Callable, func: Callable, *args, **kwargs):
+        self.logger.info(record)
+        step_ = TestStepResult(record)
         try:
             return_value = func(*args, **kwargs)
         finally:
@@ -423,9 +423,9 @@ class TestStepsRun:
                 assert assert_lambda(return_value)
             return return_value
 
-    async def step_async(self, message: str, assert_lambda: Callable, func: Callable, *args, **kwargs):
-        self.logger.info(message)
-        step_ = TestStepResult(message)
+    async def step_async(self, record: str, assert_lambda: Callable, func: Callable, *args, **kwargs):
+        self.logger.info(record)
+        step_ = TestStepResult(record)
         try:
             return_value = await func(*args, **kwargs)
         finally:
@@ -450,21 +450,21 @@ def run_test_func(logger: Logger, ender: Ender, func: Callable, *args, **kwargs)
         _, _, tb = sys.exc_info()
         tb_info = traceback.extract_tb(tb)
         filename, line, func, error_text = tb_info[-1]
-        result.message = str(ae) if str(ae) else error_text
-        logger.error(result.message)
+        result.record = str(ae) if str(ae) else error_text
+        logger.error(result.record)
     except exceptions.SkipTestException as ste:
         result.status = Status.SKIPPED
-        result.message = str(ste)
-        logger.info(result.message)
+        result.record = str(ste)
+        logger.info(result.record)
     except exceptions.IgnoreTestException:
         raise
     except (TimeoutError, exceptions.OnEventFailedException) as other:
-        result.message = f'{other.__class__.__name__}: {other}'
-        logger.error(result.message)
+        result.record = f'{other.__class__.__name__}: {other}'
+        logger.error(result.record)
     except Exception as e:
         logger.debug(traceback.format_exc())
-        result.message = f'Encountered an exception: {e}'
-        logger.error(result.message)
+        result.record = f'Encountered an exception: {e}'
+        logger.error(result.record)
     return result.end()
 
 
@@ -483,23 +483,23 @@ async def run_async_test_func(logger: Logger, ender: Ender, func: Callable, *arg
         _, _, tb = sys.exc_info()
         tb_info = traceback.extract_tb(tb)
         filename, line, func, error_text = tb_info[-1]
-        result.message = str(ae) if str(ae) else error_text
-        logger.error(result.message)
+        result.record = str(ae) if str(ae) else error_text
+        logger.error(result.record)
     except exceptions.SkipTestException as ste:
         result.status = Status.SKIPPED
-        result.message = str(ste)
-        logger.info(result.message)
+        result.record = str(ste)
+        logger.info(result.record)
     except exceptions.IgnoreTestException:
         raise
     except (TimeoutError, exceptions.OnEventFailedException) as other:
-        result.message = f'{other.__class__.__name__}: {other}'
-        logger.error(result.message)
+        result.record = f'{other.__class__.__name__}: {other}'
+        logger.error(result.record)
     except asyncio.CancelledError:
         result.status = Status.SKIPPED
-        result.message = 'I got cancelled'
-        logger.info(result.message)
+        result.record = 'I got cancelled'
+        logger.info(result.record)
     except Exception as e:
         logger.debug(traceback.format_exc())
-        result.message = f'Encountered an exception: {e}'
-        logger.error(result.message)
+        result.record = f'Encountered an exception: {e}'
+        logger.error(result.record)
     return result.end()

@@ -13,7 +13,7 @@ class TestRunMethod(unittest.TestCase):
             assert True
         result = runner.run_test_func(empty_logger, None, test_1)
         self.assertEqual(result.status, Status.PASSED)
-        self.assertEqual(result.message, "")
+        self.assertEqual(result.record, "")
         self.assertIsNotNone(result.end_time)
 
     def test_method_failed(self):
@@ -21,7 +21,7 @@ class TestRunMethod(unittest.TestCase):
             assert False
         result = runner.run_test_func(empty_logger, None, test_2, 1)
         self.assertEqual(result.status, Status.FAILED)
-        self.assertNotEqual(result.message, "")
+        self.assertNotEqual(result.record, "")
         self.assertIsNotNone(result.end_time)
     
     def test_method_skipped(self):
@@ -29,7 +29,7 @@ class TestRunMethod(unittest.TestCase):
             raise exceptions.SkipTestException("I skip")
         result = runner.run_test_func(empty_logger, None, test_3, a=1, b=2)
         self.assertEqual(result.status, Status.SKIPPED)
-        self.assertEqual(result.message, "I skip")
+        self.assertEqual(result.record, "I skip")
         self.assertIsNotNone(result.end_time)
 
     def test_method_ignore_reraises(self):
@@ -43,7 +43,7 @@ class TestRunMethod(unittest.TestCase):
             raise Exception("Error")
         result = runner.run_test_func(empty_logger, None, test_4, 1, 2, 3)
         self.assertEqual(result.status, Status.FAILED)
-        self.assertIn("Encountered an exception", result.message)
+        self.assertIn("Encountered an exception", result.record)
         self.assertIsNotNone(result.end_time)
 
     def test_method_end_callback(self):
@@ -55,14 +55,14 @@ class TestRunMethod(unittest.TestCase):
         self.assertEqual(result.status, Status.PASSED)
 
     def test_method_end_fail_callback(self):
-        expected_message = "i fail"
+        expected_record = "i fail"
         def test_4(*, end):
-            end.fail(expected_message)
+            end.fail(expected_record)
         ender = runner.Ender()
         end = ender.create()
         result = runner.run_test_func(empty_logger, ender, test_4, end=end)
         self.assertEqual(result.status, Status.FAILED)
-        self.assertIn(expected_message, result.message)
+        self.assertIn(expected_record, result.record)
 
     def test_method_end_callback_timeout(self):
         expected_timeout = 1.0
@@ -72,7 +72,7 @@ class TestRunMethod(unittest.TestCase):
         end = ender.create()
         result = runner.run_test_func(empty_logger, ender, test_4, end=end)
         self.assertEqual(result.status, Status.FAILED)
-        self.assertIn(str(expected_timeout), result.message)
+        self.assertIn(str(expected_timeout), result.record)
 
 
 class TestRunMethodAsync(unittest.TestCase):
@@ -82,7 +82,7 @@ class TestRunMethodAsync(unittest.TestCase):
             assert True
         result = asyncio.run(runner.run_async_test_func(empty_logger, None, test_1))
         self.assertEqual(result.status, Status.PASSED)
-        self.assertEqual(result.message, "")
+        self.assertEqual(result.record, "")
         self.assertIsNotNone(result.end_time)
 
     def test_async_method_failed(self):
@@ -91,7 +91,7 @@ class TestRunMethodAsync(unittest.TestCase):
             assert False
         result = asyncio.run(runner.run_async_test_func(empty_logger, None, test_2, 1))
         self.assertEqual(result.status, Status.FAILED)
-        self.assertNotEqual(result.message, "")
+        self.assertNotEqual(result.record, "")
         self.assertIsNotNone(result.end_time)
         
     def test_async_method_skipped(self):
@@ -99,7 +99,7 @@ class TestRunMethodAsync(unittest.TestCase):
             await asyncio.sleep(0.1)
             raise exceptions.SkipTestException("I skip")
         result = asyncio.run(runner.run_async_test_func(empty_logger, None, test_3, a=1, b=2))
-        self.assertEqual(result.status, Status.SKIPPED) and self.assertEqual(result.message, "I skip") 
+        self.assertEqual(result.status, Status.SKIPPED) and self.assertEqual(result.record, "I skip") 
         self.assertIsNotNone(result.end_time)
 
     def test_async_method_ignore_reraises(self):
@@ -118,7 +118,7 @@ class TestRunMethodAsync(unittest.TestCase):
             raise Exception("Error")
         result = asyncio.run(runner.run_async_test_func(empty_logger, None, test_4, 1, 2, 3))
         self.assertEqual(result.status, Status.FAILED)
-        self.assertIn("Encountered an exception", result.message)
+        self.assertIn("Encountered an exception", result.record)
         self.assertIsNotNone(result.end_time)
 
     def test_async_method_end_callback(self):
@@ -131,15 +131,15 @@ class TestRunMethodAsync(unittest.TestCase):
         self.assertEqual(result.status, Status.PASSED)
 
     def test_async_method_end_fail_callback(self):
-        expected_message = "i fail"
+        expected_record = "i fail"
         async def test_4(*, end):
-            end.fail(expected_message)
+            end.fail(expected_record)
             await asyncio.sleep(0.1)
         ender = runner.Ender()
         end = ender.create()
         result = asyncio.run(runner.run_async_test_func(empty_logger, ender, test_4, end=end))
         self.assertEqual(result.status, Status.FAILED)
-        self.assertIn(expected_message, result.message)
+        self.assertIn(expected_record, result.record)
 
     def test_async_method_end_callback_timeout(self):
         expected_timeout = 1.0
@@ -149,4 +149,4 @@ class TestRunMethodAsync(unittest.TestCase):
         end = ender.create()
         result = asyncio.run(runner.run_async_test_func(empty_logger, ender, test_4, end=end))
         self.assertEqual(result.status, Status.FAILED)
-        self.assertIn(str(expected_timeout), result.message)
+        self.assertIn(str(expected_timeout), result.record)

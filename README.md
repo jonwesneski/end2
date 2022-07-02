@@ -1,6 +1,6 @@
 # end² Test Automation Framework
 The focus of this framework is:
-- A Minimal framework only using the standard library
+- A minimal framework only using the standard library
 - More for E2E and/or Functional type of testing
 - For testing that has heavy logging and needs to analyze failures in logs rather than test case code
 - For folks that like programatic ways instead of plugins with configuration files
@@ -244,16 +244,35 @@ These are optional keyword-only-args that can be added at the end of your test c
         def handler:
             assert True is True
             end()  # ends the test case
-        client.on(handler)  # This test will not finish until end() is called or has timeout
+        client.onSomeEvent(handler)  # This test will not finish until end() is called or has timeout
     ```
     ``` python
     def test_4(client, *, end):
         def handler:
             assert True is True
             end.fail("This event should not have been called")  # ends the test case
-        client.on(handler)  # This test will not finish until end.fail() is called or has timeout
+        client.onSomeEvent(handler)  # This test will not finish until end.fail() is called or has timeout
     ```
 - **logger** - The logger used for that specific test case
+- **step** - This is so you can record test steps in your test case, that may be useful after your test run
+    ``` python
+    def test_5(client, *, end):
+        # 1st arg is the description of the step
+        # 2nd arg is the assertion-lambda, which can be None
+        # 3rd arg is the function to call
+        # nth args are the parameters for the function
+        await step("my first step", lambda x: x.code == 201, client.post, {'hi': 21})
+        response = await step("my second step", None, client.post, {'hi': 22})
+        await step("my third step", None, client.post, {'hi': 23})
+        assert response.code == 201
+
+    # Works with async as well
+    async def test_6(client, *, end):
+        await step("my first step", lambda x: x.code == 201, client.post, {'hi': 21})
+        response = await step("my second step", None, client.post, {'hi': 22})
+        await step("my third step", None, client.post, {'hi': 23})
+        assert response.code == 201
+    ```
 - **package_object** - More on this in the next section
 
 ## Packages Object
