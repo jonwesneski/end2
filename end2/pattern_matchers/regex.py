@@ -7,6 +7,7 @@ from end2.pattern_matchers.base import PatternMatcherBase
 
 class RegexModulePatternMatcher(PatternMatcherBase):
     regex_path_separator = f'\{os.sep}'
+
     @classmethod
     def parse_str(cls, pattern: str, include: bool = True):
         items = []

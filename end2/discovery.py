@@ -23,7 +23,7 @@ from end2.models.testing_containers import (
     TestPackage,
     TestPackageTree
 )
-from end2.pattern_matchers import PatternMatcherBase
+from end2.pattern_matchers.default import DefaultTestCasePatternMatcher
 
 
 def _shuffle_dict(dict_: dict) -> dict:
@@ -66,7 +66,7 @@ def discover_suite(paths: dict) -> Tuple[TestPackageTree, set]:
     return package_tree, failed_imports
 
 
-def discover_packages(importable: str, test_pattern_matcher: PatternMatcherBase, test_package: TestPackage = None) -> tuple:
+def discover_packages(importable: str, test_pattern_matcher: DefaultTestCasePatternMatcher, test_package: TestPackage = None) -> tuple:
     names = importable.replace(os.sep, '.').split('.')
     package_names = []
     package_ = None
@@ -108,7 +108,7 @@ def discover_packages(importable: str, test_pattern_matcher: PatternMatcherBase,
     return package_, failed_imports
 
 
-def discover_module(importable: str, test_pattern_matcher: PatternMatcherBase) -> Tuple[TestModule, str]:
+def discover_module(importable: str, test_pattern_matcher: DefaultTestCasePatternMatcher) -> Tuple[TestModule, str]:
     test_module, error_str = None, ''
     module_str = importable.replace('.py', '').replace(os.sep, '.')
     try:
@@ -130,14 +130,14 @@ def discover_module(importable: str, test_pattern_matcher: PatternMatcherBase) -
     return test_module, error_str
 
 
-def discover_tests(module, test_pattern_matcher: PatternMatcherBase) -> dict:
+def discover_tests(module, test_pattern_matcher: DefaultTestCasePatternMatcher) -> dict:
     tests = {}
     setup_test_ = get_fixture(module, setup_test.__name__)
     teardown_test_ = get_fixture(module, teardown_test.__name__)
     for name in dir(module):
         attribute = getattr(module, name)
         if type(attribute) is FUNCTION_TYPE and name.startswith('test_'):
-            if test_pattern_matcher.included(attribute):
+            if test_pattern_matcher.func_included(attribute):
                 if hasattr(attribute, 'parameterized_list'):
                     range_ = discover_parameterized_test_range(name, attribute.parameterized_list)
                     for i in range_:
@@ -148,7 +148,7 @@ def discover_tests(module, test_pattern_matcher: PatternMatcherBase) -> dict:
     return _shuffle_dict(tests)
 
 
-def discover_groups(test_module, test_pattern_matcher: PatternMatcherBase) -> TestGroups:
+def discover_groups(test_module, test_pattern_matcher: DefaultTestCasePatternMatcher) -> TestGroups:
     setup_func = get_fixture(test_module, setup.__name__)
     teardown_func = get_fixture(test_module, teardown.__name__)
     group = TestGroups(test_module.__name__, discover_tests(test_module, test_pattern_matcher), setup_func, teardown_func)
