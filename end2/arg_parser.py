@@ -67,6 +67,7 @@ class SuiteArg:
 
     def __init__(self, paths: List[str], module_class: DefaultModulePatternMatcher, test_class: DefaultTestCasePatternMatcher) -> None:
         self.paths = []
+        print('dddddddddd')
         self.excluded_paths = []
         rc = get_rc()
         disabled_suites = list(rc[self.rc_disabled].keys())
@@ -83,6 +84,8 @@ class SuiteArg:
                     #self.modules[item] = test_class.parse_str(tests_str)
             else:
                 self.excluded_paths.extend(module_matcher.excluded_items)
+        print('adfasdfasfdas')
+        print(self.paths)
         self.excluded_paths.extend(disabled_suites)
 
     @staticmethod
@@ -100,11 +103,9 @@ class SuiteArg:
 
     def __str__(self) -> str:
         temp_ = {
-            "included_modules": {}
+            "included_modules": self.paths,
+            "excluded_modules": self.excluded_paths
         }
-        for k, v in self.modules.items():
-            temp_["included_modules"][k] = str(v)
-        temp_["excluded_modules"] = self.excluded_modules
         return str(temp_)
 
 

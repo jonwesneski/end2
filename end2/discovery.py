@@ -33,14 +33,14 @@ def _shuffle_dict(dict_: dict) -> dict:
     return dict(list_)
 
 
-def discover_suite(paths: List[Importable]) -> Tuple[TestPackageTree, set]:    
-    importables: List[Importable] = shuffle(paths)
+def discover_suite(importables: List[Importable]) -> Tuple[TestPackageTree, set]:    
+    shuffle(importables)
     failed_imports = set()
     package_tree = TestPackageTree()
     for importable in importables:
         package_name = importable.path.replace(os.sep, '.')
         package = package_tree.find_by_str(package_name)
-        if os.path.isdir(importable):
+        if os.path.isdir(importable.path):
             p, f = discover_packages(importable.path, importable.module_matcher, importable.test_matcher, package)
             if p:
                 package_tree.append(p)
