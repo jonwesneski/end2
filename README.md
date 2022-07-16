@@ -407,8 +407,12 @@ It can also contains filters:
     - `--suite path/to/module.py::test_name[2:6:2]`  runs the 2nd, 4th, 6th test in the parameterized list
 
 #### Tags
-Tags can be defined by using `@metadata` in you test as mentioned [above](#fixture-example-of-a-test-module). They works pretty similar to the **Default Pattern Matcher** but uses a tag instead of a test name:
+Tags can be defined by using `@metadata` in you test as mentioned [above](#fixture-example-of-a-test-module) or at the module or package level. They works pretty similar to the **Default Pattern Matcher** but uses a tag instead of a test name:
 - `--suite-tag path/to/module.py::tag_name1,tag_name2`
+- `--suite-tag path/to/module.py::tag_1,tag_2`
+    - This will include all tests if `tag_1` or `tag2` exist in `__tags__` variable in `path/to/module.py`
+- `--suite-tag path/to/package/tag1,tag2`
+    - this will include the entire package if `tag1` or `tag2` exist in `path/to/package/__init__.py`
 
 #### regex and glob
 These 2 are pretty similar to each and I split module and test the same:
