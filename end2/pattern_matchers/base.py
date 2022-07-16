@@ -21,20 +21,6 @@ class PatternMatcherBase:
         return self._items if not self._include else []
 
     def included(self, item: str) -> bool:
-        """
-        >>> PatternMatcherBase.included(PatternMatcherBase(['a'], 'a', True), 'a')
-        True
-        >>> PatternMatcherBase.included(PatternMatcherBase(['a'], 'a', True), 'b')
-        False
-        >>> PatternMatcherBase.included(PatternMatcherBase(['a'], 'a', False), 'a')
-        False
-        >>> PatternMatcherBase.included(PatternMatcherBase(['a'], 'a', False), 'b')
-        True
-        >>> PatternMatcherBase.included(PatternMatcherBase([], '', True), 'a')
-        True
-        >>> PatternMatcherBase.included(PatternMatcherBase([], '', False), 'b')
-        True
-        """
         if item in self._items:
             value = self._include
         else:
@@ -44,18 +30,4 @@ class PatternMatcherBase:
         return value
 
     def excluded(self, item: str) -> bool:
-        """
-        >>> PatternMatcherBase.excluded(PatternMatcherBase(['a'], 'a', True), 'a')
-        False
-        >>> PatternMatcherBase.excluded(PatternMatcherBase(['a'], 'a', True), 'b')
-        True
-        >>> PatternMatcherBase.excluded(PatternMatcherBase(['a'], 'a', False), 'a')
-        True
-        >>> PatternMatcherBase.excluded(PatternMatcherBase(['a'], 'a', False), 'b')
-        False
-        >>> PatternMatcherBase.excluded(PatternMatcherBase([], 'a', True), 'a')
-        False
-        >>> PatternMatcherBase.excluded(PatternMatcherBase([], 'a', False), 'b')
-        False
-        """
         return not self.included(item)

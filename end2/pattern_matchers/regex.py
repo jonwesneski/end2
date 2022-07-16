@@ -2,12 +2,13 @@ from glob import glob
 import os
 import re
 
-from end2.pattern_matchers.base import PatternMatcherBase
+from end2.pattern_matchers.default import (
+    DefaultModulePatternMatcher,
+    DefaultTestCasePatternMatcher
+)
 
 
-class RegexModulePatternMatcher(PatternMatcherBase):
-    regex_path_separator = f'\{os.sep}'
-
+class RegexModulePatternMatcher(DefaultModulePatternMatcher):
     @classmethod
     def parse_str(cls, pattern: str, include: bool = True):
         items = []
@@ -20,7 +21,7 @@ class RegexModulePatternMatcher(PatternMatcherBase):
         return cls(items, pattern, include)
 
 
-class RegexTestCasePatternMatcher(PatternMatcherBase):
+class RegexTestCasePatternMatcher(DefaultTestCasePatternMatcher):
     @classmethod
     def parse_str(cls, pattern: str, include: bool = True):
         return cls([], pattern, True)

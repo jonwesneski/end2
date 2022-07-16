@@ -1,4 +1,5 @@
-from end2.pattern_matchers.base import PatternMatcherBase
+from typing import Callable
+from end2.pattern_matchers import PatternMatcherBase
 
 
 class DefaultModulePatternMatcher(PatternMatcherBase):

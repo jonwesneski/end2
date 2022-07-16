@@ -1,16 +1,19 @@
 from glob import glob
 import re
 
-from end2.pattern_matchers.base import PatternMatcherBase
+from end2.pattern_matchers.default import (
+    DefaultModulePatternMatcher,
+    DefaultTestCasePatternMatcher
+)
 
 
-class GlobModulePatternMatcher(PatternMatcherBase):
+class GlobModulePatternMatcher(DefaultModulePatternMatcher):
     @classmethod
     def parse_str(cls, pattern: str, include: bool = True):
         return cls(glob(pattern, recursive=True), pattern, include)
 
 
-class GlobTestCasePatternMatcher(PatternMatcherBase):
+class GlobTestCasePatternMatcher(DefaultTestCasePatternMatcher):
     @classmethod
     def parse_str(cls, pattern: str, include: bool = True):
         pattern_ = pattern.replace('?', '.').replace('*', '.*')

@@ -1,5 +1,7 @@
+from .base import (
+    PatternMatcherBase
+)
 from .default import (
-    PatternMatcherBase,
     DefaultModulePatternMatcher,
     DefaultTestCasePatternMatcher,
 )

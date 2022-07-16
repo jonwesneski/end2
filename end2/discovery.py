@@ -2,7 +2,7 @@ import importlib
 import inspect
 import os
 from random import shuffle
-from typing import Tuple
+from typing import List, Tuple
 
 from end2.fixtures import (
     get_fixture,
@@ -17,13 +17,14 @@ from end2.constants import (
 )
 from end2.exceptions import MoreThan1FixtureException
 from end2.models.testing_containers import (
+    Importable,
     TestGroups,
     TestMethod,
     TestModule,
     TestPackage,
     TestPackageTree
 )
-from end2.pattern_matchers.default import DefaultTestCasePatternMatcher
+from end2.pattern_matchers.default import DefaultModulePatternMatcher, DefaultTestCasePatternMatcher
 
 
 def _shuffle_dict(dict_: dict) -> dict:
@@ -32,15 +33,15 @@ def _shuffle_dict(dict_: dict) -> dict:
     return dict(list_)
 
 
-def discover_suite(paths: dict) -> Tuple[TestPackageTree, set]:    
-    importables = _shuffle_dict(paths)
+def discover_suite(paths: List[Importable]) -> Tuple[TestPackageTree, set]:    
+    importables: List[Importable] = shuffle(paths)
     failed_imports = set()
     package_tree = TestPackageTree()
-    for importable, test_pattern_matcher in importables.items():
-        package_name = importable.replace(os.sep, '.')
+    for importable in importables:
+        package_name = importable.path.replace(os.sep, '.')
         package = package_tree.find_by_str(package_name)
         if os.path.isdir(importable):
-            p, f = discover_packages(importable, test_pattern_matcher, package)
+            p, f = discover_packages(importable.path, importable.module_matcher, importable.test_matcher, package)
             if p:
                 package_tree.append(p)
             failed_imports |= f
@@ -57,16 +58,16 @@ def discover_suite(paths: dict) -> Tuple[TestPackageTree, set]:
                 for package_name in package_names[1:-1]:
                     new_package = importlib.import_module(package_name)
                     package.tail(new_package)
-            m, f = discover_module(importable, test_pattern_matcher)
+            m, f = discover_module(importable.path, importable.module_matcher, importable.test_matcher)
             if m:
                 package.append_module(m)
-            else:
+            elif f:
                 failed_imports.add(f)
             package_tree.append(package)
     return package_tree, failed_imports
 
 
-def discover_packages(importable: str, test_pattern_matcher: DefaultTestCasePatternMatcher, test_package: TestPackage = None) -> tuple:
+def discover_packages(importable: str, module_pattern_matcher: DefaultModulePatternMatcher, test_pattern_matcher: DefaultTestCasePatternMatcher, test_package: TestPackage = None) -> tuple:
     names = importable.replace(os.sep, '.').split('.')
     package_names = []
     package_ = None
@@ -97,27 +98,28 @@ def discover_packages(importable: str, test_pattern_matcher: DefaultTestCasePatt
     for item in items:
         full_path = os.path.join(importable, item)
         if os.path.isdir(full_path):
-            _, f = discover_packages(full_path, test_pattern_matcher, end_package)
+            _, f = discover_packages(full_path, module_pattern_matcher, test_pattern_matcher, end_package)
             failed_imports |= f
         else:
-            m, f = discover_module(full_path, test_pattern_matcher)
+            m, f = discover_module(full_path, module_pattern_matcher, test_pattern_matcher)
             if m:
                 end_package.append_module(m)
-            else:
+            elif f:
                 failed_imports.add(f)
     return package_, failed_imports
 
 
-def discover_module(importable: str, test_pattern_matcher: DefaultTestCasePatternMatcher) -> Tuple[TestModule, str]:
+def discover_module(importable: str, module_pattern_matcher: DefaultModulePatternMatcher, test_pattern_matcher: DefaultTestCasePatternMatcher) -> Tuple[TestModule, str]:
     test_module, error_str = None, ''
     module_str = importable.replace('.py', '').replace(os.sep, '.')
     try:
         module = importlib.import_module(module_str)
-        groups = discover_groups(module, test_pattern_matcher)
-        test_module = TestModule(module, groups, ignored_tests=set(test_pattern_matcher.excluded_items))
-        if test_module.run_mode not in RunMode:
-            error = f'{test_module.run_mode} is not a valid RunMode'
-            raise Exception(error)
+        if module_pattern_matcher.module_included(module):
+            groups = discover_groups(module, test_pattern_matcher)
+            test_module = TestModule(module, groups, ignored_tests=set(test_pattern_matcher.excluded_items))
+            if test_module.run_mode not in RunMode:
+                error = f'{test_module.run_mode} is not a valid RunMode'
+                raise Exception(error)
     except ModuleNotFoundError as me:
         if me.name == module_str:
             error_str = f"Module doesn't exist - {module_str}"
@@ -128,6 +130,17 @@ def discover_module(importable: str, test_pattern_matcher: DefaultTestCasePatter
     except Exception as e:
         error_str = f'Failed to load {importable} - {e}'
     return test_module, error_str
+
+
+def discover_groups(test_module, test_pattern_matcher: DefaultTestCasePatternMatcher) -> TestGroups:
+    setup_func = get_fixture(test_module, setup.__name__)
+    teardown_func = get_fixture(test_module, teardown.__name__)
+    group = TestGroups(test_module.__name__, discover_tests(test_module, test_pattern_matcher), setup_func, teardown_func)
+    for name in dir(test_module):
+        attribute = getattr(test_module, name)
+        if inspect.isclass(attribute) and name.startswith('Group'):
+            group.append(discover_groups(attribute, test_pattern_matcher))
+    return group
 
 
 def discover_tests(module, test_pattern_matcher: DefaultTestCasePatternMatcher) -> dict:
@@ -146,17 +159,6 @@ def discover_tests(module, test_pattern_matcher: DefaultTestCasePatternMatcher) 
                 else:
                     tests[name] = TestMethod(attribute, setup_test_, teardown_test_)
     return _shuffle_dict(tests)
-
-
-def discover_groups(test_module, test_pattern_matcher: DefaultTestCasePatternMatcher) -> TestGroups:
-    setup_func = get_fixture(test_module, setup.__name__)
-    teardown_func = get_fixture(test_module, teardown.__name__)
-    group = TestGroups(test_module.__name__, discover_tests(test_module, test_pattern_matcher), setup_func, teardown_func)
-    for name in dir(test_module):
-        attribute = getattr(test_module, name)
-        if inspect.isclass(attribute) and name.startswith('Group'):
-            group.append(discover_groups(attribute, test_pattern_matcher))
-    return group
 
 
 def discover_parameterized_test_range(test_name: str, parameterized_list: list) -> range:

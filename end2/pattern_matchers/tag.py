@@ -1,4 +1,5 @@
 import os
+from typing import Callable
 
 from end2.pattern_matchers.default import (
     DefaultModulePatternMatcher,
@@ -34,13 +35,13 @@ class TagTestCasePatternMatcher(DefaultTestCasePatternMatcher):
     # def parse_str(cls, pattern: str, include: bool = True):
     #     return super(TagTestCasePatternMatcher, cls).parse_str(pattern, include)
 
-    def included(self, func) -> bool:
+    def func_included(self, func: Callable) -> bool:
         include = False
         try:
             for tag in func.metadata['tags']:
                 include = super().included(tag)
                 if include:
                     break
-        except (KeyError, AttributeError):
+        except (AttributeError, KeyError):
             pass
         return include

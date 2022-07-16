@@ -10,10 +10,21 @@ from end2.fixtures import (
     setup,
     teardown
 )
+from end2.pattern_matchers import (
+    DefaultModulePatternMatcher,
+    DefaultTestCasePatternMatcher
+)
 
 
 def build_full_name(module_name: str, test_name: str) -> str:
     return f'{module_name}::{test_name}'
+
+
+class Importable:
+    def __init__(self, path: str, module_pattern_matcher: DefaultModulePatternMatcher, test_pattern_matcher: DefaultTestCasePatternMatcher) -> None:
+        self.path = path
+        self.module_matcher = module_pattern_matcher
+        self.test_matcher = test_pattern_matcher
 
 
 class TestMethod:
@@ -47,7 +58,7 @@ class TestGroups:
     def append(self, group) -> None:
         self.children.append(group)
 
-    def update(self, same_group) -> None:
+    def update(self, same_group: 'TestModule') -> None:
         for ignored in same_group.ignored_tests:
             self.tests.pop(ignored, None)
         self.tests.update(same_group.tests)
@@ -106,7 +117,7 @@ class TestModule:
     def __hash__(self) -> int:
         return id(self.module)
 
-    def update(self, same_module) -> None:
+    def update(self, same_module: 'TestModule') -> None:
         for ignored in same_module.ignored_tests:
             for group in self.groups:
                 for child in group.children:
