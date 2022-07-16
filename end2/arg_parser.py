@@ -80,7 +80,6 @@ class SuiteArg:
                     self.paths.append(
                         Importable(path, module_matcher, test_class.parse_str(tests_str))
                     )
-                    #self.modules[item] = test_class.parse_str(tests_str)
             else:
                 self.excluded_paths.extend(module_matcher.excluded_items)
         self.excluded_paths.extend(disabled_suites)
