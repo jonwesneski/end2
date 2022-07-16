@@ -39,7 +39,7 @@ def default_test_parameters(logger, package_object) -> Tuple[tuple, dict]:
 
 def create_test_run(parsed_args: Namespace, test_parameters_func=default_test_parameters
                     , log_manager: SuiteLogManager = None) -> Tuple['SuiteRun', Tuple[str]]:
-    test_packages, failed_imports = discover_suite(parsed_args.suite.modules)
+    test_packages, failed_imports = discover_suite(parsed_args.suite.paths)
     suite_run = SuiteRun(parsed_args, test_parameters_func, test_packages, log_manager)
     return suite_run, failed_imports
 
