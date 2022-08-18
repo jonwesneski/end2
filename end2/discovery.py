@@ -24,7 +24,10 @@ from end2.models.testing_containers import (
     TestPackage,
     TestPackageTree
 )
-from end2.pattern_matchers.default import DefaultModulePatternMatcher, DefaultTestCasePatternMatcher
+from end2.pattern_matchers import (
+    DefaultModulePatternMatcher,
+    DefaultTestCasePatternMatcher
+)
 
 
 def _shuffle_dict(dict_: dict) -> dict:

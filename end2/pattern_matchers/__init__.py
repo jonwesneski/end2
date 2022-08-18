@@ -1,9 +1,7 @@
-from .base import (
-    PatternMatcherBase
-)
 from .default import (
     DefaultModulePatternMatcher,
     DefaultTestCasePatternMatcher,
+    PatternMatcherBase
 )
 from .glob_ import (
     GlobModulePatternMatcher,
