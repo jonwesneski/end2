@@ -1,6 +1,6 @@
 import unittest
 
-from end2.pattern_matchers import PatternMatcherBase
+from end2.pattern_matchers.default import PatternMatcherBase
 
 
 class TestPatternMatcherBase(unittest.TestCase):

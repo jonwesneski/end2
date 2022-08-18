@@ -1,7 +1,6 @@
 from .default import (
     DefaultModulePatternMatcher,
-    DefaultTestCasePatternMatcher,
-    PatternMatcherBase
+    DefaultTestCasePatternMatcher
 )
 from .glob_ import (
     GlobModulePatternMatcher,
@@ -16,8 +15,7 @@ from .tag import (
     TagTestCasePatternMatcher
 )
 
-__all__ = ['PatternMatcherBase',
-           'DefaultModulePatternMatcher', 'DefaultTestCasePatternMatcher',
+__all__ = ['DefaultModulePatternMatcher', 'DefaultTestCasePatternMatcher',
            'GlobModulePatternMatcher', 'GlobTestCasePatternMatcher',
            'RegexModulePatternMatcher', 'RegexTestCasePatternMatcher',
            'TagModulePatternMatcher', 'TagTestCasePatternMatcher']
