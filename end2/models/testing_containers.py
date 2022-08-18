@@ -26,6 +26,9 @@ class Importable:
         self.module_matcher = module_pattern_matcher
         self.test_matcher = test_pattern_matcher
 
+    def __repr__(self):
+        return self.path
+
 
 class TestMethod:
     def __init__(self, func, setup_func=empty_func, teardown_func=empty_func
