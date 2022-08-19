@@ -7,6 +7,7 @@ from enum import Enum
 
 
 FUNCTION_TYPE = type(lambda: None)
+TAGS = '__tags__'
 
 
 class RunMode(Enum):

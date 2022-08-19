@@ -1,6 +1,7 @@
 import os
 from typing import Callable
 
+from end2 import constants
 from end2.pattern_matchers.default import (
     PatternMatcherBase,
     DefaultModulePatternMatcher,
@@ -8,6 +9,7 @@ from end2.pattern_matchers.default import (
 )
 
 module_tags_matcher = None
+module_tags_dict = {}
 
 
 class TagModulePatternMatcher(DefaultModulePatternMatcher):
@@ -28,11 +30,13 @@ class TagModulePatternMatcher(DefaultModulePatternMatcher):
 
     def module_included(self, module) -> bool:
         include = True
-        if module_tags_matcher and hasattr(module, '__tags__'):
+        if module_tags_matcher and hasattr(module, constants.TAGS):
             for tag in module.__tags__:
                 include = module_tags_matcher.included(tag)
                 if include:
                     break
+        if include:
+            module_tags_dict[module.__name__] = getattr(module, constants.TAGS, [])
         return include
 
 
@@ -40,13 +44,15 @@ class TagTestCasePatternMatcher(DefaultTestCasePatternMatcher):
     delimiter = ','
 
     def func_included(self, func: Callable) -> bool:
-        include = module_tags_matcher._include if module_tags_matcher else self._include
+        include = not module_tags_matcher._include if module_tags_matcher else self._include
         matcher = module_tags_matcher or self
+        tags = set(module_tags_dict[func.__module__])
         try:
-            for tag in func.metadata.get('tags', []):
+            tags |= set(func.metadata.get('tags', []))
+        except AttributeError:
+            pass
+        for tag in tags:
                 include = matcher.included(tag)
                 if include:
                     break
-        except AttributeError:
-            pass
         return include

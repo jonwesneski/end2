@@ -80,16 +80,12 @@ class AsyncClient:
 
 
 if __name__ == '__main__':
-    # Run from inside examples\fake_client
-    ## --suite regression\\sample4.py::test_11
-    ## --suite regression/sample4.py::test_11
-    ## --suite regression\\sample4.py::test_11[4]
-    ## --suite regression/sample4.py::test_11[4]
     args = default_parser().parse_args()
 
     def test_parameters(logger, package_object):
         return (Client(logger), AsyncClient(logger)), {}
 
-    results, _ = start_test_run(args, test_parameters)
+    results, failed_imports = start_test_run(args, test_parameters)
 
+    print(failed_imports)
     exit(results.exit_code)
