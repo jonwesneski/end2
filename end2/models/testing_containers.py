@@ -67,6 +67,15 @@ class TestGroups:
         self.tests.update(same_group.tests)
         self.ignored_tests.update(same_group.ignored_tests)
 
+    def has_tests(self) -> bool:
+        has_tests = bool(self.tests)
+        if not has_tests:
+            for child in self.children:
+                has_tests = bool(child.tests)
+                if has_tests:
+                    break
+        return has_tests
+
 
 class DynamicMroMixin:
     @classmethod

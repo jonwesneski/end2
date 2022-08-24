@@ -119,10 +119,11 @@ def discover_module(importable: str, module_pattern_matcher: DefaultModulePatter
         module = importlib.import_module(module_str)
         if module_pattern_matcher.module_included(module):
             groups = discover_groups(module, test_pattern_matcher)
-            test_module = TestModule(module, groups, ignored_tests=set(test_pattern_matcher.excluded_items))
-            if test_module.run_mode not in RunMode:
-                error = f'{test_module.run_mode} is not a valid RunMode'
-                raise Exception(error)
+            if groups.has_tests():
+                test_module = TestModule(module, groups, ignored_tests=set(test_pattern_matcher.excluded_items))
+                if test_module.run_mode not in RunMode:
+                    error = f'{test_module.run_mode} is not a valid RunMode'
+                    raise Exception(error)
     except ModuleNotFoundError as me:
         if me.name == module_str:
             error_str = f"Module doesn't exist - {module_str}"
