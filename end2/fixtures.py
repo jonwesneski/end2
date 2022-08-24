@@ -81,6 +81,7 @@ def package_test_parameters(func):
 
 
 def metadata(**kwargs):
+    print('what is this', kwargs)
     def inner(func):
         if asyncio.iscoroutinefunction(func):
             @functools.wraps(func)
