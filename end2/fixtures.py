@@ -85,6 +85,7 @@ def metadata(**kwargs):
         if asyncio.iscoroutine(func):
             @functools.wraps(func)
             async def wrapper(*args, **kwargs_):
+                print('wrapper', **kwargs_)
                 return await func(*args, **kwargs_)
         else:
             @functools.wraps(func)
