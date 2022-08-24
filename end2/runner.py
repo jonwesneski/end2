@@ -475,7 +475,6 @@ async def run_async_test_func(logger: Logger, ender: Ender, func: Callable, *arg
         kwargs['step'] = steps.step_async
     try:
         print(kwargs, 'fffffffff')
-        exit()
         await func(*args, **kwargs)
         if ender:
             ender.wait()
