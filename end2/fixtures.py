@@ -86,7 +86,9 @@ def metadata(**kwargs):
         if asyncio.iscoroutinefunction(func):
             @functools.wraps(func)
             async def wrapper(*args, **kwargs_):
-                print('wrapper', args, kwargs_)
+                import inspect
+                kwonlyargs = dict.fromkeys(inspect.getfullargspec(func).kwonlyargs, True)
+                print('wrapper', args, kwargs_, kwonlyargs)
                 return await func(*args, **kwargs_)
         else:
             @functools.wraps(func)
