@@ -1,9 +1,17 @@
-from end2.pattern_matchers.base import PatternMatcherBase
+from typing import (
+    Callable,
+    List
+)
 
 
-class DefaultModulePatternMatcher(PatternMatcherBase):
+class PatternMatcherBase:
     excluder = '!'
-    delimiter = ';'
+    delimiter = ','
+
+    def __init__(self, items: List[str], pattern: str, include: bool):
+        self._items = items
+        self._pattern = pattern
+        self._include = include
 
     @classmethod
     def parse_str(cls, pattern: str, include: bool = True):
@@ -13,13 +21,37 @@ class DefaultModulePatternMatcher(PatternMatcherBase):
             include = False
         return cls(pattern[index:].split(cls.delimiter) if pattern else [], pattern, include)
 
+    def __str__(self) -> str:
+        return f"{'include' if self._include else 'exclude'}: {self._items}"
 
-class DefaultTestCasePatternMatcher(DefaultModulePatternMatcher):
-    delimiter = ','
+    @property
+    def included_items(self) -> List[str]:
+        return self._items if self._include else []
 
-    @classmethod
-    def parse_str(cls, pattern: str, include: bool = True):
-        return super(DefaultTestCasePatternMatcher, cls).parse_str(pattern, include)
+    @property
+    def excluded_items(self) -> List[str]:
+        return self._items if not self._include else []
 
-    def included(self, func) -> bool:
-        return super().included(func.__name__)
+    def included(self, item: str) -> bool:
+        if item in self._items:
+            value = self._include
+        else:
+            value = not self._include
+            if not self._items:
+                value = True
+        return value
+
+    def excluded(self, item: str) -> bool:
+        return not self.included(item)
+
+
+class DefaultModulePatternMatcher(PatternMatcherBase):
+    delimiter = ';'
+
+    def module_included(self, module) -> bool:
+        return True
+
+
+class DefaultTestCasePatternMatcher(PatternMatcherBase):
+    def func_included(self, func: Callable) -> bool:
+        return self.included(func.__name__)

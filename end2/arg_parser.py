@@ -1,11 +1,16 @@
 import argparse
+from typing import (
+    Dict,
+    List,
+    Set
+)
+from end2.models.testing_containers import Importable
 
 from end2.resource_profile import (
     get_last_run_rc,
     get_rc
 )
 from end2.pattern_matchers import (
-    PatternMatcherBase,
     DefaultModulePatternMatcher,
     DefaultTestCasePatternMatcher,
     GlobModulePatternMatcher,
@@ -60,25 +65,27 @@ class SuiteArg:
     rc_alias = 'suite-alias'
     rc_disabled = 'suite-disabled'
 
-    def __init__(self, paths: list, module_class: PatternMatcherBase, test_class: PatternMatcherBase) -> None:
-        self.modules = {}
-        self.excluded_modules = []
+    def __init__(self, paths: List[str], module_class: DefaultModulePatternMatcher, test_class: DefaultTestCasePatternMatcher) -> None:
+        self.paths = []
+        self.excluded_paths = []
         rc = get_rc()
         disabled_suites = list(rc[self.rc_disabled].keys())
         for path in self._resolve_paths(set(paths), rc[self.rc_alias], disabled_suites):
-            modules_str, tests_str = path, ''
+            paths_str, tests_str = path, ''
             if '::' in path:
-                modules_str, tests_str = path.split('::')
-            modules = module_class.parse_str(modules_str)
-            if modules.included_items:
-                for item in modules.included_items:
-                    self.modules[item] = test_class.parse_str(tests_str)
+                paths_str, tests_str = path.split('::')
+            module_matcher = module_class.parse_str(paths_str)
+            if module_matcher.included_items:
+                for path in module_matcher.included_items:
+                    self.paths.append(
+                        Importable(path, module_matcher, test_class.parse_str(tests_str))
+                    )
             else:
-                self.excluded_modules.extend(modules.excluded_items)
-        self.excluded_modules.extend(disabled_suites)
+                self.excluded_paths.extend(module_matcher.excluded_items)
+        self.excluded_paths.extend(disabled_suites)
 
     @staticmethod
-    def _resolve_paths(paths: set, suite_aliases: dict, disabled_suites: list) -> set:
+    def _resolve_paths(paths: Set[str], suite_aliases: Dict[str, str], disabled_suites: List[str]) -> Set[str]:
         paths_ = set()
         for path in paths:
             if path not in disabled_suites:
@@ -92,11 +99,9 @@ class SuiteArg:
 
     def __str__(self) -> str:
         temp_ = {
-            "included_modules": {}
+            "included_modules": self.paths,
+            "excluded_modules": self.excluded_paths
         }
-        for k, v in self.modules.items():
-            temp_["included_modules"][k] = str(v)
-        temp_["excluded_modules"] = self.excluded_modules
         return str(temp_)
 
 

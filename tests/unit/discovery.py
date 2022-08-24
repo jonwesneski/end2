@@ -2,8 +2,8 @@ import os
 import unittest
 
 from end2.pattern_matchers import (
-    DefaultTestCasePatternMatcher,
-    PatternMatcherBase
+    DefaultModulePatternMatcher,
+    DefaultTestCasePatternMatcher
 )
 from end2.models.testing_containers import TestPackage
 from end2 import discovery
@@ -13,14 +13,16 @@ from examples.simple.smoke import sample1
 
 class TestDiscoverModule(unittest.TestCase):
     def test_module_found_and_no_error(self):
-        matcher = PatternMatcherBase([], '', True)
-        module, error_str = discovery.discover_module(os.path.join('examples', 'simple', 'smoke', 'sample1'), matcher)
+        module_matcher = DefaultModulePatternMatcher([], '', True)
+        test_matcher = DefaultTestCasePatternMatcher([], '', True)
+        module, error_str = discovery.discover_module(os.path.join('examples', 'simple', 'smoke', 'sample1'), module_matcher, test_matcher)
         self.assertIsNotNone(module)
         self.assertEqual(error_str, '')
 
     def test_module_not_found_and_error_str(self):
-        matcher = PatternMatcherBase([], '', True)
-        module, error_str = discovery.discover_module(os.path.join('examples', 'dont_exist'), matcher)
+        module_matcher = DefaultModulePatternMatcher([], '', True)
+        test_matcher = DefaultTestCasePatternMatcher([], '', True)
+        module, error_str = discovery.discover_module(os.path.join('examples', 'dont_exist'), module_matcher, test_matcher)
         self.assertIsNone(module)
         self.assertNotEqual(error_str, '')
 

@@ -1,19 +1,15 @@
-from end2 import (
-    RunMode,
-    setup_test,
-    teardown
-)
+import end2
 
-__run_mode__ = RunMode.PARALLEL
+__run_mode__ = end2.RunMode.PARALLEL
 
 
-@setup_test
+@end2.setup_test
 def my_setup_test(client, async_client):
     client.logger.info('running setup test')
     assert client.get() == {}
 
 
-@teardown
+@end2.teardown
 def my_teardown(client, async_client):
     client.logger.info('running teardown')
     assert client.delete() is None
@@ -27,6 +23,7 @@ def test_21(client, async_client, *, step):
     assert result is None
 
 
+@end2.metadata(tags=['business'])
 async def test_22(client, async_client, *, step):
     client.logger.info('hi22')
     await step("my first step", lambda x: x == {}, async_client.post, {'hi': 21})

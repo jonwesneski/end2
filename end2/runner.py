@@ -39,7 +39,7 @@ def default_test_parameters(logger, package_object) -> Tuple[tuple, dict]:
 
 def create_test_run(parsed_args: Namespace, test_parameters_func=default_test_parameters
                     , log_manager: SuiteLogManager = None) -> Tuple['SuiteRun', Tuple[str]]:
-    test_packages, failed_imports = discover_suite(parsed_args.suite.modules)
+    test_packages, failed_imports = discover_suite(parsed_args.suite.paths)
     suite_run = SuiteRun(parsed_args, test_parameters_func, test_packages, log_manager)
     return suite_run, failed_imports
 
@@ -438,8 +438,8 @@ class TestStepsRun:
 def run_test_func(logger: Logger, ender: Ender, func: Callable, *args, **kwargs) -> TestMethodResult:
     result = TestMethodResult(func.__name__, status=Status.FAILED)
     steps = TestStepsRun(logger)
-    if kwargs.get('step'):
-        kwargs['step'] = steps.step
+    if kwargs.get(ReservedWords.STEP.value):
+        kwargs[ReservedWords.STEP.value] = steps.step
     try:
         func(*args, **kwargs)
         if ender:
@@ -471,8 +471,8 @@ def run_test_func(logger: Logger, ender: Ender, func: Callable, *args, **kwargs)
 async def run_async_test_func(logger: Logger, ender: Ender, func: Callable, *args, **kwargs) -> TestMethodResult:
     result = TestMethodResult(func.__name__, status=Status.FAILED)
     steps = TestStepsRun(logger)
-    if kwargs.get('step'):
-        kwargs['step'] = steps.step_async
+    if kwargs.get(ReservedWords.STEP.value):
+        kwargs[ReservedWords.STEP.value] = steps.step_async
     try:
         await func(*args, **kwargs)
         if ender:

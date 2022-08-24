@@ -1,4 +1,6 @@
+import asyncio
 import functools
+from inspect import iscoroutine
 
 from end2.constants import FUNCTION_TYPE
 from end2.exceptions import MoreThan1FixtureException
@@ -80,11 +82,8 @@ def package_test_parameters(func):
 
 def metadata(**kwargs):
     def inner(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-        wrapper.metadata = kwargs
-        return wrapper
+        func.metadata = kwargs
+        return func
     return inner
 
 
