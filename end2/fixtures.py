@@ -81,19 +81,7 @@ def package_test_parameters(func):
 
 
 def metadata(**kwargs):
-    print('what is this', kwargs)
     def inner(func):
-        # if asyncio.iscoroutinefunction(func):
-        #     @functools.wraps(func)
-        #     async def wrapper(*args, **kwargs_):
-        #         import inspect
-        #         kwonlyargs = dict.fromkeys(inspect.getfullargspec(func).kwonlyargs, True)
-        #         print('wrapper', args, kwargs_, inspect.getfullargspec(func).kwonlyargs.get('step', 'NOSTEP'))
-        #         return await func(*args, **kwargs_)
-        # else:
-        #     @functools.wraps(func)
-        #     def wrapper(*args, **kwargs_):
-        #         return func(*args, **kwargs_)
         func.metadata = kwargs
         return func
     return inner
