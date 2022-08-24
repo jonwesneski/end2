@@ -82,6 +82,8 @@ class TestStartRun(unittest.TestCase):
             return (clients.Client(logger), clients.AsyncClient(logger)), {}
 
         results, _ = runner.start_test_run(args, test_parameters)
+        print('metadata', results.test_modules[0].test_results[0].metadata)
+        print('metadata', results.test_modules[0].test_results[1].metadata)
         self.assertGreater(len(results.test_modules[0].test_results[0].steps), 0)
         self.assertGreater(len(results.test_modules[0].test_results[1].steps), 0)
 
