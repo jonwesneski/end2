@@ -88,7 +88,7 @@ def metadata(**kwargs):
             async def wrapper(*args, **kwargs_):
                 import inspect
                 kwonlyargs = dict.fromkeys(inspect.getfullargspec(func).kwonlyargs, True)
-                print('wrapper', args, kwargs_, kwonlyargs)
+                print('wrapper', args, kwargs_, inspect.getfullargspec(func).kwonlyargs.get('step', 'NOSTEP'))
                 return await func(*args, **kwargs_)
         else:
             @functools.wraps(func)
