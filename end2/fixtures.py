@@ -84,12 +84,12 @@ def metadata(**kwargs):
     def inner(func):
         if asyncio.iscoroutine(func):
             @functools.wraps(func)
-            async def wrapper(*args, **kwargs):
-                return await func(*args, **kwargs)
+            async def wrapper(*args, **kwargs_):
+                return await func(*args, **kwargs_)
         else:
             @functools.wraps(func)
-            def wrapper(*args, **kwargs):
-                return func(*args, **kwargs)
+            def wrapper(*args, **kwargs_):
+                return func(*args, **kwargs_)
         wrapper.metadata = kwargs
         return wrapper
     return inner
