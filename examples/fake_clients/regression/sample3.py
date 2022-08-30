@@ -1,6 +1,6 @@
 import end2
 
-__run_mode__ = end2.RunMode.PARALLEL
+__run_mode__ = end2.PARALLEL
 __tags__ = ['product']
 
 
@@ -29,12 +29,14 @@ def test_31(client, async_client):
 
 
 def test_32(client, async_client, *, end):
+    pub = client.pub_sub
     def handler():
         end()
     client.logger.info('hi12')
     assert client.post({'hi': 32}) is None
     client.on(handler)
     assert client.post({'hi': 33}) is None
+    pub.publish('event')
 
 
 async def test_33(client, async_client, *, end):

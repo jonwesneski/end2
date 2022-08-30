@@ -1,6 +1,9 @@
 from inspect import getmro
 import os
-from typing import Dict, List
+from typing import (
+    Dict,
+    List
+)
 
 from end2.constants import RunMode
 from end2.fixtures import (

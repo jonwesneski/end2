@@ -1,6 +1,6 @@
 import end2
 
-__run_mode__ = end2.RunMode.PARALLEL
+__run_mode__ = end2.PARALLEL
 
 
 @end2.setup_test
