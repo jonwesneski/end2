@@ -76,11 +76,11 @@ def parameterize(parameters_list: list, first_arg_is_name: bool = False):
     return wrapper
 
 
-def _empty_func(*args, **kwargs) -> None:
+def empty_func(*args, **kwargs) -> None:
     return
 
 
-def get_fixture(module, name: str, default=_empty_func):
+def get_fixture(module, name: str, default=empty_func):
     fixture = default
     found = False
     for key in dir(module):
