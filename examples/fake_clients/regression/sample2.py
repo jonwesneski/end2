@@ -4,15 +4,15 @@ __run_mode__ = end2.RunMode.PARALLEL
 
 
 @end2.setup_test
-def my_setup_test(client, async_client):
-    client.logger.info('running setup test')
-    assert client.get() == {}
+async def my_setup_test(client, async_client):
+    async_client.logger.info('running setup test')
+    assert await async_client.get() == {}
 
 
 @end2.teardown
-def my_teardown(client, async_client):
+async def my_teardown(client, async_client):
     client.logger.info('running teardown')
-    assert client.delete() is None
+    assert await async_client.delete() is None
 
 
 def test_21(client, async_client, *, step):
