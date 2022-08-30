@@ -49,11 +49,12 @@ def setup(func):
 
 
 def setup_test(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.setup_test = None
-    return wrapper
+    # @functools.wraps(func)
+    # def wrapper(*args, **kwargs):
+    #     return func(*args, **kwargs)
+    # wrapper.setup_test = None
+    func.setup_test = None
+    return func
 
 
 def teardown_test(func):
@@ -65,11 +66,11 @@ def teardown_test(func):
 
 
 def teardown(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.teardown = None
-    return wrapper
+    # @functools.wraps(func)
+    # def wrapper(*args, **kwargs):
+    #     return func(*args, **kwargs)
+    func.teardown = None
+    return func
 
 
 def package_test_parameters(func):
