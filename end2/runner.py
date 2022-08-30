@@ -133,7 +133,20 @@ class TestModuleRun:
                 test_results.extend(tr)
                 teardown_results.extend(trr)
             teardown_results.append(self.teardown(group.teardown_func))
+        if any(x.status is Status.FAILED for x in test_results):
+            self._run_on_failures_in_module()
         return setup_results, test_results, teardown_results
+
+    def _run_on_failures_in_module(self):
+        teardown_logger = self.log_manager.get_teardown_logger(self.module.name)
+        args, kwargs, ender = self.parameters_resolver.resolve(self.module.on_failures_in_module, teardown_logger)
+        if inspect.iscoroutinefunction(self.module.on_failures_in_module):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(run_async_test_func(teardown_logger, ender, self.module.on_failures_in_module, *args, **kwargs))
+            loop.close()
+        else:
+            run_test_func(teardown_logger, ender, self.module.on_failures_in_module, *args, **kwargs)
 
     def _create_skipped_results(self, group: TestGroups, record: str) -> List[TestMethodResult]:
         test_results = [

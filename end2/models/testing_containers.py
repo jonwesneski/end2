@@ -1,11 +1,12 @@
 from inspect import getmro
 import os
-from typing import Dict
+from typing import Dict, List
 
 from end2.constants import RunMode
 from end2.fixtures import (
     empty_func,
     get_fixture,
+    on_failures_in_module,
     package_test_parameters,
     setup,
     teardown
@@ -56,7 +57,7 @@ class TestGroups:
         self.setup_func = setup_func
         self.tests = tests
         self.teardown_func = teardown_func
-        self.children = []
+        self.children: List[TestGroups] = []
 
     def append(self, group) -> None:
         self.children.append(group)
@@ -122,6 +123,7 @@ class TestModule:
         self.description = module.__doc__
         self.groups = groups
         self.ignored_tests = ignored_tests or set()
+        self.on_failures_in_module = get_fixture(self.module, on_failures_in_module.__name__)
 
     def __eq__(self, rhs) -> bool:
         return self.name == rhs.name

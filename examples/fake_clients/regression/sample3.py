@@ -16,6 +16,11 @@ def my_teardown(client, async_client):
     assert client.delete() is None
 
 
+@end2.on_failures_in_module
+def this_is_my_recovery(client, async_client):
+    async_client.logger.info('on_failures_in_module: doing what is necessary')
+
+
 def test_31(client, async_client):
     client.logger.info('hi')
     assert client.put({'hi': 31}) is None
