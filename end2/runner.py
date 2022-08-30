@@ -150,7 +150,7 @@ class TestModuleRun:
         if inspect.iscoroutinefunction(setup_func):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(run_async_test_func(setup_logger, ender, setup_func, *args, **kwargs))
+            result = loop.run_until_complete(run_async_test_func(setup_logger, ender, setup_func, *args, **kwargs))
             loop.close()
         else:
             result = run_test_func(setup_logger, ender, setup_func, *args, **kwargs)
@@ -235,7 +235,7 @@ class TestModuleRun:
         if inspect.iscoroutinefunction(teardown_func):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(run_async_test_func(teardown_logger, ender, teardown_func, *args, **kwargs))
+            result = loop.run_until_complete(run_async_test_func(teardown_logger, ender, teardown_func, *args, **kwargs))
             loop.close()
         else:
             result = run_test_func(teardown_logger, ender, teardown_func, *args, **kwargs)

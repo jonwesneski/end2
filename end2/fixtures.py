@@ -1,25 +1,17 @@
-import asyncio
 import functools
-from inspect import iscoroutine
 
 from end2.constants import FUNCTION_TYPE
 from end2.exceptions import MoreThan1FixtureException
 
 
 def setup_module(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.setup_module = None
-    return wrapper
+    func.setup_module = None
+    return func
 
 
 def teardown_module(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.teardown_module = None
-    return wrapper
+    func.teardown_module = None
+    return func
 
 
 def on_failures_in_module(func):
@@ -41,43 +33,28 @@ def on_test_failure(func):
 
 
 def setup(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.setup = None
-    return wrapper
+    func.setup = None
+    return func
 
 
 def setup_test(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.setup_test = None
-    return wrapper
+    func.setup_test = None
+    return func
 
 
 def teardown_test(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.teardown_test = None
-    return wrapper
+    func.teardown_test = None
+    return func
 
 
 def teardown(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.teardown = None
-    return wrapper
+    func.teardown = None
+    return func
 
 
 def package_test_parameters(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.package_test_parameters = None
-    return wrapper
+    func.package_test_parameters = None
+    return func
 
 
 def metadata(**kwargs):
