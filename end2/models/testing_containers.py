@@ -9,10 +9,13 @@ from end2.constants import RunMode
 from end2.fixtures import (
     empty_func,
     get_fixture,
+    metadata,
     on_failures_in_module,
     package_test_parameters,
     setup,
-    teardown
+    setup_module,
+    teardown,
+    teardown_module
 )
 from end2.pattern_matchers import (
     DefaultModulePatternMatcher,
@@ -154,6 +157,8 @@ class TestPackage:
         self.package = package
         self.setup_func = get_fixture(self.package, setup.__name__)
         self.teardown_func = get_fixture(self.package, teardown.__name__)
+        self.setup_module_func = get_fixture(self.package, setup_module.__name__)
+        self.teardown_module_func = get_fixture(self.package, teardown_module.__name__)
         self.package_test_parameters_func = get_fixture(self.package, package_test_parameters.__name__, default=None)
         self.name = self.package.__name__
         self.description = self.package.__doc__

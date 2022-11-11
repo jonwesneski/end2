@@ -7,7 +7,7 @@ class IgnoreTestException(Exception):
     pass
 
 
-class MoreThan1FixtureException(Exception):
+class MoreThan1SameFixtureException(Exception):
     def __init__(self, *args):
         # args[0] is fixture name args[1] is module name
         self.message = f'More than 1 {args[0]} in {args[1]}'

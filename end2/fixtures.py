@@ -1,7 +1,7 @@
 import functools
 
 from end2.constants import FUNCTION_TYPE
-from end2.exceptions import MoreThan1FixtureException
+from end2.exceptions import MoreThan1SameFixtureException
 
 
 def setup_module(func):
@@ -15,11 +15,8 @@ def teardown_module(func):
 
 
 def on_failures_in_module(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    wrapper.on_failures_in_module = None
-    return wrapper
+    func.on_failures_in_module = None
+    return func
 
 
 def on_test_failure(func):
@@ -87,7 +84,7 @@ def get_fixture(module, name: str, default=empty_func):
         attribute = getattr(module, key)
         if type(attribute) is FUNCTION_TYPE and hasattr(attribute, name):
             if found:
-                raise MoreThan1FixtureException(name, module.__name__)
+                raise MoreThan1SameFixtureException(name, module.__name__)
             fixture = attribute
             found = True
     return fixture

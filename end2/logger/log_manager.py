@@ -152,11 +152,15 @@ class LogManager:
 
     @staticmethod
     def _close_file_handlers(logger: logging.Logger):
+        handler_ = None
         for handler in logger.handlers:
             if isinstance(handler, logging.FileHandler):
+                handler.flush()
                 handler.close()
                 if os.path.exists(handler.baseFilename) and os.stat(handler.baseFilename).st_size == 0:
                     os.remove(handler.baseFilename)
+                handler_ = handler
+        logger.removeHandler(handler_)
 
     @classmethod
     def create_stream_handler(cls, stream_level: int = logging.INFO) -> logging.StreamHandler:
