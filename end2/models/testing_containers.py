@@ -1,14 +1,21 @@
 from inspect import getmro
 import os
-from typing import Dict
+from typing import (
+    Dict,
+    List
+)
 
 from end2.constants import RunMode
 from end2.fixtures import (
     empty_func,
     get_fixture,
+    metadata,
+    on_failures_in_module,
     package_test_parameters,
     setup,
-    teardown
+    setup_module,
+    teardown,
+    teardown_module
 )
 from end2.pattern_matchers import (
     DefaultModulePatternMatcher,
@@ -56,7 +63,7 @@ class TestGroups:
         self.setup_func = setup_func
         self.tests = tests
         self.teardown_func = teardown_func
-        self.children = []
+        self.children: List[TestGroups] = []
 
     def append(self, group) -> None:
         self.children.append(group)
@@ -122,6 +129,7 @@ class TestModule:
         self.description = module.__doc__
         self.groups = groups
         self.ignored_tests = ignored_tests or set()
+        self.on_failures_in_module = get_fixture(self.module, on_failures_in_module.__name__)
 
     def __eq__(self, rhs) -> bool:
         return self.name == rhs.name
@@ -149,6 +157,8 @@ class TestPackage:
         self.package = package
         self.setup_func = get_fixture(self.package, setup.__name__)
         self.teardown_func = get_fixture(self.package, teardown.__name__)
+        self.setup_module_func = get_fixture(self.package, setup_module.__name__)
+        self.teardown_module_func = get_fixture(self.package, teardown_module.__name__)
         self.package_test_parameters_func = get_fixture(self.package, package_test_parameters.__name__, default=None)
         self.name = self.package.__name__
         self.description = self.package.__doc__

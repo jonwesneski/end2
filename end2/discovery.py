@@ -2,9 +2,14 @@ import importlib
 import inspect
 import os
 from random import shuffle
-from typing import List, Tuple
+from typing import (
+    List,
+    Tuple,
+    Callable
+)
 
 from end2.fixtures import (
+    empty_func,
     get_fixture,
     setup,
     setup_test,
@@ -15,7 +20,7 @@ from end2.constants import (
     FUNCTION_TYPE,
     RunMode
 )
-from end2.exceptions import MoreThan1FixtureException
+from end2.exceptions import MoreThan1SameFixtureException
 from end2.models.testing_containers import (
     Importable,
     TestGroups,
@@ -129,22 +134,65 @@ def discover_module(importable: str, module_pattern_matcher: DefaultModulePatter
             error_str = f"Module doesn't exist - {module_str}"
         else:
             error_str = f"Failed to load {importable} - {me}"
-    except MoreThan1FixtureException as mt1fe:
+    except MoreThan1SameFixtureException as mt1fe:
         error_str = mt1fe.message
     except Exception as e:
         error_str = f'Failed to load {importable} - {e}'
     return test_module, error_str
 
 
-def discover_groups(test_module, test_pattern_matcher: DefaultTestCasePatternMatcher) -> TestGroups:
-    setup_func = get_fixture(test_module, setup.__name__)
-    teardown_func = get_fixture(test_module, teardown.__name__)
-    group = TestGroups(test_module.__name__, discover_tests(test_module, test_pattern_matcher), setup_func, teardown_func)
-    for name in dir(test_module):
-        attribute = getattr(test_module, name)
+def discover_groups(test_group, test_pattern_matcher: DefaultTestCasePatternMatcher) -> TestGroups:
+    setup_fixture, _, _, teardown_fixture = discover_group_fixtures(test_group)
+    group = TestGroups(test_group.__name__, discover_tests(test_group, test_pattern_matcher), setup_fixture, teardown_fixture)
+    for name in dir(test_group):
+        attribute = getattr(test_group, name)
         if inspect.isclass(attribute) and name.startswith('Group'):
             group.append(discover_groups(attribute, test_pattern_matcher))
     return group
+
+
+def discover_group_fixtures(group) -> Tuple[Callable]:
+    setup_fixture = empty_func
+    setup_test_fixture = empty_func
+    teardown_fixture = empty_func
+    teardown_test_fixture = empty_func
+    found_map = {}
+
+    def check_if_found_already(fixture: Callable):
+        nonlocal found_map
+        if found_map.get(fixture.__name__):
+            try:
+                raise MoreThan1SameFixtureException(fixture.__name__, group.__name__)
+            except:
+                print(dir(group), group.__name__)
+                raise
+        if fixture != empty_func:
+            found_map[fixture.__name__] = True
+    
+    for key in dir(group):
+        attribute = getattr(group, key)
+        if type(attribute) is FUNCTION_TYPE:
+            setup_fixture, setup_test_fixture, \
+            teardown_test_fixture, teardown_fixture = \
+                discover_func_fixtures(attribute, setup, setup_test, teardown_test, teardown, default=empty_func)
+            check_if_found_already(setup_fixture)
+            check_if_found_already(setup_test_fixture)
+            check_if_found_already(teardown_test_fixture)
+            check_if_found_already(teardown_fixture)
+    return setup_fixture, setup_test_fixture, teardown_fixture, teardown_test_fixture
+
+
+def discover_func_fixtures(func, *fixtures, default=empty_func) -> List[Callable]:
+    fixture_names = [x.__name__ for x in fixtures]
+    discovered_fixtures = [default] * len(fixtures)
+    found_map = {}
+    for i, fixture_name in enumerate(fixture_names):
+        if hasattr(func, fixture_name):
+            if found_map.get(fixture_name):
+                raise MoreThan1SameFixtureException(fixture_name, func.__name__)
+            discovered_fixtures[i] = fixtures[i]
+            found_map[fixture_name] = True
+    return discovered_fixtures
 
 
 def discover_tests(module, test_pattern_matcher: DefaultTestCasePatternMatcher) -> dict:

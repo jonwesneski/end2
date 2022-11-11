@@ -150,7 +150,7 @@ class TestSuiteResult(Result):
     def total_count(self) -> int:
         return self.passed_count + self.failed_count + self.skipped_count
 
-    def append(self, test_module_result) -> None:
+    def append(self, test_module_result: TestModuleResult) -> None:
         self.test_modules.append(test_module_result)
 
     def end(self, status: Status = None):

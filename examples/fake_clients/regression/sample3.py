@@ -1,6 +1,6 @@
 import end2
 
-__run_mode__ = end2.RunMode.PARALLEL
+__run_mode__ = end2.PARALLEL
 __tags__ = ['product']
 
 
@@ -16,6 +16,11 @@ def my_teardown(client, async_client):
     assert client.delete() is None
 
 
+@end2.on_failures_in_module
+def this_is_my_recovery(client, async_client):
+    async_client.logger.info('on_failures_in_module: doing what is necessary')
+
+
 def test_31(client, async_client):
     client.logger.info('hi')
     assert client.put({'hi': 31}) is None
@@ -24,12 +29,14 @@ def test_31(client, async_client):
 
 
 def test_32(client, async_client, *, end):
+    pub = client.pub_sub
     def handler():
         end()
     client.logger.info('hi12')
     assert client.post({'hi': 32}) is None
     client.on(handler)
     assert client.post({'hi': 33}) is None
+    pub.publish('event')
 
 
 async def test_33(client, async_client, *, end):
