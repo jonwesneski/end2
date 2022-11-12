@@ -1,12 +1,16 @@
 from argparse import Namespace
 import asyncio
+from cmd import Cmd
 import concurrent.futures
 import inspect
 from logging import Logger
+import pathlib
 import threading
+from time import sleep
 import traceback
 import sys
 from typing import (
+    Any,
     Callable,
     List,
     Tuple
@@ -28,6 +32,7 @@ from end2.models.testing_containers import (
     TestGroups,
     TestMethod,
     TestModule,
+    TestPackage,
     TestPackageTree
 )
 from end2.resource_profile import create_last_run_rc
@@ -67,34 +72,92 @@ class SuiteRun:
         self.log_manager.on_suite_start(self.name)
         self.results = TestSuiteResult(self.name)
         try:
-            for package in self.test_packages:
-                test_parameters_func = package.package_test_parameters_func or self.test_parameters_func 
-                package.setup()
-                if self.allow_concurrency:
-                    sequential_modules = package.sequential_modules
-                    parallel_modules = package.parallel_modules
-                else:
-                    sequential_modules = sequential_modules + parallel_modules
-                    parallel_modules = tuple()
-                for test_module in sequential_modules:
-                    module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args)
-                    self.results.append(module_run.run())
-
-                with concurrent.futures.ThreadPoolExecutor(max_workers=self.parsed_args.max_workers) as executor:
-                    futures = [
-                        executor.submit(
-                            TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args, executor).run)
-                        for test_module in parallel_modules
-                    ]
-                    for future in futures:
-                        self.results.append(future.result())
-                package.teardown()
+            if self.parsed_args.watch:
+                self.run_watched()
+            else:
+                for package in self.test_packages:
+                    self.results.extend(self.run_modules(package))
         except exceptions.StopTestRunException as stre:
             self.logger.critical(stre)
         self.results.end()
         self.log_manager.on_suite_stop(self.results)
         create_last_run_rc(self.results)
         return self.results
+
+    def run_modules(self, package: TestPackage) -> List[TestModuleResult]:
+        test_parameters_func = package.package_test_parameters_func or self.test_parameters_func 
+        package.setup()
+        test_module_results = []
+        if self.allow_concurrency:
+            sequential_modules = package.sequential_modules
+            parallel_modules = package.parallel_modules
+        else:
+            sequential_modules = sequential_modules + parallel_modules
+            parallel_modules = tuple()
+        for test_module in sequential_modules:
+            module_run = TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args)
+            test_module_results.append(module_run.run())
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.parsed_args.max_workers) as executor:
+            futures = [
+                executor.submit(
+                    TestModuleRun(test_parameters_func, test_module, self.log_manager, package.package_object, self.parsed_args, executor).run)
+                for test_module in parallel_modules
+            ]
+            for future in futures:
+                test_module_results.append(future.result())
+        package.teardown()
+        return test_module_results
+
+    def run_watched(self) -> None:
+        try:
+            suite_cmd = _SuiteWatchCmd(self)
+            suite_cmd.cmdloop()
+        except KeyboardInterrupt:
+            pass
+        
+
+class _SuiteWatchCmd(Cmd):
+    prompt = ''
+
+    def __init__(self, suite_run: SuiteRun) -> None:
+        super().__init__()
+        self.intro = '\nWatch Mode: Press Ctrl+C to exit...\n'
+        self.suite_run = suite_run
+
+    def cmdloop(self, intro: str = None) -> None:
+        self._run_watch()
+        return super().cmdloop(self.intro)
+
+    def postcmd(self, stop: bool, line: str) -> bool:
+        return super().postcmd(stop, line)
+
+    def _run_watch(self) -> None:
+        self.cmdqueue.append(self.do_watch_modules.__name__.replace('do_', ''))
+
+    def do_watch_modules(self, line) -> None:
+        for package in self.suite_run.test_packages:
+            package_ = TestPackage(package.package, package_object=package.package_object)
+            for sequential_module in package.sequential_modules:
+                if self._has_changed(sequential_module):
+                    package_.sequential_modules.add(sequential_module)
+            for parallel_module in package.parallel_modules:
+                if self._has_changed(parallel_module):
+                    package_.parallel_modules.add(parallel_module)
+            if package_.parallel_modules or package_.parallel_modules:
+                self.suite_run.run_modules(package_)
+                self.stdout.write(self.intro)
+        sleep(7)
+        self._run_watch()
+    
+    @staticmethod
+    def _has_changed(module: TestModule) -> bool:
+        last_modified = pathlib.Path(module.file_name).stat().st_mtime
+        changed = False
+        if last_modified > module.last_modified:
+            module.last_modified = last_modified
+            changed = True
+        return changed
 
 
 class TestModuleRun:

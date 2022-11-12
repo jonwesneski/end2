@@ -1,5 +1,6 @@
 from inspect import getmro
 import os
+import pathlib
 from typing import (
     Dict,
     List
@@ -9,7 +10,6 @@ from end2.constants import RunMode
 from end2.fixtures import (
     empty_func,
     get_fixture,
-    metadata,
     on_failures_in_module,
     package_test_parameters,
     setup,
@@ -124,6 +124,7 @@ class TestModule:
         self.module = module
         self.name = module.__name__
         self.file_name = os.path.relpath(module.__file__)
+        self.last_modified = pathlib.Path(self.file_name).stat().st_mtime
         self.run_mode = module.__run_mode__
         self.is_parallel = self.run_mode is RunMode.PARALLEL
         self.description = module.__doc__
@@ -152,7 +153,7 @@ class TestModule:
 
 
 class TestPackage:
-    def __init__(self, package, sequential_modules: list = None, parallel_modules: list = None
+    def __init__(self, package, sequential_modules: set = None, parallel_modules: set = None
                  , package_object: DynamicMroMixin = None) -> None:
         self.package = package
         self.setup_func = get_fixture(self.package, setup.__name__)
