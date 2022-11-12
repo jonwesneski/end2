@@ -4,7 +4,7 @@ from distutils.core import setup
 setup(
     name = 'end2',
     packages = ['end2'],
-    version = '1.2',
+    version = '1.3',
     license='MIT',  # https://help.github.com/articles/licensing-a-repository
     description = 'A Minimal E2E Test Automation Framework',
     author = 'Jon Wesneski',

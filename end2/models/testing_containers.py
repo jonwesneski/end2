@@ -31,7 +31,7 @@ def build_full_name(module_name: str, test_name: str) -> str:
 
 class Importable:
     def __init__(self, path: str, module_pattern_matcher: DefaultModulePatternMatcher, test_pattern_matcher: DefaultTestCasePatternMatcher) -> None:
-        self.path = path
+        self.path = os.path.normpath(path)
         self.module_matcher = module_pattern_matcher
         self.test_matcher = test_pattern_matcher
 
