@@ -63,10 +63,13 @@ class SuiteRun:
         self.test_parameters_func = test_parameters_func
         self.test_packages = test_packages
         self.allow_concurrency = not self.parsed_args.no_concurrency
-        self.name = 'suite_run'
+        self.name = 'suite_run' if not self.parsed_args.watch else 'suite_watch'
         self.results = None
-        self.log_manager = log_manager or SuiteLogManager(run_logger_name=self.name, max_folders=self.parsed_args.max_log_folders)
-        self.logger = self.log_manager.logger
+        self.log_manager = log_manager or SuiteLogManager(logger_name=self.name, max_folders=self.parsed_args.max_log_folders)
+
+    @property
+    def logger(self):
+        return self.log_manager.logger
 
     def run(self) -> TestSuiteResult:
         self.log_manager.on_suite_start(self.name)
@@ -146,6 +149,9 @@ class _SuiteWatchCmd(Cmd):
                     package_.parallel_modules.add(parallel_module)
             if package_.parallel_modules or package_.parallel_modules:
                 self.suite_run.run_modules(package_)
+                self.suite_run.log_manager.on_suite_stop(TestSuiteResult(self.suite_run.name))
+                self.suite_run.log_manager.close()
+                self.suite_run.log_manager = self.suite_run.log_manager.new_instance()
                 self.stdout.write(self.intro)
         sleep(7)
         self._run_watch()

@@ -127,20 +127,27 @@ class LogManager:
 
     def __init__(self, logger_name: str, base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO, mode: str = 'w') -> None:
         self.logger_name = logger_name
-        self._create_folder(base_folder)
-        self._rotate(base_folder, max_folders)
+        self.base_folder = base_folder
+        self.max_folders = max_folders
+        self.stream_level = stream_level
+        self.mode = mode
+        self._create_folder()
+        self._rotate()
         self.logger = self.create_full_logger(self.logger_name, stream_level, mode)
 
-    def _create_folder(self, base_folder: str) -> None:
-        self.folder = os.path.join(base_folder, datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
+    def _create_folder(self) -> None:
+        self.folder = os.path.join(self.base_folder, datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
         os.makedirs(self.folder, exist_ok=True)
 
-    def _rotate(self, base_folder: str, max_folders: int) -> None:
-        sub_folders = sorted([x for x in Path(base_folder).iterdir() if x.is_dir()], key=os.path.getmtime)
-        count = len(sub_folders) - max_folders
+    def _rotate(self) -> None:
+        sub_folders = sorted([x for x in Path(self.base_folder).iterdir() if x.is_dir()], key=os.path.getmtime)
+        count = len(sub_folders) - self.max_folders
         if count > 0:
             for i in range(count):
                 shutil.rmtree(sub_folders[i])
+
+    def new_instance(self, *args, **kwargs):
+        return self.__class__(self.logger_name, self.base_folder, self.max_folders, self.stream_level, self.mode, *args, **kwargs)
 
     @classmethod
     def create_file_handler(cls, folder: str, name: str, file_level: int = logging.DEBUG, mode: str = 'w') -> logging.FileHandler:
@@ -199,8 +206,8 @@ class SuiteLogManager(LogManager):
     """
     formatter = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] %(infix)s   %(message)s', datefmt=_DATEFORMAT)
 
-    def __init__(self, run_logger_name: str = 'suite_run', base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO) -> None:
-        super().__init__(run_logger_name, base_folder, max_folders, stream_level, mode='a+')
+    def __init__(self, logger_name: str = 'suite_run', base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO, mode='a+') -> None:
+        super().__init__(logger_name, base_folder, max_folders, stream_level, mode='a+')
         self.test_run_file_handler = _get_log_handler(self.logger, logging.FileHandler)
         self._test_terminator = '\n' + ('-' * _COLUMN_SIZE)
         self._module_terminator = '\n' + ('=' * _COLUMN_SIZE)
