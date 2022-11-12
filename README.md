@@ -1,11 +1,14 @@
 # end² Test Automation Framework
+
 The focus of this framework is:
+
 - A minimal framework only using the standard library
 - More for E2E and/or Functional type of testing
 - For testing that has heavy logging and needs to analyze failures in logs rather than test case code
 - For folks that like programatic ways instead of plugins with configuration files
 
 ## Contents
+
 - [Intent/Philosophy](#intent-philosophy)
 - [Features](#features)
 - [Getting Started](#getting-started)
@@ -15,46 +18,50 @@ The focus of this framework is:
 - [Reserved Keywords](#reserved-keywords)
 
 ## Intent/Philosophy
-- Shuffling:
-    - By having tests run in random order, we are ensuring that tests don't need to run in a specific order. If test-1 fails, then test-2 will obviously fail, but test-2 is a false negative. It might be better to consider test-1 and test-2 as test steps and just combine test-1 and test-2 in one test case instead. Another plus to Shuffling is the test writer will be able to find out if there are any side effects on the test case side or the SUT and be able to fix what is necessary. This will make them have a better understanding of there own coding, others members coding, and the SUT as well if the side effect is on the SUT itself
-- Create you own script entry point:
-    - This is the entrypoint for your testing. It is your own python module that you will write that defines what the test parameters are and uses `default_parser()` to add any additional args before you start your testing. You can name it whatever you want but in below examples I refer to it as `run.py` 
-- Declaring:
-    - Test case design is very important and the design should speak for itself in the file/module. Declaring the concurrency/run-mode in the file lets everyone know that that particular file can run in parallel. Passing that info in the command line can be confusing over time because not everyone will remember what can and can't run parallel
-- 1 set of parameters per suite:
-    - When we do a suite run we are only testing 1 system, therefore whatever is needed to communicate to the system should be the same throughout all test cases in that suite. As a result parameters should be the same for all test cases. This always helps keep test cases dry and makes them more step focused
-- Root of truth:
-    - Single source of truth is a very good thing to have, when the single source is up-to-date and working then everyone will know it is 100% accurate information. By having your test cases as the single-source of truth, you can then publish your truth anywhere necessary and that destination will always have the info of the latest results. So the test cases should speak for themselves and have any doc strings necessary so that everyone can view the latest version of your testing
 
+- Shuffling:
+  - By having tests run in random order, we are ensuring that tests don't need to run in a specific order. If test-1 fails, then test-2 will obviously fail, but test-2 is a false negative. It might be better to consider test-1 and test-2 as test steps and just combine test-1 and test-2 in one test case instead. Another plus to Shuffling is the test writer will be able to find out if there are any side effects on the test case side or the SUT and be able to fix what is necessary. This will make them have a better understanding of there own coding, others members coding, and the SUT as well if the side effect is on the SUT itself
+- Create you own script entry point:
+  - This is the entrypoint for your testing. It is your own python module that you will write that defines what the test parameters are and uses `default_parser()` to add any additional args before you start your testing. You can name it whatever you want but in below examples I refer to it as `run.py`
+- Declaring:
+  - Test case design is very important and the design should speak for itself in the file/module. Declaring the concurrency/run-mode in the file lets everyone know that that particular file can run in parallel. Passing that info in the command line can be confusing over time because not everyone will remember what can and can't run parallel
+- 1 set of parameters per suite:
+  - When we do a suite run we are only testing 1 system, therefore whatever is needed to communicate to the system should be the same throughout all test cases in that suite. As a result parameters should be the same for all test cases. This always helps keep test cases dry and makes them more step focused
+- Root of truth:
+  - Single source of truth is a very good thing to have, when the single source is up-to-date and working then everyone will know it is 100% accurate information. By having your test cases as the single-source of truth, you can then publish your truth anywhere necessary and that destination will always have the info of the latest results. So the test cases should speak for themselves and have any doc strings necessary so that everyone can view the latest version of your testing
 
 ## Features
+
 - Test Runner:
-    - Discovers tests at runtime
-    - Test Pattern Matching: Can run individual tests and test modules
-    - Runs tests sequentially and parallelly in 1 run
-    - Test Fixtures
-    - Test Reserved Keywords
+  - Discovers tests at runtime
+  - Test Pattern Matching: Can run individual tests and test modules
+  - Runs tests sequentially and parallelly in 1 run
+  - Test Fixtures
+  - Test Reserved Keywords
+  - Test Module Watcher
 - Fixtures:
-    - setup package
-    - teardown package
-    - setup module
-    - teardown module
-    - setup test
-    - teardown test
-    - metadata
-    - parameterize
+  - setup package
+  - teardown package
+  - setup module
+  - teardown module
+  - setup test
+  - teardown test
+  - metadata
+  - parameterize
 - Logging:
-    - Records are timestamped
-    - Assertion failures are logged at `[ERROR]`
-    - It will hold folders from the last n test runs
-    - Each test module will be in its own folder
-    - Each test will be in it's own file
-    - Failed tests will be renamed to `FAILED_<test_name>.log`
-    - HAR logger
+  - Records are timestamped
+  - Assertion failures are logged at `[ERROR]`
+  - It will hold folders from the last n test runs
+  - Each test module will be in its own folder
+  - Each test will be in it's own file
+  - Failed tests will be renamed to `FAILED_<test_name>.log`
+  - HAR logger
 
 ## Getting Started
+
 ### Understanding the end² Flow (Psuedo Code)
-``` python
+
+```python
 def discover_package(parent_path):
      paths = get_all_paths(parent_path)
      modules = []
@@ -90,7 +97,8 @@ def run_tests(discovered_modules):
 ```
 
 ### Simple Example of a Run script
-``` python
+
+```python
 #!/usr/bin/env python3
 from end2.runner import start_test_run
 from end2.arg_parser import default_parser
@@ -112,8 +120,10 @@ if __name__ == '__main__':
 ```
 
 ### Simple Example of a Test Module
+
 In order for a method to become a discoverable test you must prefix your method name with `test_`. Each test method will have the same parameters
-``` python
+
+```python
 from end2 import RunMode
 
 
@@ -135,7 +145,8 @@ def helper():  # Not a test method
 ```
 
 ### Simple Example of Checking Test Case Readiness at Runtime
-``` python
+
+```python
 from end2 import (
     IgnoreTestException,
     RunMode,
@@ -163,7 +174,8 @@ async def test_2(client, logger):  # Both sync and async test methods can exist 
 ```
 
 ## Fixture Example of a Test Module
-``` python
+
+```python
 from end2 import (
     on_failures_in_module,
     on_test_failure,
@@ -238,54 +250,64 @@ def test_4(client):
 ```
 
 ## Reserved Keywords
+
 These are optional keyword-only-args that can be added at the end of your test case parameters:
+
 - **end** - This is helpful if you have event handling in the app you are testing and need the callback to be called. Only use this if you have to wait for some event otherwise you test will just timeout if **end** is not called:
-    ``` python
-    def test_4(client, *, end):
-        def handler:
-            assert True is True
-            end()  # ends the test case
-        client.onSomeEvent(handler)  # This test will not finish until end() is called or has timeout
 
-    ```
-    ``` python
-    def test_4(client, *, end):
-        def handler:
-            assert True is True
-            end.fail("This event should not have been called")  # ends the test case
-        client.onSomeEvent(handler)  # This test will not finish until end.fail() is called or has timeout
+  ```python
+  def test_4(client, *, end):
+      def handler:
+          assert True is True
+          end()  # ends the test case
+      client.onSomeEvent(handler)  # This test will not finish until end() is called or has timeout
 
-    ```
+  ```
+
+  ```python
+  def test_4(client, *, end):
+      def handler:
+          assert True is True
+          end.fail("This event should not have been called")  # ends the test case
+      client.onSomeEvent(handler)  # This test will not finish until end.fail() is called or has timeout
+
+  ```
+
 - **logger** - The logger used for that specific test case
 - **step** - This is so you can record test steps in your test case, that may be useful after your test run
-    ``` python
-    def test_5(client, *, end):
-        # 1st arg is the description of the step
-        # 2nd arg is the assertion-lambda, which can be None
-        # 3rd arg is the function to call
-        # nth args are the parameters for the function
-        await step("my first step", lambda x: x.code == 201, client.post, {'hi': 21})
-        response = await step("my second step", None, client.post, {'hi': 22})
-        await step("my third step", None, client.post, {'hi': 23})
-        assert response.code == 201
 
-    # Works with async as well
-    async def test_6(client, *, end):
-        await step("my first step", lambda x: x.code == 201, client.post, {'hi': 21})
-        response = await step("my second step", None, client.post, {'hi': 22})
-        await step("my third step", None, client.post, {'hi': 23})
-        assert response.code == 201
+  ```python
+  def test_5(client, *, end):
+      # 1st arg is the description of the step
+      # 2nd arg is the assertion-lambda, which can be None
+      # 3rd arg is the function to call
+      # nth args are the parameters for the function
+      await step("my first step", lambda x: x.code == 201, client.post, {'hi': 21})
+      response = await step("my second step", None, client.post, {'hi': 22})
+      await step("my third step", None, client.post, {'hi': 23})
+      assert response.code == 201
 
-    ```
+  # Works with async as well
+  async def test_6(client, *, end):
+      await step("my first step", lambda x: x.code == 201, client.post, {'hi': 21})
+      response = await step("my second step", None, client.post, {'hi': 22})
+      await step("my third step", None, client.post, {'hi': 23})
+      assert response.code == 201
+
+  ```
+
 - **package_object** - More on this in the next section
 
 ### Packages Object
+
 This is an object that you can build from within your packages. Since test parameters are always fresh objects you may want to pass data around and be able to access it in packages. This feature is kind of experimental but here are some ideas:
+
 - Build reports in the middle of runs
 - Building metrics
 
 #### Example of Test Package
-``` python
+
+```python
 # test_package/__init__.py
 from end2 import (
     setup,
@@ -309,7 +331,8 @@ def my_custom_test_parameters(logger, pacakge_object):  # Use if you want to ove
     return (some_other_client(logger),) {}              # in your 'run.py'
 
 ```
-``` python
+
+```python
 # test_package/test_sub_package/__init__.py
 from end2 import (
     setup,
@@ -328,7 +351,8 @@ def my_setup(package_globals):
     package_globals.sub_package_stuff.clear()
 
 ```
-``` python
+
+```python
 # test_package/test_sub_package/my_test_module.py
 from end2 import RunMode
 
@@ -343,8 +367,10 @@ def test_1(client, package_globals):
 ```
 
 ## Test Groups
+
 Test groups allow you to organize your tests around setup and teardown. Maybe some of your tests the setup only needs to be run for 2 of your tests. Or maybe you want the same setup for all tests but you want an additional setup for 4 of the tests. Groups are declared as classes and the methods are techincally static but without decorating with `@staticmethod`
-``` python
+
+```python
 # test_package/test_sub_package/test_module.py
 from end2 import (
     RunMode,
@@ -385,65 +411,79 @@ class Group1:
 ```
 
 ## CLI
+
 It is best to run the `--help` arg on your "run.py" to get the latest information. Since **Pattern Matchers** are a little more complicated below is a more desciptive overview
 
 ### Suite Pattern Matchers
+
 #### Default
+
 A suite path is a string that contains the path to the module delimited by a period:
+
 - To run a single test package: `--suite path/to/package`
 - To run a single test module: `--suite path/to/file.py`
 - To run multiple test packages: `--suite path/to/package path2/to/package`
 - To run multiple test packages and modules: `--suite path/to/package path2/to/package path3/to/package/module.py path4/to/package/module.py`
-It can also contains filters:
+  It can also contains filters:
 - `::` which is to run specific tests in a module: `--suite path/to/package/module.py::test_1`
 - `;` which is delimiter for modules: `--suite path/to/package/module.py;module2.py`
 - `,` which is a delimiter for tests: `--suite path/to/package/module.py::test_1,test_2;module2.py`
 - `!` which means run everything before the `!` but nothing after:
-    - `--suite path/to/package/!module.py;module2.py`  runs everything in `path/to/package` except `module.py` and `module2.py`
-    - `--suite path/to/package/module.py::!test_1,test_2;module2.py`  runs `module2.py` and everything in `module.py` except `test_1` and `test_2`
+  - `--suite path/to/package/!module.py;module2.py` runs everything in `path/to/package` except `module.py` and `module2.py`
+  - `--suite path/to/package/module.py::!test_1,test_2;module2.py` runs `module2.py` and everything in `module.py` except `test_1` and `test_2`
 - `[n]` which will run specific parameterized tests:
-    - `--suite path/to/package/module.py::test_name[1]`  runs the 2nd test in the parameterized list
-    - `--suite path/to/module.py::test_name[2:6]`  runs tests 2 through 6 in the parameterized list
-    - `--suite path/to/module.py::test_name[2:6:2]`  runs the 2nd, 4th, 6th test in the parameterized list
+  - `--suite path/to/package/module.py::test_name[1]` runs the 2nd test in the parameterized list
+  - `--suite path/to/module.py::test_name[2:6]` runs tests 2 through 6 in the parameterized list
+  - `--suite path/to/module.py::test_name[2:6:2]` runs the 2nd, 4th, 6th test in the parameterized list
 
 #### Tags
+
 Tags can be defined by using `@metadata` in you test as mentioned [above](#fixture-example-of-a-test-module) or at the module. They works pretty similar to the **Default Pattern Matcher** but uses a tag instead of a test name:
+
 - `--suite-tag path/to/module.py::tag_1,tag_2`
-    - This will include all tests if `tag_1` or `tag2` exist in `__tags__` variable in `path/to/module.py` or the metadata decorator includes the tags field with the mentioned tags
+  - This will include all tests if `tag_1` or `tag2` exist in `__tags__` variable in `path/to/module.py` or the metadata decorator includes the tags field with the mentioned tags
 - `--suite-tag path/to/package/tag1,tag2`
-    - This will include any module that has `tag1` or `tag2` exist in `path/to/package`
+  - This will include any module that has `tag1` or `tag2` exist in `path/to/package`
 - `--suite-tag path/to/package/tag1,`
-    - This is the same as above, but how you would use only 1 tag in your string (notice comma at the end)
+  - This is the same as above, but how you would use only 1 tag in your string (notice comma at the end)
 
 #### regex and glob
+
 These 2 are pretty similar to each and I split module and test the same:
+
 - `--suite-regex <regex for module>::<regex for test>`
 - `--suite-glob <glob for module>::<glob for test>`
 
 #### Last Failed
+
 You can also run only the tests that failed in the last run
+
 - `--suite-last-failed`
 
 ## Resource Files
+
 - `.end2rc`: defines a default value for cli as well as:
-    - Aliases: a short name given to a suite that is long. Aliases can also mention other aliases
-    - Disabled Suites: The is a list of disabled suites/tests; this way you don't have to remember which ones to disable. Also the list of suites/tests are centralized here; you won't have to hunt them down in each file
+  - Aliases: a short name given to a suite that is long. Aliases can also mention other aliases
+  - Disabled Suites: The is a list of disabled suites/tests; this way you don't have to remember which ones to disable. Also the list of suites/tests are centralized here; you won't have to hunt them down in each file
 - `logs/.lastrunrc`: defines a list of tests that failed in the last run
 
 ## Log Manager
+
 A **Log Manager** is meant to help organize your logging into timestamped folders that rotate every n number of folders. You can subclass **LogManager** if you want, or use the default own. You can use this if you have other tools in you repo that have logging as well
 
 ##### Default Suite Log Manager
+
 For Suite runs you will use a **Suite Log Manager**. The default does what is described below and you can also subclass **SuiteLogManager** if you want:
+
 - Rotates your suite run log folders
 - Logs INFO to stdin
 - Logs INFO to a standalone file as well and it is not interlaced
 - Has a delimiter for both modules and tests
 - Handles events before and after on:
-    - suite
-    - modules
-    - fixtures
-    - tests
+  - suite
+  - modules
+  - fixtures
+  - tests
 - Creates a log subfolder for each module
 - Creates a file for both setup and teardown of a module
 - Creates a log file for each test
