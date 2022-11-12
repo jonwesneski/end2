@@ -7,7 +7,6 @@ from typing import (
     List,
     Set
 )
-from typing_extensions import Self
 
 from end2.constants import RunMode
 from end2.fixtures import (
@@ -52,7 +51,7 @@ class TestMethod:
         self.parameterized_tuple = parameterized_tuple or tuple()
         self.metadata = getattr(func, 'metadata', {})
 
-    def __eq__(self, rhs: Self) -> bool:
+    def __eq__(self, rhs: 'TestMethod') -> bool:
         return self.full_name == rhs.full_name
 
     def __hash__(self) -> int:
@@ -68,10 +67,10 @@ class TestGroups:
         self.teardown_func = teardown_func
         self.children: List[TestGroups] = []
 
-    def append(self, group: Self) -> None:
+    def append(self, group: 'TestGroups') -> None:
         self.children.append(group)
 
-    def update(self, same_group: Self) -> None:
+    def update(self, same_group: 'TestGroups') -> None:
         for ignored in same_group.ignored_tests:
             self.tests.pop(ignored, None)
         self.tests.update(same_group.tests)
@@ -135,13 +134,13 @@ class TestModule:
         self.ignored_tests = ignored_tests or set()
         self.on_failures_in_module = get_fixture(self.module, on_failures_in_module.__name__)
 
-    def __eq__(self, rhs: Self) -> bool:
+    def __eq__(self, rhs: 'TestModule') -> bool:
         return self.name == rhs.name
 
     def __hash__(self) -> int:
         return id(self.module)
 
-    def update(self, same_module: Self) -> None:
+    def update(self, same_module: 'TestModule') -> None:
         for ignored in same_module.ignored_tests:
             for child in self.groups.children:
                 child.tests.pop(ignored, None)
@@ -168,7 +167,7 @@ class TestPackage:
         self.parallel_modules: Set[TestModule] = parallel_modules or set()
         self.sub_packages: List[TestPackage] = []
 
-    def __eq__(self, o: Self) -> bool:
+    def __eq__(self, o: 'TestPackage') -> bool:
         return self.name == o.name
 
     def setup(self) -> None:
@@ -201,7 +200,7 @@ class TestPackage:
         else:
             self.sub_packages.append(package)
 
-    def last(self, index: int = -1) -> Self:
+    def last(self, index: int = -1) -> 'TestPackage':
         if not self.sub_packages:
             return self
         sub_package = self.sub_packages[index]
@@ -209,7 +208,7 @@ class TestPackage:
             sub_package = sub_package.sub_packages[-1]
         return sub_package
 
-    def find(self, rhs: str, index: int = -1) -> Self:
+    def find(self, rhs: str, index: int = -1) -> 'TestPackage':
         if self.name == rhs:
             return self
         elif self.sub_packages:
