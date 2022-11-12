@@ -58,6 +58,7 @@ excluding - anything on the right side of a '\!' will be excluded:
                                help='Make all tests run sequentially')
     parent_parser.add_argument('--event-timeout', type=float, default=rc['settings'].getfloat('event-timeout'),
                                help='Timeout value in seconds used if end() is not called in time')
+    parent_parser.add_argument('--watch', action='store_true', help='Watches files matched in suite arg')
     return parent_parser
 
 
