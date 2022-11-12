@@ -10,7 +10,6 @@ from time import sleep
 import traceback
 import sys
 from typing import (
-    Any,
     Callable,
     List,
     Tuple
@@ -127,6 +126,7 @@ class _SuiteWatchCmd(Cmd):
         super().__init__()
         self.intro = '\nWatch Mode: Press Ctrl+C to exit...\n'
         self.suite_run = suite_run
+        self.ran_at_least_once = False
 
     def cmdloop(self, intro: str = None) -> None:
         self._run_watch()
@@ -138,7 +138,7 @@ class _SuiteWatchCmd(Cmd):
     def _run_watch(self) -> None:
         self.cmdqueue.append(self.do_watch_modules.__name__.replace('do_', ''))
 
-    def do_watch_modules(self, line) -> None:
+    def do_watch_modules(self, line: str) -> None:
         for package in self.suite_run.test_packages:
             package_ = TestPackage(package.package, package_object=package.package_object)
             for sequential_module in package.sequential_modules:
@@ -148,11 +148,13 @@ class _SuiteWatchCmd(Cmd):
                 if self._has_changed(parallel_module):
                     package_.parallel_modules.add(parallel_module)
             if package_.parallel_modules or package_.parallel_modules:
+                if self.ran_at_least_once:
+                    self.suite_run.log_manager = self.suite_run.log_manager.new_instance()
                 self.suite_run.run_modules(package_)
                 self.suite_run.log_manager.on_suite_stop(TestSuiteResult(self.suite_run.name))
                 self.suite_run.log_manager.close()
-                self.suite_run.log_manager = self.suite_run.log_manager.new_instance()
                 self.stdout.write(self.intro)
+                self.ran_at_least_once = True
         sleep(7)
         self._run_watch()
     

@@ -9,6 +9,7 @@ import shutil
 import struct
 import subprocess
 import sys
+from typing import Tuple
 
 
 from end2.constants import Status
@@ -130,10 +131,9 @@ class LogManager:
         self.base_folder = base_folder
         self.max_folders = max_folders
         self.stream_level = stream_level
-        self.mode = mode
         self._create_folder()
         self._rotate()
-        self.logger = self.create_full_logger(self.logger_name, stream_level, mode)
+        self.logger = self.create_full_logger(self.logger_name, stream_level)
 
     def _create_folder(self) -> None:
         self.folder = os.path.join(self.base_folder, datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
@@ -147,7 +147,7 @@ class LogManager:
                 shutil.rmtree(sub_folders[i])
 
     def new_instance(self, *args, **kwargs):
-        return self.__class__(self.logger_name, self.base_folder, self.max_folders, self.stream_level, self.mode, *args, **kwargs)
+        return self.__class__(self.logger_name, self.base_folder, self.max_folders, self.stream_level, *args, **kwargs)
 
     @classmethod
     def create_file_handler(cls, folder: str, name: str, file_level: int = logging.DEBUG, mode: str = 'w') -> logging.FileHandler:
@@ -206,7 +206,7 @@ class SuiteLogManager(LogManager):
     """
     formatter = logging.Formatter(fmt=f'%(asctime)s [%(levelname)s] %(infix)s   %(message)s', datefmt=_DATEFORMAT)
 
-    def __init__(self, logger_name: str = 'suite_run', base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO, mode='a+') -> None:
+    def __init__(self, logger_name: str = 'suite_run', base_folder: str = FOLDER, max_folders: int = 10, stream_level: int = logging.INFO) -> None:
         super().__init__(logger_name, base_folder, max_folders, stream_level, mode='a+')
         self.test_run_file_handler = _get_log_handler(self.logger, logging.FileHandler)
         self._test_terminator = '\n' + ('-' * _COLUMN_SIZE)
@@ -239,7 +239,7 @@ class SuiteLogManager(LogManager):
                 break
         logger.removeHandler(handler_)
 
-    def _get_logger(self, module_name: str, test_name: str, formatter_infix: str = None) -> tuple:
+    def _get_logger(self, module_name: str, test_name: str, formatter_infix: str = None) -> Tuple[logging.Logger, str]:
         logger = self.get_logger(f'{module_name}.{test_name}')
         infix_name = f'{module_name.split(".")[-1]}::{formatter_infix or test_name}'
         if not logger.hasHandlers():

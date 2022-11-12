@@ -3,8 +3,11 @@ import os
 import pathlib
 from typing import (
     Dict,
-    List
+    Iterator,
+    List,
+    Set
 )
+from typing_extensions import Self
 
 from end2.constants import RunMode
 from end2.fixtures import (
@@ -49,7 +52,7 @@ class TestMethod:
         self.parameterized_tuple = parameterized_tuple or tuple()
         self.metadata = getattr(func, 'metadata', {})
 
-    def __eq__(self, rhs) -> bool:
+    def __eq__(self, rhs: Self) -> bool:
         return self.full_name == rhs.full_name
 
     def __hash__(self) -> int:
@@ -65,10 +68,10 @@ class TestGroups:
         self.teardown_func = teardown_func
         self.children: List[TestGroups] = []
 
-    def append(self, group) -> None:
+    def append(self, group: Self) -> None:
         self.children.append(group)
 
-    def update(self, same_group: 'TestModule') -> None:
+    def update(self, same_group: Self) -> None:
         for ignored in same_group.ignored_tests:
             self.tests.pop(ignored, None)
         self.tests.update(same_group.tests)
@@ -97,21 +100,21 @@ class DynamicMroMixin:
         raise AttributeError(f"No atrribute named {name}")
     
     @classmethod
-    def __setattrcls__(cls, name, value) -> None:
+    def __setattrcls__(cls, name: str, value) -> None:
         for a in cls._get_mros():
             if hasattr(a, name):
                 setattr(a, name, value)
                 return
         setattr(cls, name, value)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str):
         return self.__getattrcls__(name)
     
-    def __setattr__(self, name, value) -> None:
+    def __setattr__(self, name: str, value) -> None:
         return self.__setattrcls__(name, value)
 
     @staticmethod
-    def add_mixin(name, current_mixin):
+    def add_mixin(name: str, current_mixin):
         return type(
             f"{name.replace('.', 'Dot')}Dot{DynamicMroMixin.__name__}",
             (current_mixin.__class__,),
@@ -122,33 +125,30 @@ class DynamicMroMixin:
 class TestModule:
     def __init__(self, module, groups: TestGroups, ignored_tests: set = None) -> None:
         self.module = module
-        self.name = module.__name__
+        self.name: str = module.__name__
         self.file_name = os.path.relpath(module.__file__)
         self.last_modified = pathlib.Path(self.file_name).stat().st_mtime
-        self.run_mode = module.__run_mode__
+        self.run_mode: RunMode = module.__run_mode__
         self.is_parallel = self.run_mode is RunMode.PARALLEL
         self.description = module.__doc__
         self.groups = groups
         self.ignored_tests = ignored_tests or set()
         self.on_failures_in_module = get_fixture(self.module, on_failures_in_module.__name__)
 
-    def __eq__(self, rhs) -> bool:
+    def __eq__(self, rhs: Self) -> bool:
         return self.name == rhs.name
 
     def __hash__(self) -> int:
         return id(self.module)
 
-    def update(self, same_module: 'TestModule') -> None:
+    def update(self, same_module: Self) -> None:
         for ignored in same_module.ignored_tests:
-            for group in self.groups:
-                for child in group.children:
-                    child.tests.pop(ignored, None)
-        for group in same_module.groups:
-            for child in group.children:
-                for self_group in self.groups:
-                    for self_child in self_group:
-                        if child.name == self_child.name:
-                            self.tests.update(same_module.tests)
+            for child in self.groups.children:
+                child.tests.pop(ignored, None)
+        for same_child in same_module.groups.children:
+            for self_child in self.groups.children:
+                    if child.name == self_child.name:
+                        self_child.tests.update(same_child.tests)
         self.ignored_tests.update(same_module.ignored_tests)
 
 
@@ -161,14 +161,14 @@ class TestPackage:
         self.setup_module_func = get_fixture(self.package, setup_module.__name__)
         self.teardown_module_func = get_fixture(self.package, teardown_module.__name__)
         self.package_test_parameters_func = get_fixture(self.package, package_test_parameters.__name__, default=None)
-        self.name = self.package.__name__
+        self.name: str = self.package.__name__
         self.description = self.package.__doc__
         self.package_object = package_object or DynamicMroMixin()
-        self.sequential_modules = sequential_modules or set()
-        self.parallel_modules = parallel_modules or set()
-        self.sub_packages = []
+        self.sequential_modules: Set[TestModule] = sequential_modules or set()
+        self.parallel_modules: Set[TestModule] = parallel_modules or set()
+        self.sub_packages: List[TestPackage] = []
 
-    def __eq__(self, o) -> bool:
+    def __eq__(self, o: Self) -> bool:
         return self.name == o.name
 
     def setup(self) -> None:
@@ -201,7 +201,7 @@ class TestPackage:
         else:
             self.sub_packages.append(package)
 
-    def last(self, index: int = -1):
+    def last(self, index: int = -1) -> Self:
         if not self.sub_packages:
             return self
         sub_package = self.sub_packages[index]
@@ -209,7 +209,7 @@ class TestPackage:
             sub_package = sub_package.sub_packages[-1]
         return sub_package
 
-    def find(self, rhs: str, index: int = -1):
+    def find(self, rhs: str, index: int = -1) -> Self:
         if self.name == rhs:
             return self
         elif self.sub_packages:
@@ -220,9 +220,9 @@ class TestPackageTree:
         def __init__(self, package = None, modules = None) -> None:
             self.packages = [TestPackage(package, modules)] if package else []
 
-        def __iter__(self):
-            def _recurse_sub_packages(sub_packages):
-                for sub_package in sub_packages.sub_packages:
+        def __iter__(self) -> Iterator[TestPackage]:
+            def _recurse_sub_packages(sub_package_: TestPackage):
+                for sub_package in sub_package_.sub_packages:
                     yield sub_package
                     yield from _recurse_sub_packages(sub_package)
 
@@ -232,7 +232,7 @@ class TestPackageTree:
                     yield sub_package
                     yield from _recurse_sub_packages(sub_package)
 
-        def find(self, rhs: TestPackage):
+        def find(self, rhs: TestPackage) -> TestPackage:
             for package in self.packages:
                 if package == rhs:
                     return package
@@ -241,7 +241,7 @@ class TestPackageTree:
                         if sub_package == rhs:
                             return sub_package
 
-        def find_by_str(self, rhs: str):
+        def find_by_str(self, rhs: str) -> TestPackage:
             for package in self.packages:
                 if package.name == rhs:
                     return package
